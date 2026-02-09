@@ -4,14 +4,26 @@ import 'custom_date_range_picker.dart';
 import 'custom_button.dart';
 import 'passenger_selector.dart';
 
+// ← TYPEDEF ДЛЯ CALLBACK (ПСЕВДОНІМ ТИПУ)
+typedef SearchCallback = void Function({
+  required String fromLocation,
+  required String toLocation,
+  required DateTime departDate,
+  DateTime? returnDate,
+  required Map<String, int> passengers,
+  required String flightClass,
+});
+
 class FlightSearchForm extends StatefulWidget {
   final bool isCalendarOpen;
   final ValueChanged<bool> onCalendarToggle;
+  final SearchCallback? onSearch; // ← ЗМІНЕНО: було VoidCallback?
 
   const FlightSearchForm({
     super.key,
     required this.isCalendarOpen,
     required this.onCalendarToggle,
+    this.onSearch,
   });
 
   @override
@@ -48,72 +60,38 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
   }
 
   void _showPassengerSelector() {
-  if (_passengerFieldKey.currentContext == null) return;
+    if (_passengerFieldKey.currentContext == null) return;
 
-  final RenderBox? box = _passengerFieldKey.currentContext?.findRenderObject() as RenderBox?;
-  if (box == null || !box.hasSize) return;
+    final RenderBox? box = _passengerFieldKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return;
 
-  _passengerOverlay?.remove();
+    _passengerOverlay?.remove();
 
-  final position = box.localToGlobal(Offset.zero);
-  final height = box.size.height;
+    _passengerOverlay = OverlayEntry(
+      builder: (context) => _PassengerSelectorOverlay(
+        fieldKey: _passengerFieldKey,
+        passengers: passengers,
+        flightClass: flightClass,
+        onChanged: (data) {
+          setState(() {
+            passengers = {
+              'adults': data['adults'],
+              'children': data['children'],
+              'infants': data['infants'],
+            };
+            flightClass = data['class'];
+          });
+        },
+        onClose: () {
+          _hidePassengerSelector();
+          setState(() => _isPassengerSelectorOpen = false);
+        },
+      ),
+    );
 
-  _passengerOverlay = OverlayEntry(
-    builder: (context) {
-      return Stack(
-        children: [
-          // Прозора зона для закриття при кліку поза селектором
-          Positioned(
-            left: position.dx,
-            top: position.dy + height + 8,
-            width: 400, // ширина селектора
-            child: GestureDetector(
-              onTap: () {
-                _hidePassengerSelector();
-                setState(() => _isPassengerSelectorOpen = false);
-              },
-              behavior: HitTestBehavior.translucent,
-              child: Container(
-                height: 300, // висота overlay + запас
-                color: Colors.transparent,
-              ),
-            ),
-          ),
-          // Сам селектор пасажирів
-          Positioned(
-            left: position.dx,
-            top: position.dy + height + 8,
-            child: Material(
-              elevation: 8,
-              borderRadius: BorderRadius.circular(8),
-              child: PassengerSelector(
-                initialPassengers: passengers,
-                initialClass: flightClass,
-                onChanged: (data) {
-                  setState(() {
-                    passengers = {
-                      'adults': data['adults'],
-                      'children': data['children'],
-                      'infants': data['infants'],
-                    };
-                    flightClass = data['class'];
-                  });
-                },
-                onClose: () {
-                  _hidePassengerSelector();
-                  setState(() => _isPassengerSelectorOpen = false);
-                },
-              ),
-            ),
-          ),
-        ],
-      );
-    },
-  );
-
-  Overlay.of(context).insert(_passengerOverlay!);
-}
-
+    Overlay.of(context).insert(_passengerOverlay!);
+  }
+  
   void _showCalendar() {
     if (_calendarOverlay != null) return; 
 
@@ -159,6 +137,17 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
     _calendarOverlay = null;
   }
 
+  void _closeAllOverlays() {
+    if (widget.isCalendarOpen) {
+      widget.onCalendarToggle(false);
+      _hideCalendar();
+    }
+    if (_isPassengerSelectorOpen) {
+      _hidePassengerSelector();
+      setState(() => _isPassengerSelectorOpen = false);
+    }
+  }
+
   @override
   void dispose() {
     _isSelectingReturnNotifier.dispose();
@@ -185,19 +174,28 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
   }
 
   void _handleSearch() {
-    if (fromLocation.isEmpty || toLocation.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select departure and arrival cities')),
-      );
-      return;
-    }
+    // if (fromLocation.isEmpty || toLocation.isEmpty) {
+    //   ScaffoldMessenger.of(context).showSnackBar(
+    //     const SnackBar(content: Text('Please select departure and arrival cities')),
+    //   );
+    //   return;
+    // }
 
-    if (departDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select departure date')),
-      );
-      return;
-    }
+    // if (departDate == null) {
+    //   ScaffoldMessenger.of(context).showSnackBar(
+    //     const SnackBar(content: Text('Please select departure date')),
+    //   );
+    //   return;
+    // }
+
+    widget.onSearch?.call(
+      fromLocation: fromLocation,
+      toLocation: toLocation,
+      departDate: departDate!,
+      returnDate: returnDate,
+      passengers: passengers,
+      flightClass: flightClass,
+    );
   }
 
   @override
@@ -247,6 +245,7 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
                       onChanged: (value) {
                         setState(() => fromLocation = value);
                       },
+                      onTap: _closeAllOverlays,
                     ),
                   ),
                   Padding(
@@ -281,6 +280,7 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
                       onChanged: (value) {
                         setState(() => toLocation = value);
                       },
+                      onTap: _closeAllOverlays,
                     ),
                   ),
                 ],
@@ -301,8 +301,8 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
                       onTap: () {
                         _hidePassengerSelector();
                         setState(() {
-                              _isPassengerSelectorOpen = false;
-                            });
+                          _isPassengerSelectorOpen = false;
+                        });
 
                         if (!widget.isCalendarOpen) {
                           _isSelectingReturn = false;
@@ -326,19 +326,16 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
                       isSelected: widget.isCalendarOpen && _isSelectingReturn,
                       onTap: () {
                         _hidePassengerSelector();
-                        setState(() { // ← ДОДАНО setState
-                              _isPassengerSelectorOpen = false;
-                            });
+                        setState(() {
+                          _isPassengerSelectorOpen = false;
+                        });
 
                         if (!widget.isCalendarOpen) {
-                          // Календар закритий - відкриваємо
                           _isSelectingReturn = true;
                           widget.onCalendarToggle(true);
                         } else if (!_isSelectingReturn) {
-                          // Календар відкритий для Depart - перемикаємо на Return
-                          _isSelectingReturn = true; // ← ValueNotifier автоматично оновить UI
+                          _isSelectingReturn = true;
                         } else {
-                          // Календар відкритий для Return - закриваємо
                           widget.onCalendarToggle(false);
                         }
                       },
@@ -399,7 +396,6 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
   }
 }
 
-// Overlay для селектора пасажирів
 class _PassengerSelectorOverlay extends StatefulWidget {
   final GlobalKey fieldKey;
   final Map<String, int> passengers;
@@ -440,31 +436,36 @@ class _PassengerSelectorOverlayState extends State<_PassengerSelectorOverlay> {
   Widget build(BuildContext context) {
     final position = _getPosition();
     final fieldHeight = _getHeight();
+    final passengerTop = position.dy + fieldHeight + 8;
 
     return Stack(
       children: [
-        Positioned.fill(
+        Positioned(
+          top: passengerTop,
+          left: 0,
+          right: 0,
+          bottom: 0,
           child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
             onTap: widget.onClose,
-            behavior: HitTestBehavior.translucent,
-            child: Container(
-              color: Colors.transparent,
-            ),
+            child: Container(color: Colors.transparent),
           ),
         ),
-        AnimatedPositioned(
-          duration: const Duration(milliseconds: 100),
-          curve: Curves.easeOut,
+        
+        Positioned(
           left: position.dx,
-          top: position.dy + fieldHeight + 8,
-          child: Material(
-            elevation: 8,
-            borderRadius: BorderRadius.circular(8),
-            child: PassengerSelector(
-              initialPassengers: widget.passengers,
-              initialClass: widget.flightClass,
-              onChanged: widget.onChanged,
-              onClose: widget.onClose,
+          top: passengerTop,
+          child: GestureDetector(
+            onTap: () {},
+            child: Material(
+              elevation: 8,
+              borderRadius: BorderRadius.circular(8),
+              child: PassengerSelector(
+                initialPassengers: widget.passengers,
+                initialClass: widget.flightClass,
+                onChanged: widget.onChanged,
+                onClose: widget.onClose,
+              ),
             ),
           ),
         ),
@@ -543,32 +544,31 @@ class _CalendarOverlayState extends State<_CalendarOverlay> {
           ),
         ),
 
-        // 👇 САМ КАЛЕНДАР
         Positioned(
           left: position.dx,
           top: calendarTop,
           width: fieldWidth * 2 + 12,
-          child: Material(
-            elevation: 8,
-            borderRadius: BorderRadius.circular(12),
-            child: ValueListenableBuilder<bool>(
-              valueListenable: widget.isSelectingReturnNotifier,
-              builder: (context, isSelectingReturn, _) {
-                return CustomDateRangePicker(
-                  departDate: widget.departDate,
-                  returnDate: widget.returnDate,
-                  isSelectingReturn: isSelectingReturn,
-                  onDatesSelected: widget.onDatesSelected,
-                  onClose: widget.onClose,
-                );
-              },
+          child: GestureDetector(
+            onTap: () {},
+            child: Material(
+              elevation: 8,
+              borderRadius: BorderRadius.circular(12),
+              child: ValueListenableBuilder<bool>(
+                valueListenable: widget.isSelectingReturnNotifier,
+                builder: (context, isSelectingReturn, _) {
+                  return CustomDateRangePicker(
+                    departDate: widget.departDate,
+                    returnDate: widget.returnDate,
+                    isSelectingReturn: isSelectingReturn,
+                    onDatesSelected: widget.onDatesSelected,
+                    onClose: widget.onClose,
+                  );
+                },
+              ),
             ),
           ),
         ),
       ],
     );
   }
-
-
 }
-

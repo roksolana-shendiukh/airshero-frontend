@@ -1,20 +1,19 @@
 import 'package:flutter/material.dart';
+import '../config/theme_notifier.dart';
 
 class ResponsiveLayout extends StatelessWidget {
   final Widget body;
-  final bool isLightTheme;
-  final VoidCallback onThemeChanged;
 
   const ResponsiveLayout({
     super.key,
     required this.body,
-    required this.isLightTheme,
-    required this.onThemeChanged,
   });
 
   @override
   Widget build(BuildContext context) {
     final bool isLargeScreen = MediaQuery.of(context).size.width >= 1024;
+    final themeNotifier = ThemeNotifier.of(context);
+    final isLightTheme = themeNotifier?.isLightTheme ?? true;
 
     return Scaffold(
       drawer: isLargeScreen ? null : _buildDrawer(context),
@@ -44,7 +43,9 @@ class ResponsiveLayout extends StatelessWidget {
                 icon: Icon(
                   isLightTheme ? Icons.dark_mode : Icons.light_mode,
                 ),
-                onPressed: onThemeChanged,
+                onPressed: () {
+                  themeNotifier?.toggleTheme();
+                },
               ),
               const SizedBox(width: 8),
               Padding(

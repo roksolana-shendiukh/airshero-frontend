@@ -42,12 +42,15 @@ class _CustomInputFieldState extends State<CustomInputField> {
     _controller = TextEditingController(text: widget.value);
 
     _focusNode.addListener(() {
-      if (_focusNode.hasFocus && !widget.readOnly) {
-        _showOverlay();
+      if (_focusNode.hasFocus) {
+        widget.onTap?.call(); 
+        if (!widget.readOnly) {
+          _showOverlay();
+        }
       } else {
         Future.delayed(const Duration(milliseconds: 200), _hideOverlay);
       }
-      setState(() {}); // щоб оновити hover/focus фон
+      setState(() {});
     });
   }
 
@@ -116,7 +119,12 @@ class _CustomInputFieldState extends State<CustomInputField> {
         onEnter: (_) => setState(() => _isHovered = true),
         onExit: (_) => setState(() => _isHovered = false),
         child: GestureDetector(
-          onTap: widget.readOnly ? widget.onTap : null,
+          onTap: () {
+              widget.onTap?.call(); 
+              if (!widget.readOnly) {
+                _focusNode.requestFocus();
+              }
+            },
           child: AbsorbPointer(
             absorbing: widget.readOnly,
             child: AnimatedContainer(

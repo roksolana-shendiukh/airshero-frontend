@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'config/theme.dart';
-import 'pages/home_page.dart';
+import 'config/routes.dart';
+import 'config/theme_notifier.dart';
 
 void main() {
   runApp(const AirSheroApp());
@@ -24,15 +25,16 @@ class _AirSheroAppState extends State<AirSheroApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'AirShero F',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: _isLightTheme ? ThemeMode.light : ThemeMode.dark,
-      home: HomePage(
-        isLightTheme: _isLightTheme,
-        onThemeChanged: _toggleTheme,
+    return ThemeNotifier(
+      isLightTheme: _isLightTheme,
+      toggleTheme: _toggleTheme,
+      child: MaterialApp.router(
+        title: 'AirShero F',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: _isLightTheme ? ThemeMode.light : ThemeMode.dark,
+        routerConfig: AppRouter.router,
       ),
     );
   }
