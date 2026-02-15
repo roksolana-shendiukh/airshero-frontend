@@ -4,8 +4,6 @@ class FlightRouteSection extends StatelessWidget {
   final String airlineName;
   final String airlineLogoUrl;
   final String flightClass;
-  final String fromCity;
-  final String toCity;
   final String fromAirportCode;
   final String toAirportCode;
   final String departureTime;
@@ -18,8 +16,6 @@ class FlightRouteSection extends StatelessWidget {
     required this.airlineName,
     required this.airlineLogoUrl,
     required this.flightClass,
-    required this.fromCity,
-    required this.toCity,
     required this.fromAirportCode,
     required this.toAirportCode,
     required this.departureTime,
@@ -33,7 +29,6 @@ class FlightRouteSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // AIRLINE INFO
         Row(
           children: [
             Container(
@@ -97,38 +92,13 @@ class FlightRouteSection extends StatelessWidget {
         
         const SizedBox(height: 24),
         
-        // ROUTE
         IntrinsicHeight(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // FROM SECTION
-              SizedBox(
-                width: 80,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      fromCity,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      fromAirportCode,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
               
               const SizedBox(width: 8),
               
-              // FLIGHT LINE
               Expanded(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -248,33 +218,7 @@ class FlightRouteSection extends StatelessWidget {
                   ],
                 ),
               ),
-              
-              const SizedBox(width: 8),
-              
-              // TO SECTION
-              SizedBox(
-                width: 80,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      toCity,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                      textAlign: TextAlign.end,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      toAirportCode,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+                            
             ],
           ),
         ),

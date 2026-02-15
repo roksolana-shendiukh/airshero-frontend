@@ -4,7 +4,6 @@ import 'custom_date_range_picker.dart';
 import 'custom_button.dart';
 import 'passenger_selector.dart';
 
-// ← TYPEDEF ДЛЯ CALLBACK (ПСЕВДОНІМ ТИПУ)
 typedef SearchCallback = void Function({
   required String fromLocation,
   required String toLocation,

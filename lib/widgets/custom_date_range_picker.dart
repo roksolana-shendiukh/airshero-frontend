@@ -41,19 +41,15 @@ class _CustomDateRangePickerState extends State<CustomDateRangePicker> {
   void _selectDate(DateTime date) {
     setState(() {
       if (widget.isSelectingReturn) {
-        // Вибираємо дату для Return
         _tempReturnDate = date;
         
-        // Якщо Return раніше Depart, переставляємо
         if (_tempDepartDate != null && date.isBefore(_tempDepartDate!)) {
           _tempDepartDate = date;
           _tempReturnDate = null;
         }
       } else {
-        // Вибираємо дату для Depart
         _tempDepartDate = date;
         
-        // Якщо Return раніше нового Depart, скидаємо Return
         if (_tempReturnDate != null && date.isAfter(_tempReturnDate!)) {
           _tempReturnDate = null;
         }
@@ -67,11 +63,10 @@ class _CustomDateRangePickerState extends State<CustomDateRangePicker> {
     final firstDay = DateTime(month.year, month.month, 1);
     final lastDay = DateTime(month.year, month.month + 1, 0);
     final daysInMonth = lastDay.day;
-    final startWeekday = firstDay.weekday % 7; // 0 = Monday, 6 = Sunday
+    final startWeekday = firstDay.weekday % 7; 
 
     return Column(
       children: [
-        // Назва місяця
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 12),
           child: Text(
@@ -82,7 +77,6 @@ class _CustomDateRangePickerState extends State<CustomDateRangePicker> {
           ),
         ),
         
-        // Дні тижня
         Table(
           children: [
             TableRow(
@@ -105,7 +99,6 @@ class _CustomDateRangePickerState extends State<CustomDateRangePicker> {
           ],
         ),
         
-        // Дати в календарі
         Table(
           children: List.generate(6, (weekIndex) {
             return TableRow(

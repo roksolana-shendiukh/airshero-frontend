@@ -47,87 +47,116 @@ class _PassengerSelectorState extends State<PassengerSelector> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 400,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Maximum 6 passengers per booking',
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w500,
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {}, // Блокує клік поза контейнером
+      child: Container(
+        width: 400,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
             ),
-          ),
-          const SizedBox(height: 16),
-
-          _buildCounterRow(
-            label: 'Adults (12+ years)',
-            count: adults,
-            onIncrement: totalPassengers < 6 ? () => setState(() { adults++; _update(); }) : null,
-            onDecrement: adults > 1 ? () => setState(() { adults--; _update(); }) : null,
-          ),
-          const SizedBox(height: 12),
-
-          _buildCounterRow(
-            label: 'Children (2-12 years)',
-            count: children,
-            onIncrement: totalPassengers < 6 ? () => setState(() { children++; _update(); }) : null,
-            onDecrement: children > 0 ? () => setState(() { children--; _update(); }) : null,
-          ),
-          const SizedBox(height: 12),
-
-          _buildCounterRow(
-            label: 'Infants (0-2 years)',
-            count: infants,
-            onIncrement: totalPassengers < 6 ? () => setState(() { infants++; _update(); }) : null,
-            onDecrement: infants > 0 ? () => setState(() { infants--; _update(); }) : null,
-          ),
-
-          const SizedBox(height: 20),
-          Text(
-            'Class',
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: ['Economy', 'Premium Economy', 'Business', 'First'].map((cls) {
-              final selected = cls == flightClass;
-              return ChoiceChip(
-                label: Text(cls),
-                selected: selected,
-                selectedColor: Theme.of(context).colorScheme.primaryContainer,
-                backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
-                labelStyle: TextStyle(
-                  color: selected
-                      ? Theme.of(context).colorScheme.onPrimaryContainer
-                      : Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontWeight: selected ? FontWeight.w500 : FontWeight.normal,
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // HEADER З КНОПКОЮ ЗАКРИТТЯ
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Passengers & Class',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-                onSelected: (_) => setState(() { flightClass = cls; _update(); }),
-              );
-            }).toList(),
-          ),
-
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: CustomButton(
-              label: 'Done',
-              onPressed: widget.onClose,
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: widget.onClose,
+                  iconSize: 20,
+                ),
+              ],
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            Text(
+              'Maximum 6 passengers per booking',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            _buildCounterRow(
+              label: 'Adults (12+ years)',
+              count: adults,
+              onIncrement: totalPassengers < 6 ? () => setState(() { adults++; _update(); }) : null,
+              onDecrement: adults > 1 ? () => setState(() { adults--; _update(); }) : null,
+            ),
+            const SizedBox(height: 12),
+
+            _buildCounterRow(
+              label: 'Children (2-12 years)',
+              count: children,
+              onIncrement: totalPassengers < 6 ? () => setState(() { children++; _update(); }) : null,
+              onDecrement: children > 0 ? () => setState(() { children--; _update(); }) : null,
+            ),
+            const SizedBox(height: 12),
+
+            _buildCounterRow(
+              label: 'Infants (0-2 years)',
+              count: infants,
+              onIncrement: totalPassengers < 6 ? () => setState(() { infants++; _update(); }) : null,
+              onDecrement: infants > 0 ? () => setState(() { infants--; _update(); }) : null,
+            ),
+
+            const SizedBox(height: 20),
+            Text(
+              'Class',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: ['Economy', 'Premium Economy', 'Business', 'First'].map((cls) {
+                final selected = cls == flightClass;
+                return ChoiceChip(
+                  label: Text(cls),
+                  selected: selected,
+                  selectedColor: Theme.of(context).colorScheme.primaryContainer,
+                  backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+                  labelStyle: TextStyle(
+                    color: selected
+                        ? Theme.of(context).colorScheme.onPrimaryContainer
+                        : Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontWeight: selected ? FontWeight.w500 : FontWeight.normal,
+                  ),
+                  onSelected: (_) => setState(() { flightClass = cls; _update(); }),
+                );
+              }).toList(),
+            ),
+
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: CustomButton(
+                label: 'Done',
+                onPressed: widget.onClose,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

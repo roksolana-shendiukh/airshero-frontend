@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
 import 'custom_button.dart';
 import 'flight_route_section.dart';
-import 'price_row.dart';
-import 'baggage_option.dart'; // ← Додано import
+import 'baggage_option.dart';
+import 'price_summary_card.dart';
 
 class FlightRouteCard extends StatefulWidget {
   final String airlineName;
   final String airlineLogoUrl;
   final String flightClass;
-  final String fromCity;
-  final String toCity;
   final String fromAirportCode;
   final String toAirportCode;
   final String departureTime;
@@ -32,8 +30,6 @@ class FlightRouteCard extends StatefulWidget {
     required this.airlineName,
     required this.airlineLogoUrl,
     required this.flightClass,
-    required this.fromCity,
-    required this.toCity,
     required this.fromAirportCode,
     required this.toAirportCode,
     required this.departureTime,
@@ -63,21 +59,54 @@ class _FlightRouteCardState extends State<FlightRouteCard> {
     _selectedWithBaggage = widget.hasBaggage;
   }
 
-  double get totalPrice {
-    double total = widget.pricePerAdult * widget.adultsCount;
-    if (widget.pricePerChild != null && widget.childrenCount != null) {
-      total += widget.pricePerChild! * widget.childrenCount!;
-    }
-    if (widget.pricePerInfant != null && widget.infantsCount != null) {
-      total += widget.pricePerInfant! * widget.infantsCount!;
+  List<PassengerPriceItem> get _passengerPrices {
+    List<PassengerPriceItem> items = [];
+    
+    // Дорослі
+    if (widget.adultsCount > 0) {
+      items.add(PassengerPriceItem(
+        passengerType: 'Adults',
+        count: widget.adultsCount,
+        totalPrice: widget.pricePerAdult * widget.adultsCount,
+      ));
     }
     
-    if (_selectedWithBaggage && !widget.hasBaggage) {
-      total += 50.0;
+    // Діти
+    if (widget.childrenCount != null && widget.childrenCount! > 0) {
+      items.add(PassengerPriceItem(
+        passengerType: 'Children',
+        count: widget.childrenCount!,
+        totalPrice: widget.pricePerChild! * widget.childrenCount!,
+      ));
     }
     
-    return total;
+    // Немовлята
+    if (widget.infantsCount != null && widget.infantsCount! > 0) {
+      items.add(PassengerPriceItem(
+        passengerType: 'Infants',
+        count: widget.infantsCount!,
+        totalPrice: widget.pricePerInfant! * widget.infantsCount!,
+      ));
+    }
+    
+    return items;
   }
+
+  double get baseFlightPrice {
+    return _passengerPrices.fold<double>(
+      0.0,
+      (sum, item) => sum + item.totalPrice,
+    );
+  }
+
+  double get baggagePrice {
+    if (_selectedWithBaggage && !widget.hasBaggage) {
+      return 50.0;
+    }
+    return 0.0;
+  }
+
+  double get totalPrice => baseFlightPrice + baggagePrice;
 
   @override
   Widget build(BuildContext context) {
@@ -98,13 +127,10 @@ class _FlightRouteCardState extends State<FlightRouteCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // OUTBOUND ROUTE
           FlightRouteSection(
             airlineName: widget.airlineName,
             airlineLogoUrl: widget.airlineLogoUrl,
             flightClass: widget.flightClass,
-            fromCity: widget.fromCity,
-            toCity: widget.toCity,
             fromAirportCode: widget.fromAirportCode,
             toAirportCode: widget.toAirportCode,
             departureTime: widget.departureTime,
@@ -113,15 +139,12 @@ class _FlightRouteCardState extends State<FlightRouteCard> {
             isReturn: false,
           ),
           
-          // RETURN ROUTE
           if (widget.isRoundTrip) ...[
             const Divider(height: 32),
             FlightRouteSection(
               airlineName: widget.airlineName,
               airlineLogoUrl: widget.airlineLogoUrl,
               flightClass: widget.flightClass,
-              fromCity: widget.toCity,
-              toCity: widget.fromCity,
               fromAirportCode: widget.toAirportCode,
               toAirportCode: widget.fromAirportCode,
               departureTime: '14:30',
@@ -133,7 +156,6 @@ class _FlightRouteCardState extends State<FlightRouteCard> {
           
           const Divider(height: 32),
           
-          // BAGGAGE SELECTOR
           Row(
             children: [
               Expanded(
@@ -166,70 +188,24 @@ class _FlightRouteCardState extends State<FlightRouteCard> {
           
           const Divider(height: 32),
           
-          // PRICES & BOOK BUTTON
-          // PRICES & BOOK BUTTON
-Column(
-  crossAxisAlignment: CrossAxisAlignment.stretch,
-  children: [
-    // PRICES
-    PriceRow(
-      label: 'Adults (${widget.adultsCount})',
-      price: widget.pricePerAdult * widget.adultsCount,
-    ),
-    if (widget.childrenCount != null && widget.childrenCount! > 0)
-      PriceRow(
-        label: 'Children (${widget.childrenCount})',
-        price: widget.pricePerChild! * widget.childrenCount!,
-      ),
-    if (widget.infantsCount != null && widget.infantsCount! > 0)
-      PriceRow(
-        label: 'Infants (${widget.infantsCount})',
-        price: widget.pricePerInfant! * widget.infantsCount!,
-      ),
-    if (_selectedWithBaggage && !widget.hasBaggage)
-      const PriceRow(
-        label: 'Baggage',
-        price: 50.0,
-      ),
-    
-    const SizedBox(height: 16),
-    
-    // TOTAL
-    Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          'Total',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
+          PriceSummaryCard(
+            passengerPrices: _passengerPrices, // Групується: Adults (2), Children (1)
+            totalPrice: totalPrice,
+            showDetailedBaggage: false, // Простий вигляд
           ),
-        ),
-        Text(
-          '\$${totalPrice.toStringAsFixed(2)}',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: Theme.of(context).colorScheme.primary,
+                    
+          const SizedBox(height: 16),
+          
+          Align(
+            alignment: Alignment.centerRight,
+            child: SizedBox(
+              width: 220,
+              child: CustomButton(
+                label: 'Book Now',
+                onPressed: widget.onBook,
+              ),
+            ),
           ),
-        ),
-      ],
-    ),
-    
-    const SizedBox(height: 16),
-    
-    // BOOK BUTTON (СПРАВА)
-    Align(
-      alignment: Alignment.centerRight,
-      child: SizedBox(
-        width: 220, // ← Більший розмір
-        child: CustomButton(
-          label: 'Book Now',
-          onPressed: widget.onBook,
-        ),
-      ),
-    ),
-  ],
-),
-        
         ],
       ),
     );

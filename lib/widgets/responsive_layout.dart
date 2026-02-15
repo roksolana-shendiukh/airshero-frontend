@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import '../config/theme_notifier.dart';
 
 class ResponsiveLayout extends StatelessWidget {
+  final Widget? header; // ← ДОДАНО: Опціональний фіксований header
   final Widget body;
 
   const ResponsiveLayout({
     super.key,
+    this.header,
     required this.body,
   });
 
@@ -69,8 +71,18 @@ class ResponsiveLayout extends StatelessWidget {
               children: [
                 if (isLargeScreen) _buildSidebar(context),
                 Expanded(
-                  child: SingleChildScrollView(
-                    child: body,
+                  child: Column(
+                    children: [
+                      // ФІКСОВАНИЙ HEADER (якщо є)
+                      if (header != null) header!,
+                      
+                      // СКРОЛЮВАНИЙ КОНТЕНТ
+                      Expanded(
+                        child: SingleChildScrollView(
+                          child: body,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],

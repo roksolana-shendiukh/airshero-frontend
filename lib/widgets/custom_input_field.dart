@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'custom_dropdown_overlay.dart';
 
 class CustomInputField extends StatefulWidget {
@@ -6,11 +7,14 @@ class CustomInputField extends StatefulWidget {
   final String value;
   final IconData icon;
   final VoidCallback? onTap;
+  final VoidCallback? onIconTap;
   final bool isSelected;
   final List<Map<String, String>>? nearestAirports;
   final List<Map<String, String>>? previousSearches;
   final ValueChanged<String>? onChanged;
   final bool readOnly;
+  final TextInputType? keyboardType;
+  final List<TextInputFormatter>? inputFormatters;
 
   const CustomInputField({
     super.key,
@@ -18,11 +22,14 @@ class CustomInputField extends StatefulWidget {
     required this.value,
     required this.icon,
     this.onTap,
+    this.onIconTap,
     this.isSelected = false,
     this.nearestAirports,
     this.previousSearches,
     this.onChanged,
     this.readOnly = false,
+    this.keyboardType,
+    this.inputFormatters,
   });
 
   @override
@@ -44,7 +51,7 @@ class _CustomInputFieldState extends State<CustomInputField> {
     _focusNode.addListener(() {
       if (_focusNode.hasFocus) {
         widget.onTap?.call(); 
-        if (!widget.readOnly) {
+        if (!widget.readOnly && widget.onIconTap == null) {
           _showOverlay();
         }
       } else {
@@ -57,8 +64,11 @@ class _CustomInputFieldState extends State<CustomInputField> {
   @override
   void didUpdateWidget(covariant CustomInputField oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.value != oldWidget.value) {
-      _controller.text = widget.value;
+    if (widget.value != oldWidget.value && _controller.text != widget.value) {
+      _controller.value = TextEditingValue(
+        text: widget.value,
+        selection: TextSelection.collapsed(offset: widget.value.length),
+      );
     }
   }
 
@@ -106,6 +116,7 @@ class _CustomInputFieldState extends State<CustomInputField> {
   @override
   Widget build(BuildContext context) {
     final bool isActive = _focusNode.hasFocus || widget.isSelected || _isHovered;
+    final bool hasIconTap = widget.onIconTap != null;
 
     final hoverColor = Theme.of(context)
         .colorScheme
@@ -115,41 +126,67 @@ class _CustomInputFieldState extends State<CustomInputField> {
     return CompositedTransformTarget(
       link: _layerLink,
       child: MouseRegion(
-        cursor: widget.readOnly ? SystemMouseCursors.click : SystemMouseCursors.text,
+        cursor: (widget.readOnly && !hasIconTap)
+            ? SystemMouseCursors.click 
+            : SystemMouseCursors.text,
         onEnter: (_) => setState(() => _isHovered = true),
         onExit: (_) => setState(() => _isHovered = false),
         child: GestureDetector(
-          onTap: () {
-              widget.onTap?.call(); 
-              if (!widget.readOnly) {
-                _focusNode.requestFocus();
-              }
-            },
-          child: AbsorbPointer(
-            absorbing: widget.readOnly,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              decoration: BoxDecoration(
-                color: hoverColor,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: TextField(
-                controller: _controller,
-                focusNode: _focusNode,
-                readOnly: widget.readOnly,
-                onChanged: (value) => widget.onChanged?.call(value),
-                style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-                cursorColor: Theme.of(context).colorScheme.primary,
-                decoration: InputDecoration(
-                  prefixIcon: Icon(widget.icon, color: Theme.of(context).colorScheme.primary),
-                  labelText: widget.label,
-                  labelStyle: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                  fillColor: Colors.transparent,
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          onTap: (widget.readOnly && !hasIconTap) ? widget.onTap : null,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            decoration: BoxDecoration(
+              color: hoverColor,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: TextField(
+              controller: _controller,
+              focusNode: _focusNode,
+              readOnly: widget.readOnly && !hasIconTap,
+              enableInteractiveSelection: true,
+              keyboardType: widget.keyboardType,
+              inputFormatters: widget.inputFormatters,
+              onChanged: (value) => widget.onChanged?.call(value),
+              onTap: () {
+                if (widget.readOnly && !hasIconTap) {
+                  widget.onTap?.call();
+                } else {
+                  widget.onTap?.call();
+                  if (widget.onIconTap == null) {
+                    _showOverlay();
+                  }
+                  _controller.selection = TextSelection.collapsed(
+                    offset: _controller.text.length,
+                  );
+                }
+              },
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+              cursorColor: Theme.of(context).colorScheme.primary,
+              decoration: InputDecoration(
+                prefixIcon: hasIconTap
+                    ? IconButton(
+                        icon: Icon(
+                          widget.icon,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        onPressed: widget.onIconTap,
+                      )
+                    : Icon(
+                        widget.icon, 
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                labelText: widget.label,
+                labelStyle: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                fillColor: Colors.transparent,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16, 
+                  vertical: 16,
                 ),
               ),
             ),
@@ -158,6 +195,4 @@ class _CustomInputFieldState extends State<CustomInputField> {
       ),
     );
   }
-
-
 }
