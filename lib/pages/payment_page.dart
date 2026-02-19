@@ -99,7 +99,6 @@ class _PaymentPageState extends State<PaymentPage> {
       return;
     }
 
-    final paymentDateTime = DateTime.now();
 
     context.go('/');
   }

@@ -4,6 +4,7 @@ import '../pages/home_page.dart';
 import '../pages/search_results_page.dart';
 import '../pages/baggage_selection_page.dart';
 import '../pages/payment_page.dart';
+import '../pages/admin/admin_users_page.dart';
 
 class SearchResultsArguments {
   final String fromCity;
@@ -31,7 +32,6 @@ class BaggageSelectionArguments {
   final Map<String, int> passengers;
   final String flightClass;
   
-  // Flight details
   final String airlineName;
   final String airlineLogoUrl;
   final String fromAirportCode;
@@ -69,7 +69,6 @@ class PaymentArguments {
   final Map<String, int> passengers;
   final String flightClass;
   
-  // Flight details
   final String airlineName;
   final String airlineLogoUrl;
   final String fromAirportCode;
@@ -80,7 +79,6 @@ class PaymentArguments {
   final double basePrice;
   final bool isRoundTrip;
   
-  // Baggage and passenger data
   final Map<int, Map<int, int>> baggageSelections;
   final Map<int, Map<String, dynamic>> passengerData;
   final double totalPrice;
@@ -109,7 +107,7 @@ class PaymentArguments {
 
 class AppRouter {
   static final GoRouter router = GoRouter(
-    initialLocation: '/',
+    initialLocation: '/admin/users',
     
     routes: [
       GoRoute(
@@ -209,6 +207,11 @@ class AppRouter {
             totalPrice: extra['totalPrice'] as double,
           );
         },
+      ),
+
+      GoRoute(
+        path: '/admin/users',
+        builder: (context, state) => const AdminUsersPage(),
       ),
     ],
   );
