@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart'; 
+import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import 'config/theme.dart';
 import 'config/routes.dart';
 import 'config/theme_notifier.dart';
-import 'services/auth_service.dart'; 
+import 'services/auth_service.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(const AirSheroApp());
 }
 
@@ -27,13 +33,13 @@ class _AirSheroAppState extends State<AirSheroApp> {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider( 
+    return ChangeNotifierProvider(
       create: (_) => AuthService(),
       child: ThemeNotifier(
         isLightTheme: _isLightTheme,
         toggleTheme: _toggleTheme,
         child: MaterialApp.router(
-          title: 'AirShero F',
+          title: 'AirShero',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,

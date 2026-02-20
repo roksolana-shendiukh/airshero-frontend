@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../widgets/responsive_layout.dart';
 import '../../models/user_model.dart';
 import '../../widgets/table_header.dart';
 import '../../widgets/table_row.dart' as admin_table;
 import '../../widgets/admin/users_table_columns.dart';
-import '../../widgets/table_columns.dart';
 import '../../widgets/admin/user_table_pagination.dart';
 import '../../widgets/admin/user_management_header.dart';
 import '../../widgets/admin/bulk_actions_bar.dart';
 import '../../widgets/admin/create_user_dialog.dart';
 import '../../widgets/custom_select_field.dart';
+import '../../services/admin_api_service.dart';
+import '../../services/auth_service.dart';
 
 class AdminUsersPage extends StatefulWidget {
   const AdminUsersPage({super.key});
@@ -22,6 +24,11 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _horizontalScroll = ScrollController();
 
+  late final AdminApiService _adminApi;
+  List<UserModel> _users = [];
+  bool _isLoading = false;
+  String? _error;
+
   UserRole? _selectedRoleFilter;
   UserStatus? _selectedStatusFilter;
 
@@ -31,6 +38,23 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
   final Set<String> _selectedUserIds = {};
   bool _selectAll = false;
 
+  Map<String, double> _columnWidths = {
+    'checkbox': UsersTableColumns.checkbox.width,
+    'name':     UsersTableColumns.name.width,
+    'email':    UsersTableColumns.email.width,
+    'airline':  UsersTableColumns.airline.width,
+    'role':     UsersTableColumns.role.width,
+    'status':   UsersTableColumns.status.width,
+    'actions':  UsersTableColumns.actions.width,
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _adminApi = AdminApiService(context.read<AuthService>());
+    _loadUsers();
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -38,24 +62,65 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
     super.dispose();
   }
 
-  List<UserModel> _getMockUsers() {
-    return [
-      UserModel(id: '1', email: 'john.doe@airshero.com', firstName: 'John', lastName: 'Doe', role: UserRole.salesAgent, status: UserStatus.active, createdAt: DateTime(2025, 1, 15), lastLoginAt: DateTime.now().subtract(const Duration(hours: 2)), airlineName: 'Ukraine International', airlineLogoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/80/Ukraine-International-Airlines-Logo.svg/200px-Ukraine-International-Airlines-Logo.svg.png'),
-      UserModel(id: '2', email: 'jane.smith@airshero.com', firstName: 'Jane', lastName: 'Smith', role: UserRole.checkInAgent, status: UserStatus.active, createdAt: DateTime(2025, 1, 20), lastLoginAt: DateTime.now().subtract(const Duration(hours: 5)), airlineName: 'Wizz Air', airlineLogoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Wizz_Air_logo.svg/200px-Wizz_Air_logo.svg.png'),
-      UserModel(id: '3', email: 'bob.wilson@airshero.com', firstName: 'Bob', lastName: 'Wilson', role: UserRole.flightOperator, status: UserStatus.locked, createdAt: DateTime(2025, 2, 1), lastLoginAt: DateTime.now().subtract(const Duration(days: 3)), airlineName: 'SkyUp Airlines', airlineLogoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0f/SkyUp_Airlines_logo.svg/200px-SkyUp_Airlines_logo.svg.png'),
-      UserModel(id: '4', email: 'alice.brown@airshero.com', firstName: 'Alice', lastName: 'Brown', role: UserRole.planningManager, status: UserStatus.active, createdAt: DateTime(2025, 2, 10), lastLoginAt: DateTime.now().subtract(const Duration(minutes: 30)), airlineName: 'Ukraine International', airlineLogoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/80/Ukraine-International-Airlines-Logo.svg/200px-Ukraine-International-Airlines-Logo.svg.png'),
-      UserModel(id: '5', email: 'admin@airshero.com', firstName: 'System', lastName: 'Admin', role: UserRole.systemAdmin, status: UserStatus.active, createdAt: DateTime(2024, 12, 1), lastLoginAt: DateTime.now(), airlineName: 'AirShero System', airlineLogoUrl: null),
-    ];
+  void _onColumnResize(String key, double delta) {
+    setState(() {
+      final current = _columnWidths[key] ?? 100;
+      _columnWidths[key] = (current + delta).clamp(60.0, 500.0);
+    });
+  }
+
+  double get _totalWidth => _columnWidths.values.fold(0, (sum, w) => sum + w);
+
+  Future<void> _loadUsers() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final data = await _adminApi.getUsers();
+      setState(() {
+        _users = data
+            .where((u) => u['role'] != 'systemAdmin')
+            .map((u) => UserModel(
+                  id: u['uid'],
+                  email: u['email'] ?? '',
+                  firstName: u['firstName'] ?? '',
+                  lastName: u['lastName'] ?? '',
+                  role: UserRole.fromId(u['roleId'] as int? ?? 0),
+                  status: UserStatus.values.firstWhere(
+                    (s) => s.name == u['status'],
+                    orElse: () => UserStatus.pendingActivation,
+                  ),
+                  airlineName: u['airlineName'] ?? '',
+                  airlineLogoUrl: null,
+                  createdAt: DateTime.now(),
+                  lastLoginAt: null,
+                ))
+            .toList();
+      });
+    } catch (e) {
+      setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   List<UserModel> get _filteredUsers {
-    var users = _getMockUsers();
+    var users = _users;
     if (_searchController.text.isNotEmpty) {
       final query = _searchController.text.toLowerCase();
-      users = users.where((u) => u.email.toLowerCase().contains(query) || u.fullName.toLowerCase().contains(query)).toList();
+      users = users
+          .where((u) =>
+              u.email.toLowerCase().contains(query) ||
+              u.fullName.toLowerCase().contains(query))
+          .toList();
     }
-    if (_selectedRoleFilter != null) users = users.where((u) => u.role == _selectedRoleFilter).toList();
-    if (_selectedStatusFilter != null) users = users.where((u) => u.status == _selectedStatusFilter).toList();
+    if (_selectedRoleFilter != null) {
+      users = users.where((u) => u.role == _selectedRoleFilter).toList();
+    }
+    if (_selectedStatusFilter != null) {
+      users = users.where((u) => u.status == _selectedStatusFilter).toList();
+    }
     return users;
   }
 
@@ -63,19 +128,14 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
 
   List<UserModel> get _paginatedUsers {
     final start = (_currentPage - 1) * _itemsPerPage;
-    final end = start + _itemsPerPage;
-    return _filteredUsers.sublist(start, end > _filteredUsers.length ? _filteredUsers.length : end);
+    final end = (start + _itemsPerPage).clamp(0, _filteredUsers.length);
+    return _filteredUsers.sublist(start, end);
   }
 
   void _showCreateUserDialog() {
     showDialog(
       context: context,
-      builder: (context) => CreateUserDialog(
-        onUserCreated: (userData) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('User ${userData['email']} created successfully')));
-          setState(() {});
-        },
-      ),
+      builder: (context) => CreateUserDialog(onUserCreated: _loadUsers),
     );
   }
 
@@ -105,17 +165,19 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
   @override
   Widget build(BuildContext context) {
     final isLargeScreen = MediaQuery.of(context).size.width >= 1024;
-    final tableHeight = MediaQuery.of(context).size.height - 56 - 24;
-    final totalWidth = UsersTableColumns.all.totalWidth;
 
     return ResponsiveLayout(
+      // ── HEADER: фіксований вміст зверху ──────────────────────────────────
       header: Padding(
         padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            UserManagementHeader(userCount: _filteredUsers.length, onCreateUser: _showCreateUserDialog),
+            UserManagementHeader(
+              userCount: _filteredUsers.length,
+              onCreateUser: _showCreateUserDialog,
+            ),
             const SizedBox(height: 24),
             Wrap(
               spacing: 12,
@@ -130,33 +192,50 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                       hintText: 'Search by name or email...',
                       prefixIcon: const Icon(Icons.search),
                       suffixIcon: _searchController.text.isNotEmpty
-                          ? IconButton(icon: const Icon(Icons.clear), onPressed: () { _searchController.clear(); setState(() {}); })
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() {});
+                              },
+                            )
                           : null,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                     ),
                   ),
                 ),
                 SizedBox(
                   width: 220,
                   child: CustomSelectField(
-                    label: 'Role', icon: Icons.badge_outlined,
+                    label: 'Role',
+                    icon: Icons.badge_outlined,
                     value: _selectedRoleFilter?.displayName ?? 'All Roles',
                     items: ['All Roles', ...UserRole.values.map((r) => r.displayName)],
                     onChanged: (value) => setState(() {
-                      _selectedRoleFilter = value == 'All Roles' ? null : UserRole.values.firstWhere((r) => r.displayName == value);
+                      _selectedRoleFilter = value == 'All Roles'
+                          ? null
+                          : UserRole.values.firstWhere((r) => r.displayName == value);
                       _currentPage = 1;
                     }),
                   ),
                 ),
                 SizedBox(
-                  width: 180,
+                  width: 200,
                   child: CustomSelectField(
-                    label: 'Status', icon: Icons.circle_outlined,
+                    label: 'Status',
+                    icon: Icons.circle_outlined,
                     value: _selectedStatusFilter?.displayName ?? 'All',
                     items: ['All', ...UserStatus.values.map((s) => s.displayName)],
                     onChanged: (value) => setState(() {
-                      _selectedStatusFilter = value == 'All' ? null : UserStatus.values.firstWhere((s) => s.displayName == value);
+                      _selectedStatusFilter = value == 'All'
+                          ? null
+                          : UserStatus.values.firstWhere((s) => s.displayName == value);
                       _currentPage = 1;
                     }),
                   ),
@@ -167,8 +246,12 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
               const SizedBox(height: 16),
               BulkActionsBar(
                 selectedCount: _selectedUserIds.length,
-                onDelete: () => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Delete ${_selectedUserIds.length} users'))),
-                onLock: () => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lock ${_selectedUserIds.length} users'))),
+                onDelete: () => ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Delete ${_selectedUserIds.length} users')),
+                ),
+                onLock: () => ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Lock ${_selectedUserIds.length} users')),
+                ),
               ),
             ],
             const SizedBox(height: 16),
@@ -176,84 +259,116 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
         ),
       ),
 
+      // ── BODY: займає весь залишок висоти (Expanded у ResponsiveLayout) ───
       body: Padding(
         padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-        child: SizedBox(
-          height: tableHeight,
-          child: Container(
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2)),
-            ),
-            child: Column(
-              children: [
-                // ══════════════════════════════════════════════════
-                // Хедер + рядки загорнуті в ОДИН горизонтальний скрол.
-                // Завдяки цьому хедер і всі рядки скроляться синхронно.
-                // ══════════════════════════════════════════════════
-                Expanded(
-                  child: _paginatedUsers.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.search_off, size: 64, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                              const SizedBox(height: 16),
-                              Text('No users found', style: Theme.of(context).textTheme.titleMedium),
-                            ],
-                          ),
-                        )
-                      : SingleChildScrollView(
-                          // Горизонтальний скрол — один на хедер І рядки
-                          scrollDirection: Axis.horizontal,
-                          controller: _horizontalScroll,
-                          child: SizedBox(
-                            width: totalWidth,
-                            child: Column(
-                              children: [
-                                // Хедер всередині горизонтального скролу
-                                TableHeader(
-                                  selectAll: _selectAll,
-                                  onToggleSelectAll: _toggleSelectAll,
-                                ),
-                                // Рядки — вертикальний скрол всередині горизонтального
-                                Expanded(
-                                  child: ListView.builder(
-                                    itemCount: _paginatedUsers.length,
-                                    itemBuilder: (context, index) {
-                                      final user = _paginatedUsers[index];
-                                      return admin_table.TableRow(
-                                        user: user,
-                                        isSelected: _selectedUserIds.contains(user.id),
-                                        onToggle: () => _toggleUserSelection(user.id),
-                                        onEdit: () => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Edit ${user.email}'))),
-                                        onDelete: () => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Delete ${user.email}'))),
-                                        onToggleLock: () => setState(() {}),
-                                      );
-                                    },
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                        const SizedBox(height: 16),
+                        Text(_error!, style: const TextStyle(color: Colors.red)),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: _loadUsers,
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  )
+                : Container(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .outline
+                            .withValues(alpha: 0.2),
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        // ── Таблиця ───────────────────────────────────────
+                        Expanded(
+                          child: _paginatedUsers.isEmpty
+                              ? Center(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.search_off,
+                                        size: 64,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurfaceVariant,
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Text(
+                                        'No users found',
+                                        style: Theme.of(context).textTheme.titleMedium,
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              : SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  controller: _horizontalScroll,
+                                  child: SizedBox(
+                                    width: _totalWidth,
+                                    child: Column(
+                                      children: [
+                                        TableHeader(
+                                          selectAll: _selectAll,
+                                          onToggleSelectAll: _toggleSelectAll,
+                                          columnWidths: _columnWidths,
+                                          onColumnResize: _onColumnResize,
+                                        ),
+                                        Expanded(
+                                          child: ListView.builder(
+                                            itemCount: _paginatedUsers.length,
+                                            itemBuilder: (context, index) {
+                                              final user = _paginatedUsers[index];
+                                              return admin_table.TableRow(
+                                                user: user,
+                                                columnWidths: _columnWidths,
+                                                isSelected: _selectedUserIds.contains(user.id),
+                                                onToggle: () => _toggleUserSelection(user.id),
+                                                onEdit: () =>
+                                                    ScaffoldMessenger.of(context).showSnackBar(
+                                                  SnackBar(content: Text('Edit ${user.email}')),
+                                                ),
+                                                onDelete: () =>
+                                                    ScaffoldMessenger.of(context).showSnackBar(
+                                                  SnackBar(content: Text('Delete ${user.email}')),
+                                                ),
+                                                onToggleLock: () => setState(() {}),
+                                              );
+                                            },
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                              ],
-                            ),
-                          ),
                         ),
-                ),
-
-                // Пагінація — поза горизонтальним скролом
-                if (_filteredUsers.isNotEmpty)
-                  UserTablePagination(
-                    currentPage: _currentPage,
-                    totalPages: _totalPages,
-                    totalUsers: _filteredUsers.length,
-                    itemsPerPage: _itemsPerPage,
-                    onPrevious: () => setState(() => _currentPage--),
-                    onNext: () => setState(() => _currentPage++),
+                        // ── Пагінація ─────────────────────────────────────
+                        if (_filteredUsers.isNotEmpty)
+                          UserTablePagination(
+                            currentPage: _currentPage,
+                            totalPages: _totalPages,
+                            totalUsers: _filteredUsers.length,
+                            itemsPerPage: _itemsPerPage,
+                            onPrevious: () => setState(() => _currentPage--),
+                            onNext: () => setState(() => _currentPage++),
+                          ),
+                      ],
+                    ),
                   ),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }

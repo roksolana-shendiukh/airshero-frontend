@@ -64,7 +64,9 @@ class ResponsiveLayout extends StatelessWidget {
                         radius: 18,
                         backgroundColor: Theme.of(context).colorScheme.primary,
                         child: Text(
-                          currentUser.firstName[0].toUpperCase(),
+                          currentUser.firstName.isNotEmpty
+                            ? currentUser.firstName[0].toUpperCase()
+                            : currentUser.email[0].toUpperCase(),
                           style: TextStyle(
                             color: Theme.of(context).colorScheme.onPrimary,
                             fontWeight: FontWeight.bold,
@@ -92,23 +94,7 @@ class ResponsiveLayout extends StatelessWidget {
                           ),
                         ),
                         const PopupMenuDivider(),
-                        // ТИМЧАСОВО: Перемикання ролей для тестування
-                        ...UserRole.values.map((role) {
-                          return PopupMenuItem(
-                            value: 'switch_${role.name}',
-                            child: Row(
-                              children: [
-                                Icon(
-                                  currentUser.role == role ? Icons.check : Icons.circle_outlined,
-                                  size: 20,
-                                ),
-                                const SizedBox(width: 12),
-                                Text(role.displayName),
-                              ],
-                            ),
-                          );
-                        }),
-                        const PopupMenuDivider(),
+                        
                         const PopupMenuItem(
                           value: 'logout',
                           child: Row(
@@ -124,18 +110,13 @@ class ResponsiveLayout extends StatelessWidget {
                         if (value == 'logout') {
                           authService.logout();
                           context.go('/');
-                        } else if (value.startsWith('switch_')) {
-                          final roleName = value.substring(7);
-                          final role = UserRole.values.firstWhere((r) => r.name == roleName);
-                          authService.switchUser(role);
-                        }
+                        } 
                       },
                     ),
                   const SizedBox(width: 16),
                 ],
               ),
 
-              /// ===== MAIN CONTENT =====
               Expanded(
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -146,9 +127,7 @@ class ResponsiveLayout extends StatelessWidget {
                         children: [
                           if (header != null) header!,
                           Expanded(
-                            child: SingleChildScrollView(
                               child: body,
-                            ),
                           ),
                         ],
                       ),

@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../pages/home_page.dart';
+import '../pages/bookings_page.dart';
 import '../pages/search_results_page.dart';
 import '../pages/baggage_selection_page.dart';
 import '../pages/payment_page.dart';
 import '../pages/admin/admin_users_page.dart';
+import '../pages/login_page.dart';
+import '../pages/change_password_page.dart';
+import '../services/auth_service.dart';
+import '../models/user_model.dart';
+import 'package:provider/provider.dart';
 
 class SearchResultsArguments {
   final String fromCity;
@@ -31,7 +36,6 @@ class BaggageSelectionArguments {
   final DateTime? returnDate;
   final Map<String, int> passengers;
   final String flightClass;
-  
   final String airlineName;
   final String airlineLogoUrl;
   final String fromAirportCode;
@@ -68,7 +72,6 @@ class PaymentArguments {
   final DateTime? returnDate;
   final Map<String, int> passengers;
   final String flightClass;
-  
   final String airlineName;
   final String airlineLogoUrl;
   final String fromAirportCode;
@@ -78,7 +81,6 @@ class PaymentArguments {
   final String duration;
   final double basePrice;
   final bool isRoundTrip;
-  
   final Map<int, Map<int, int>> baggageSelections;
   final Map<int, Map<String, dynamic>> passengerData;
   final double totalPrice;
@@ -107,13 +109,42 @@ class PaymentArguments {
 
 class AppRouter {
   static final GoRouter router = GoRouter(
-    initialLocation: '/admin/users',
-    
+    initialLocation: '/login',
+
+    redirect: (context, state) {
+      final authService = context.read<AuthService>();
+      final isLoggedIn = authService.isAuthenticated;
+      final location = state.matchedLocation;
+
+      if (!isLoggedIn && location != '/login') return '/login';
+
+      if (isLoggedIn) {
+        final status = authService.currentUser?.status;
+
+        // Якщо треба змінити пароль — дозволяємо тільки /change-password
+        if (status == UserStatus.pendingPasswordChange &&
+            location != '/change-password') {
+          return '/change-password';
+        }
+
+        if (status != UserStatus.pendingPasswordChange &&
+            location == '/change-password') {
+          final role = authService.currentUser?.role;
+          return role?.menuItems.first.route ?? '/';
+        }
+
+        if (location == '/login') {
+          return '/admin/users';
+        }
+      }
+
+      return null;
+    },
+
     routes: [
       GoRoute(
-        path: '/',
-        name: 'home',
-        builder: (context, state) => const HomePage(),
+        path: '/sales/bookings',
+        builder: (context, state) => const BookingsPage (),
       ),
 
       GoRoute(
@@ -121,14 +152,10 @@ class AppRouter {
         name: 'search-results',
         builder: (context, state) {
           final args = state.extra as SearchResultsArguments?;
-          
           if (args == null) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              context.go('/');
-            });
+            WidgetsBinding.instance.addPostFrameCallback((_) => context.go('/'));
             return const SizedBox.shrink();
           }
-
           return SearchResultsPage(
             fromCity: args.fromCity,
             toCity: args.toCity,
@@ -145,14 +172,10 @@ class AppRouter {
         name: 'baggage-selection',
         builder: (context, state) {
           final args = state.extra as BaggageSelectionArguments?;
-          
           if (args == null) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              context.go('/');
-            });
+            WidgetsBinding.instance.addPostFrameCallback((_) => context.go('/'));
             return const SizedBox.shrink();
           }
-
           return BaggageSelectionPage(
             fromCity: args.fromCity,
             toCity: args.toCity,
@@ -178,14 +201,10 @@ class AppRouter {
         name: 'payment',
         builder: (context, state) {
           final extra = state.extra as Map<String, dynamic>?;
-          
           if (extra == null) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              context.go('/');
-            });
+            WidgetsBinding.instance.addPostFrameCallback((_) => context.go('/'));
             return const SizedBox.shrink();
           }
-
           return PaymentPage(
             fromCity: extra['fromCity'] as String,
             toCity: extra['toCity'] as String,
@@ -212,6 +231,16 @@ class AppRouter {
       GoRoute(
         path: '/admin/users',
         builder: (context, state) => const AdminUsersPage(),
+      ),
+
+      GoRoute(
+        path: '/change-password',
+        builder: (context, state) => const ChangePasswordPage(),
+      ),
+
+      GoRoute(
+        path: '/login',
+        builder: (context, state) => const LoginPage(),
       ),
     ],
   );

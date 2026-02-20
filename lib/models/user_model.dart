@@ -35,7 +35,7 @@ class UserModel {
       'email': email,
       'firstName': firstName,
       'lastName': lastName,
-      'role': role.name,
+      'roleId': role.id,
       'status': status.name,
       'createdAt': createdAt.toIso8601String(),
       'lastLoginAt': lastLoginAt?.toIso8601String(),
@@ -51,10 +51,7 @@ class UserModel {
       email: json['email'] as String,
       firstName: json['firstName'] as String,
       lastName: json['lastName'] as String,
-      role: UserRole.values.firstWhere(
-        (r) => r.name == json['role'],
-        orElse: () => UserRole.salesAgent,
-      ),
+      role: UserRole.fromId(json['roleId'] as int),
       status: UserStatus.values.firstWhere(
         (s) => s.name == json['status'],
         orElse: () => UserStatus.pendingActivation,
@@ -70,71 +67,6 @@ class UserModel {
   }
 }
 
-enum UserRole {
-  salesAgent('Sales Agent'),
-  checkInAgent('Check-in Agent'),
-  flightOperator('Flight Operator'),
-  planningManager('Planning Manager'),
-  systemAdmin('System Admin');
-
-  final String displayName;
-  const UserRole(this.displayName);
-
-  List<MenuItem> get menuItems {
-    switch (this) {
-      case UserRole.salesAgent:
-        return [
-          MenuItem(icon: Icons.search, title: 'Search Flights', route: '/sales/search'),
-          MenuItem(icon: Icons.book_online, title: 'Create Booking', route: '/sales/bookings/create'),
-          MenuItem(icon: Icons.list_alt, title: 'My Bookings', route: '/sales/bookings'),
-          MenuItem(icon: Icons.payment, title: 'Payments', route: '/sales/payments'),
-          MenuItem(icon: Icons.luggage, title: 'Baggage Options', route: '/sales/baggage'),
-        ];
-      case UserRole.checkInAgent:
-        return [
-          MenuItem(icon: Icons.qr_code_scanner, title: 'Scan Booking', route: '/checkin/scan'),
-          MenuItem(icon: Icons.event_seat, title: 'Seat Assignment', route: '/checkin/seats'),
-          MenuItem(icon: Icons.luggage, title: 'Baggage Check', route: '/checkin/baggage'),
-          MenuItem(icon: Icons.receipt_long, title: 'Boarding Pass', route: '/checkin/boarding-pass'),
-          MenuItem(icon: Icons.list, title: 'Check-in History', route: '/checkin/history'),
-        ];
-      case UserRole.flightOperator:
-        return [
-          MenuItem(icon: Icons.flight, title: 'Flight Status', route: '/operator/flights'),
-          MenuItem(icon: Icons.flight_takeoff, title: 'Assign Aircraft', route: '/operator/aircraft'),
-          MenuItem(icon: Icons.schedule, title: 'Update Times', route: '/operator/times'),
-          MenuItem(icon: Icons.people, title: 'Passenger List', route: '/operator/passengers'),
-          MenuItem(icon: Icons.cloud, title: 'Weather', route: '/operator/weather'),
-        ];
-      case UserRole.planningManager:
-        return [
-          MenuItem(icon: Icons.add_circle, title: 'Create Flight', route: '/planning/flights/create'),
-          MenuItem(icon: Icons.flight, title: 'Manage Flights', route: '/planning/flights'),
-          MenuItem(icon: Icons.attach_money, title: 'Pricing', route: '/planning/pricing'),
-          MenuItem(icon: Icons.luggage, title: 'Baggage Tariffs', route: '/planning/baggage-tariffs'),
-          MenuItem(icon: Icons.event_seat, title: 'Seat Allocation', route: '/planning/seats'),
-          MenuItem(icon: Icons.analytics, title: 'Reports', route: '/planning/reports'),
-        ];
-      case UserRole.systemAdmin:
-        return [
-          MenuItem(icon: Icons.people, title: 'Users', route: '/admin/users'),
-          MenuItem(icon: Icons.security, title: 'Roles', route: '/admin/roles'),
-          MenuItem(icon: Icons.history, title: 'Audit Log', route: '/admin/audit'),
-          MenuItem(icon: Icons.settings, title: 'Settings', route: '/admin/settings'),
-        ];
-    }
-  }
-}
-
-enum UserStatus {
-  pendingActivation('Pending'),
-  active('Active'),
-  locked('Locked');
-
-  final String displayName;
-  const UserStatus(this.displayName);
-}
-
 class MenuItem {
   final IconData icon;
   final String title;
@@ -146,3 +78,75 @@ class MenuItem {
     required this.route,
   });
 }
+
+enum UserRole {
+  salesAgent,
+  checkInAgent,
+  flightOperator,
+  planningManager,
+  systemAdmin;
+
+  int get id {
+    switch (this) {
+      case UserRole.salesAgent: return 1;
+      case UserRole.checkInAgent: return 2;
+      case UserRole.flightOperator: return 3;
+      case UserRole.planningManager: return 4;
+      case UserRole.systemAdmin: return 5;
+    }
+  }
+
+  static UserRole fromId(int id) {
+    return UserRole.values.firstWhere(
+      (r) => r.id == id,
+      orElse: () => UserRole.salesAgent,
+    );
+  }
+
+  String get displayName {
+    switch (this) {
+      case UserRole.salesAgent: return 'Sales Agent';
+      case UserRole.checkInAgent: return 'Check-In Agent';
+      case UserRole.flightOperator: return 'Flight Operator';
+      case UserRole.planningManager: return 'Planning Manager';
+      case UserRole.systemAdmin: return 'System Admin';
+    }
+  }
+
+  List<MenuItem> get menuItems {
+    switch (this) {
+      case UserRole.salesAgent:
+        return [
+          const MenuItem(icon: Icons.book_outlined, title: 'Bookings', route: '/sales/bookings'),
+        ];
+      case UserRole.checkInAgent:
+        return [
+          const MenuItem(icon: Icons.how_to_reg_outlined, title: 'Check-In', route: '/checkin'),
+        ];
+      case UserRole.flightOperator:
+        return [
+          const MenuItem(icon: Icons.flight_outlined, title: 'Flights', route: '/operator/flights'),
+        ];
+      case UserRole.planningManager:
+        return [
+          const MenuItem(icon: Icons.calendar_month_outlined, title: 'Planning', route: '/planning'),
+        ];
+      case UserRole.systemAdmin:
+        return [
+          const MenuItem(icon: Icons.people_outline, title: 'Users', route: '/admin/users'),
+        ];
+    }
+  }
+}
+
+enum UserStatus {
+  pendingActivation('Pending'),
+  pendingPasswordChange('Password Setup'),
+  tempPasswordExpired('Expired'),
+  active('Active'),
+  locked('Locked');
+
+  final String displayName;
+  const UserStatus(this.displayName);
+}
+

@@ -36,8 +36,9 @@ class UserManagementHeader extends StatelessWidget {
         ),
         CustomButton(
           label: 'Create User',
-          icon: Icons.add,
+          icon: Icons.person_add_outlined,
           isIconAfterLabel: false,
+          horizontalPadding: 20,
           onPressed: onCreateUser,
         ),
       ],

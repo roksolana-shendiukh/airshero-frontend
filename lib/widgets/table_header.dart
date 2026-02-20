@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
-import '../widgets/admin/users_table_columns.dart';
 
 class TableHeader extends StatelessWidget {
   final bool selectAll;
   final VoidCallback onToggleSelectAll;
+  final Map<String, double> columnWidths;
+  final void Function(String key, double delta) onColumnResize;
 
   const TableHeader({
     super.key,
     required this.selectAll,
     required this.onToggleSelectAll,
+    required this.columnWidths,
+    required this.onColumnResize,
   });
 
   @override
@@ -30,33 +33,59 @@ class TableHeader extends StatelessWidget {
       child: Row(
         children: [
           SizedBox(
-            width: UsersTableColumns.checkbox.width,
+            width: columnWidths['checkbox'],
             child: Checkbox(value: selectAll, onChanged: (_) => onToggleSelectAll()),
           ),
-          _cell('Name',    UsersTableColumns.name.width),
-          _cell('Email',   UsersTableColumns.email.width),
-          _cell('Airline', UsersTableColumns.airline.width),
-          _cell('Role',    UsersTableColumns.role.width),
-          _cell('Status',  UsersTableColumns.status.width),
-          SizedBox(width: UsersTableColumns.actions.width),
+          _resizableCell(context, 'name', 'Name'),
+          _resizableCell(context, 'email', 'Email'),
+          _resizableCell(context, 'airline', 'Airline'),
+          _resizableCell(context, 'role', 'Role'),
+          _resizableCell(context, 'status', 'Status'),
+          SizedBox(width: columnWidths['actions']),
         ],
       ),
     );
   }
 
-  Widget _cell(String label, double width) {
+  Widget _resizableCell(BuildContext context, String key, String label) {
     return SizedBox(
-      width: width,
-      child: Padding(
-        padding: const EdgeInsets.only(right: 12),
-        child: Text(
-          label,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.5,
+      width: columnWidths[key],
+      child: Row(
+        children: [
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
+            ),
           ),
-        ),
+          GestureDetector(
+            onHorizontalDragUpdate: (details) => onColumnResize(key, details.delta.dx),
+            child: MouseRegion(
+              cursor: SystemMouseCursors.resizeColumn,
+              child: Container(
+                width: 8,
+                height: 48,
+                color: Colors.transparent,
+                child: Center(
+                  child: Container(
+                    width: 1,
+                    height: 24,
+                    color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

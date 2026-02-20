@@ -5,14 +5,14 @@ import '../widgets/responsive_layout.dart';
 import '../widgets/animation/animated_flight_progress.dart';
 import '../config/routes.dart';
 
-class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+class BookingsPage  extends StatefulWidget {
+  const BookingsPage ({super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  State<BookingsPage > createState() => _BookingsPageState ();
 }
 
-class _HomePageState extends State<HomePage> {
+class _BookingsPageState  extends State<BookingsPage > {
   bool _isCalendarOpen = false;
   bool _isSearching = false;
   final GlobalKey _formKey = GlobalKey();
