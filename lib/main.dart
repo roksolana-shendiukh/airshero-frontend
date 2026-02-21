@@ -12,11 +12,17 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  runApp(const AirSheroApp());
+
+  final authService = AuthService();
+  await authService.restoreSession();
+
+  runApp(AirSheroApp(authService: authService));
 }
 
 class AirSheroApp extends StatefulWidget {
-  const AirSheroApp({super.key});
+  final AuthService authService;
+
+  const AirSheroApp({super.key, required this.authService});
 
   @override
   State<AirSheroApp> createState() => _AirSheroAppState();
@@ -33,8 +39,8 @@ class _AirSheroAppState extends State<AirSheroApp> {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => AuthService(),
+    return ChangeNotifierProvider.value(
+      value: widget.authService,
       child: ThemeNotifier(
         isLightTheme: _isLightTheme,
         toggleTheme: _toggleTheme,

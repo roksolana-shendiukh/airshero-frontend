@@ -167,7 +167,6 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
     final isLargeScreen = MediaQuery.of(context).size.width >= 1024;
 
     return ResponsiveLayout(
-      // ── HEADER: фіксований вміст зверху ──────────────────────────────────
       header: Padding(
         padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
         child: Column(

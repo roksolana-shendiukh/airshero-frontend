@@ -9,6 +9,7 @@ import '../pages/login_page.dart';
 import '../pages/change_password_page.dart';
 import '../services/auth_service.dart';
 import '../models/user_model.dart';
+import '../models/class.dart';
 import 'package:provider/provider.dart';
 
 class SearchResultsArguments {
@@ -17,7 +18,7 @@ class SearchResultsArguments {
   final DateTime departDate;
   final DateTime? returnDate;
   final Map<String, int> passengers;
-  final String flightClass;
+  final Map<int, Class> passengerClasses;
 
   SearchResultsArguments({
     required this.fromCity,
@@ -25,7 +26,7 @@ class SearchResultsArguments {
     required this.departDate,
     this.returnDate,
     required this.passengers,
-    required this.flightClass,
+    required this.passengerClasses,
   });
 }
 
@@ -35,7 +36,7 @@ class BaggageSelectionArguments {
   final DateTime departDate;
   final DateTime? returnDate;
   final Map<String, int> passengers;
-  final String flightClass;
+  final Map<int, Class> passengerClasses;
   final String airlineName;
   final String airlineLogoUrl;
   final String fromAirportCode;
@@ -52,7 +53,7 @@ class BaggageSelectionArguments {
     required this.departDate,
     this.returnDate,
     required this.passengers,
-    required this.flightClass,
+    required this.passengerClasses,
     required this.airlineName,
     required this.airlineLogoUrl,
     required this.fromAirportCode,
@@ -71,7 +72,7 @@ class PaymentArguments {
   final DateTime departDate;
   final DateTime? returnDate;
   final Map<String, int> passengers;
-  final String flightClass;
+  final Map<int, Class> passengerClasses;
   final String airlineName;
   final String airlineLogoUrl;
   final String fromAirportCode;
@@ -91,7 +92,7 @@ class PaymentArguments {
     required this.departDate,
     this.returnDate,
     required this.passengers,
-    required this.flightClass,
+    required this.passengerClasses,
     required this.airlineName,
     required this.airlineLogoUrl,
     required this.fromAirportCode,
@@ -121,7 +122,6 @@ class AppRouter {
       if (isLoggedIn) {
         final status = authService.currentUser?.status;
 
-        // Якщо треба змінити пароль — дозволяємо тільки /change-password
         if (status == UserStatus.pendingPasswordChange &&
             location != '/change-password') {
           return '/change-password';
@@ -144,7 +144,7 @@ class AppRouter {
     routes: [
       GoRoute(
         path: '/sales/bookings',
-        builder: (context, state) => const BookingsPage (),
+        builder: (context, state) => const BookingsPage(),
       ),
 
       GoRoute(
@@ -162,7 +162,7 @@ class AppRouter {
             departDate: args.departDate,
             returnDate: args.returnDate,
             passengers: args.passengers,
-            flightClass: args.flightClass,
+            passengerClasses: args.passengerClasses,
           );
         },
       ),
@@ -182,7 +182,7 @@ class AppRouter {
             departDate: args.departDate,
             returnDate: args.returnDate,
             passengers: args.passengers,
-            flightClass: args.flightClass,
+            passengerClasses: args.passengerClasses,
             airlineName: args.airlineName,
             airlineLogoUrl: args.airlineLogoUrl,
             fromAirportCode: args.fromAirportCode,
@@ -211,7 +211,7 @@ class AppRouter {
             departDate: extra['departDate'] as DateTime,
             returnDate: extra['returnDate'] as DateTime?,
             passengers: extra['passengers'] as Map<String, int>,
-            flightClass: extra['flightClass'] as String,
+            passengerClasses: extra['passengerClasses'] as Map<int, Class>,
             airlineName: extra['airlineName'] as String,
             airlineLogoUrl: extra['airlineLogoUrl'] as String,
             fromAirportCode: extra['fromAirportCode'] as String,

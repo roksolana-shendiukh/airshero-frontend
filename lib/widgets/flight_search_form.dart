@@ -3,6 +3,8 @@ import 'custom_input_field.dart';
 import 'custom_date_range_picker.dart';
 import 'custom_button.dart';
 import 'passenger_selector.dart';
+import '../models/class.dart';
+
 
 typedef SearchCallback = void Function({
   required String fromLocation,
@@ -10,13 +12,13 @@ typedef SearchCallback = void Function({
   required DateTime departDate,
   DateTime? returnDate,
   required Map<String, int> passengers,
-  required String flightClass,
+  required Map<int, Class> passengerClasses,
 });
 
 class FlightSearchForm extends StatefulWidget {
   final bool isCalendarOpen;
   final ValueChanged<bool> onCalendarToggle;
-  final SearchCallback? onSearch; // ← ЗМІНЕНО: було VoidCallback?
+  final SearchCallback? onSearch;
 
   const FlightSearchForm({
     super.key,
@@ -35,7 +37,9 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
   DateTime? departDate;
   DateTime? returnDate;
   Map<String, int> passengers = {'adults': 1, 'children': 0, 'infants': 0};
-  String flightClass = 'Economy';
+
+  Map<int, Class> passengerClasses = {0: Class.economy};
+
   final ValueNotifier<bool> _isSelectingReturnNotifier = ValueNotifier<bool>(false);
   bool _isPassengerSelectorOpen = false;
   final GlobalKey _passengerFieldKey = GlobalKey();
@@ -55,12 +59,13 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
 
   String _formatPassengers() {
     final total = passengers.values.reduce((a, b) => a + b);
-    return '$total passenger${total > 1 ? 's' : ''}, $flightClass';
+    final classes = passengerClasses.values.toSet();
+    final classLabel = classes.length == 1 ? classes.first.label : 'Mixed class';
+    return '$total passenger${total > 1 ? 's' : ''}, $classLabel';
   }
 
   void _showPassengerSelector() {
     if (_passengerFieldKey.currentContext == null) return;
-
     final RenderBox? box = _passengerFieldKey.currentContext?.findRenderObject() as RenderBox?;
     if (box == null || !box.hasSize) return;
 
@@ -70,7 +75,7 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
       builder: (context) => _PassengerSelectorOverlay(
         fieldKey: _passengerFieldKey,
         passengers: passengers,
-        flightClass: flightClass,
+        passengerClasses: passengerClasses,
         onChanged: (data) {
           setState(() {
             passengers = {
@@ -78,7 +83,11 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
               'children': data['children'],
               'infants': data['infants'],
             };
-            flightClass = data['class'];
+            
+            final rawClasses = data['passengerClasses'] as Map<int, String>;
+            passengerClasses = rawClasses.map(
+              (index, label) => MapEntry(index, Class.fromLabel(label)),
+            );
           });
         },
         onClose: () {
@@ -90,18 +99,12 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
 
     Overlay.of(context).insert(_passengerOverlay!);
   }
-  
+
   void _showCalendar() {
-    if (_calendarOverlay != null) return; 
-
-    if (_departFieldKey.currentContext == null) {
-      return;
-    }
-
+    if (_calendarOverlay != null) return;
+    if (_departFieldKey.currentContext == null) return;
     final RenderBox? box = _departFieldKey.currentContext?.findRenderObject() as RenderBox?;
-    if (box == null || !box.hasSize) {
-      return;
-    }
+    if (box == null || !box.hasSize) return;
 
     _calendarOverlay = OverlayEntry(
       builder: (context) => _CalendarOverlay(
@@ -109,7 +112,7 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
         returnFieldKey: _returnFieldKey,
         departDate: departDate,
         returnDate: returnDate,
-        isSelectingReturnNotifier: _isSelectingReturnNotifier, 
+        isSelectingReturnNotifier: _isSelectingReturnNotifier,
         onDatesSelected: (depart, returnD) {
           setState(() {
             departDate = depart;
@@ -158,42 +161,26 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
   @override
   void didUpdateWidget(FlightSearchForm oldWidget) {
     super.didUpdateWidget(oldWidget);
-    
+
     if (widget.isCalendarOpen && !oldWidget.isCalendarOpen) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (widget.isCalendarOpen && mounted) {
-          _showCalendar();
-        }
+        if (widget.isCalendarOpen && mounted) _showCalendar();
       });
     }
-    
+
     if (!widget.isCalendarOpen && oldWidget.isCalendarOpen) {
       _hideCalendar();
     }
   }
 
   void _handleSearch() {
-    // if (fromLocation.isEmpty || toLocation.isEmpty) {
-    //   ScaffoldMessenger.of(context).showSnackBar(
-    //     const SnackBar(content: Text('Please select departure and arrival cities')),
-    //   );
-    //   return;
-    // }
-
-    // if (departDate == null) {
-    //   ScaffoldMessenger.of(context).showSnackBar(
-    //     const SnackBar(content: Text('Please select departure date')),
-    //   );
-    //   return;
-    // }
-
     widget.onSearch?.call(
       fromLocation: fromLocation,
       toLocation: toLocation,
-      departDate: departDate!,
+      departDate: departDate ?? DateTime.now(),
       returnDate: returnDate,
       passengers: passengers,
-      flightClass: flightClass,
+      passengerClasses: passengerClasses,
     );
   }
 
@@ -207,12 +194,8 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
           _lastConstraints = currentSize;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
-              if (_isPassengerSelectorOpen) {
-                _passengerOverlay?.markNeedsBuild();
-              }
-              if (widget.isCalendarOpen) {
-                _calendarOverlay?.markNeedsBuild();
-              }
+              if (_isPassengerSelectorOpen) _passengerOverlay?.markNeedsBuild();
+              if (widget.isCalendarOpen) _calendarOverlay?.markNeedsBuild();
             }
           });
         }
@@ -233,17 +216,15 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
                       label: 'From',
                       value: fromLocation,
                       icon: Icons.flight_takeoff,
-                      nearestAirports: [
+                      nearestAirports: const [
                         {'name': 'Boryspil', 'iata': 'KBP'},
                         {'name': 'Zhulyany', 'iata': 'IEV'},
                       ],
-                      previousSearches: [
+                      previousSearches: const [
                         {'from': 'Kyiv', 'to': 'Lviv'},
                         {'from': 'Kyiv', 'to': 'Paris'},
                       ],
-                      onChanged: (value) {
-                        setState(() => fromLocation = value);
-                      },
+                      onChanged: (value) => setState(() => fromLocation = value),
                       onTap: _closeAllOverlays,
                     ),
                   ),
@@ -257,10 +238,7 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
                           toLocation = temp;
                         });
                       },
-                      icon: Icon(
-                        Icons.swap_horiz,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
+                      icon: Icon(Icons.swap_horiz, color: Theme.of(context).colorScheme.primary),
                       tooltip: 'Swap locations',
                     ),
                   ),
@@ -269,16 +247,14 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
                       label: 'To',
                       value: toLocation,
                       icon: Icons.flight_land,
-                      nearestAirports: [
+                      nearestAirports: const [
                         {'name': 'Heathrow', 'iata': 'LHR'},
                         {'name': 'Gatwick', 'iata': 'LGW'},
                       ],
-                      previousSearches: [
+                      previousSearches: const [
                         {'from': 'Kyiv', 'to': 'London'},
                       ],
-                      onChanged: (value) {
-                        setState(() => toLocation = value);
-                      },
+                      onChanged: (value) => setState(() => toLocation = value),
                       onTap: _closeAllOverlays,
                     ),
                   ),
@@ -299,15 +275,13 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
                       isSelected: widget.isCalendarOpen && !_isSelectingReturn,
                       onTap: () {
                         _hidePassengerSelector();
-                        setState(() {
-                          _isPassengerSelectorOpen = false;
-                        });
+                        setState(() => _isPassengerSelectorOpen = false);
 
                         if (!widget.isCalendarOpen) {
                           _isSelectingReturn = false;
                           widget.onCalendarToggle(true);
                         } else if (_isSelectingReturn) {
-                          _isSelectingReturn = false; 
+                          _isSelectingReturn = false;
                         } else {
                           widget.onCalendarToggle(false);
                         }
@@ -325,9 +299,7 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
                       isSelected: widget.isCalendarOpen && _isSelectingReturn,
                       onTap: () {
                         _hidePassengerSelector();
-                        setState(() {
-                          _isPassengerSelectorOpen = false;
-                        });
+                        setState(() => _isPassengerSelectorOpen = false);
 
                         if (!widget.isCalendarOpen) {
                           _isSelectingReturn = true;
@@ -342,6 +314,7 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
                   ),
                 ],
               ),
+
               const SizedBox(height: 12),
 
               Row(
@@ -359,20 +332,13 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
                       onTap: () {
                         if (_isPassengerSelectorOpen) {
                           _hidePassengerSelector();
-                          setState(() {
-                            _isPassengerSelectorOpen = false;
-                          });
+                          setState(() => _isPassengerSelectorOpen = false);
                         } else {
-                          setState(() {
-                            _isPassengerSelectorOpen = true;
-                          });
+                          setState(() => _isPassengerSelectorOpen = true);
                           widget.onCalendarToggle(false);
                           _hideCalendar();
-                          
                           WidgetsBinding.instance.addPostFrameCallback((_) {
-                            if (_isPassengerSelectorOpen) {
-                              _showPassengerSelector();
-                            }
+                            if (_isPassengerSelectorOpen) _showPassengerSelector();
                           });
                         }
                       },
@@ -398,14 +364,14 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
 class _PassengerSelectorOverlay extends StatefulWidget {
   final GlobalKey fieldKey;
   final Map<String, int> passengers;
-  final String flightClass;
+  final Map<int, Class> passengerClasses;
   final ValueChanged<Map<String, dynamic>> onChanged;
   final VoidCallback onClose;
 
   const _PassengerSelectorOverlay({
     required this.fieldKey,
     required this.passengers,
-    required this.flightClass,
+    required this.passengerClasses,
     required this.onChanged,
     required this.onClose,
   });
@@ -417,17 +383,13 @@ class _PassengerSelectorOverlay extends StatefulWidget {
 class _PassengerSelectorOverlayState extends State<_PassengerSelectorOverlay> {
   Offset _getPosition() {
     final RenderBox? box = widget.fieldKey.currentContext?.findRenderObject() as RenderBox?;
-    if (box != null && box.hasSize) {
-      return box.localToGlobal(Offset.zero);
-    }
+    if (box != null && box.hasSize) return box.localToGlobal(Offset.zero);
     return Offset.zero;
   }
 
   double _getHeight() {
     final RenderBox? box = widget.fieldKey.currentContext?.findRenderObject() as RenderBox?;
-    if (box != null && box.hasSize) {
-      return box.size.height;
-    }
+    if (box != null && box.hasSize) return box.size.height;
     return 56.0;
   }
 
@@ -436,6 +398,11 @@ class _PassengerSelectorOverlayState extends State<_PassengerSelectorOverlay> {
     final position = _getPosition();
     final fieldHeight = _getHeight();
     final passengerTop = position.dy + fieldHeight + 8;
+
+    // Конвертуємо Map<int, FlightClass> → Map<int, String> для PassengerSelector
+    final classLabels = widget.passengerClasses.map(
+      (index, fc) => MapEntry(index, fc.label),
+    );
 
     return Stack(
       children: [
@@ -450,7 +417,6 @@ class _PassengerSelectorOverlayState extends State<_PassengerSelectorOverlay> {
             child: Container(color: Colors.transparent),
           ),
         ),
-        
         Positioned(
           left: position.dx,
           top: passengerTop,
@@ -461,7 +427,7 @@ class _PassengerSelectorOverlayState extends State<_PassengerSelectorOverlay> {
               borderRadius: BorderRadius.circular(8),
               child: PassengerSelector(
                 initialPassengers: widget.passengers,
-                initialClass: widget.flightClass,
+                initialPassengerClasses: classLabels,
                 onChanged: widget.onChanged,
                 onClose: widget.onClose,
               ),
@@ -473,12 +439,13 @@ class _PassengerSelectorOverlayState extends State<_PassengerSelectorOverlay> {
   }
 }
 
+// ── _CalendarOverlay ──────────────────────────────────────────────────────────
 class _CalendarOverlay extends StatefulWidget {
   final GlobalKey departFieldKey;
   final GlobalKey returnFieldKey;
   final DateTime? departDate;
   final DateTime? returnDate;
-  final ValueNotifier<bool> isSelectingReturnNotifier; 
+  final ValueNotifier<bool> isSelectingReturnNotifier;
   final Function(DateTime?, DateTime?) onDatesSelected;
   final VoidCallback onClose;
 
@@ -499,25 +466,19 @@ class _CalendarOverlay extends StatefulWidget {
 class _CalendarOverlayState extends State<_CalendarOverlay> {
   Offset _getPosition() {
     final RenderBox? box = widget.departFieldKey.currentContext?.findRenderObject() as RenderBox?;
-    if (box != null && box.hasSize) {
-      return box.localToGlobal(Offset.zero);
-    }
+    if (box != null && box.hasSize) return box.localToGlobal(Offset.zero);
     return Offset.zero;
   }
 
   double _getHeight() {
     final RenderBox? box = widget.departFieldKey.currentContext?.findRenderObject() as RenderBox?;
-    if (box != null && box.hasSize) {
-      return box.size.height;
-    }
+    if (box != null && box.hasSize) return box.size.height;
     return 56.0;
   }
 
   double _getWidth() {
     final RenderBox? box = widget.departFieldKey.currentContext?.findRenderObject() as RenderBox?;
-    if (box != null && box.hasSize) {
-      return box.size.width;
-    }
+    if (box != null && box.hasSize) return box.size.width;
     return 300.0;
   }
 
@@ -526,8 +487,7 @@ class _CalendarOverlayState extends State<_CalendarOverlay> {
     final position = _getPosition();
     final fieldHeight = _getHeight();
     final fieldWidth = _getWidth();
-
-    final double calendarTop = position.dy + fieldHeight + 8;
+    final calendarTop = position.dy + fieldHeight + 8;
 
     return Stack(
       children: [
@@ -542,7 +502,6 @@ class _CalendarOverlayState extends State<_CalendarOverlay> {
             child: Container(color: Colors.transparent),
           ),
         ),
-
         Positioned(
           left: position.dx,
           top: calendarTop,

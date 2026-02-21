@@ -385,7 +385,6 @@ class _PassengerFormCardState extends State<PassengerFormCard> {
               ],
             ),
 
-            // SAVED PASSENGERS LIST
             if (_showSavedPassengers && widget.savedPassengers.isNotEmpty) ...[
               const SizedBox(height: 16),
               Container(
@@ -448,7 +447,6 @@ class _PassengerFormCardState extends State<PassengerFormCard> {
 
             const SizedBox(height: 20),
 
-            // FIRST NAME & LAST NAME
             Row(
               children: [
                 Expanded(
@@ -477,7 +475,6 @@ class _PassengerFormCardState extends State<PassengerFormCard> {
 
             const SizedBox(height: 16),
 
-            // SEX & DATE OF BIRTH
             Row(
               children: [
                 Expanded(
@@ -518,7 +515,6 @@ class _PassengerFormCardState extends State<PassengerFormCard> {
 
             const SizedBox(height: 16),
 
-            // CITIZENSHIP
             CustomSelectField(
               label: 'Citizenship',
               icon: Icons.flag,
@@ -534,7 +530,6 @@ class _PassengerFormCardState extends State<PassengerFormCard> {
 
             const SizedBox(height: 16),
 
-            // DOCUMENT TYPE & NUMBER
             Row(
               children: [
                 Expanded(
@@ -567,7 +562,6 @@ class _PassengerFormCardState extends State<PassengerFormCard> {
 
             const SizedBox(height: 16),
 
-            // DOCUMENT EXPIRE
             CompositedTransformTarget(
               link: _documentExpireLayerLink,
               child: CustomInputField(

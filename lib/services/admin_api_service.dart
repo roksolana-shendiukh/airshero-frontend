@@ -80,11 +80,27 @@ class AdminApiService {
     }
   }
 
-  Future<void> setRole(String uid, String role) async {
+  Future<void> changePassword(String password) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/change-password'),
+      headers: await _headers(),
+      body: jsonEncode({'password': password}),
+    );
+    if (response.statusCode != 200) {
+      final error = jsonDecode(response.body);
+      final detail = error['detail'];
+      if (detail is List) {
+        throw ApiValidationException(_parsePydanticErrors(detail));
+      }
+      throw Exception(detail ?? 'Failed to change password');
+    }
+  }
+
+  Future<void> setRole(String uid, int roleId) async {
     final response = await http.patch(
       Uri.parse('$_baseUrl/admin/users/$uid/role'),
       headers: await _headers(),
-      body: jsonEncode({'role': role}),
+      body: jsonEncode({'roleId': roleId}),
     );
     if (response.statusCode != 200) {
       throw Exception('Failed to set role: ${response.statusCode}');

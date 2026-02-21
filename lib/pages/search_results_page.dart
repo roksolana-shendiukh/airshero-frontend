@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../widgets/responsive_layout.dart';
 import '../widgets/flight_route_card.dart';
 import '../widgets/booking_progress_header.dart';
+import '../models/class.dart';
 import '../config/routes.dart';
 
 class SearchResultsPage extends StatefulWidget {
@@ -11,7 +12,7 @@ class SearchResultsPage extends StatefulWidget {
   final DateTime departDate;
   final DateTime? returnDate;
   final Map<String, int> passengers;
-  final String flightClass;
+  final Map<int, Class> passengerClasses;
 
   const SearchResultsPage({
     super.key,
@@ -20,7 +21,7 @@ class SearchResultsPage extends StatefulWidget {
     required this.departDate,
     this.returnDate,
     required this.passengers,
-    required this.flightClass,
+    required this.passengerClasses,
   });
 
   @override
@@ -28,6 +29,12 @@ class SearchResultsPage extends StatefulWidget {
 }
 
 class _SearchResultsPageState extends State<SearchResultsPage> {
+
+  String get _classLabel {
+    final classes = widget.passengerClasses.values.toSet();
+    return classes.length == 1 ? classes.first.label : 'Mixed class';
+  }
+
   @override
   Widget build(BuildContext context) {
     final isRoundTrip = widget.returnDate != null;
@@ -45,7 +52,7 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
         departDate: widget.departDate,
         returnDate: widget.returnDate,
         totalPassengers: totalPassengers,
-        flightClass: widget.flightClass,
+        flightClass: _classLabel,
         currentStep: 'search',
         onBack: () => context.go('/'),
       ),
@@ -53,14 +60,13 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
         children: [
           const SizedBox(height: 16),
 
-          // FLIGHT CARDS
           ...flights.map((flight) {
             return FlightRouteCard(
               airlineName: flight['airline'] as String,
               airlineLogoUrl: flight['logo'] as String,
-              flightClass: widget.flightClass,
-              fromAirportCode: 'KBP',  
-              toAirportCode: 'LHR',    
+              flightClass: _classLabel,
+              fromAirportCode: 'KBP',
+              toAirportCode: 'LHR',
               departureTime: flight['departTime'] as String,
               arrivalTime: flight['arriveTime'] as String,
               duration: flight['duration'] as String,
@@ -81,7 +87,7 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
                     departDate: widget.departDate,
                     returnDate: widget.returnDate,
                     passengers: widget.passengers,
-                    flightClass: widget.flightClass,
+                    passengerClasses: widget.passengerClasses,
                     airlineName: flight['airline'] as String,
                     airlineLogoUrl: flight['logo'] as String,
                     fromAirportCode: 'KBP',
@@ -90,8 +96,8 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
                     arrivalTime: flight['arriveTime'] as String,
                     duration: flight['duration'] as String,
                     basePrice: (flight['priceAdult'] as double) * adultsCount +
-                               (childrenCount > 0 ? (flight['priceChild'] as double) * childrenCount : 0) +
-                               (infantsCount > 0 ? (flight['priceInfant'] as double) * infantsCount : 0),
+                        (childrenCount > 0 ? (flight['priceChild'] as double) * childrenCount : 0) +
+                        (infantsCount > 0 ? (flight['priceInfant'] as double) * infantsCount : 0),
                     isRoundTrip: isRoundTrip,
                   ),
                 );

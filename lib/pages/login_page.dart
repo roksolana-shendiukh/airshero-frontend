@@ -24,7 +24,6 @@ class _LoginPageState extends State<LoginPage> {
     final success = await authService.login(_email, _password);
 
     if (success && mounted) {
-      // Редірект залежно від ролі
       final role = authService.currentUser?.role;
       switch (role) {
         case null:
@@ -74,7 +73,6 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 const SizedBox(height: 40),
 
-                // Email
                 CustomInputField(
                   label: 'Email',
                   value: _email,
@@ -84,7 +82,6 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 const SizedBox(height: 16),
 
-                // Password
                 CustomInputField(
                   label: 'Password',
                   value: _password,
@@ -93,7 +90,6 @@ class _LoginPageState extends State<LoginPage> {
                   onIconTap: () => setState(() => _obscurePassword = !_obscurePassword),
                 ),
                 const SizedBox(height: 8),
-                // Підказка що пароль прихований
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton.icon(
@@ -108,7 +104,6 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 const SizedBox(height: 8),
 
-                // Помилка
                 if (authService.errorMessage != null) ...[
                   Container(
                     padding: const EdgeInsets.all(12),
@@ -132,7 +127,6 @@ class _LoginPageState extends State<LoginPage> {
                   const SizedBox(height: 16),
                 ],
 
-                // Кнопка
                 authService.isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : CustomButton(

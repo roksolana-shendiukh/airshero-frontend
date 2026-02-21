@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../services/auth_service.dart';
+import '../services/admin_api_service.dart';
 import '../widgets/custom_input_field.dart';
 import '../widgets/custom_button.dart';
 
@@ -17,33 +18,43 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
   String _confirmPassword = '';
   bool _obscureNew = true;
   bool _obscureConfirm = true;
+  bool _isLoading = false;
   String? _errorMessage;
 
   Future<void> _submit() async {
-    setState(() => _errorMessage = null);
+  setState(() => _errorMessage = null);
 
-    if (_newPassword.length < 8) {
-      setState(() => _errorMessage = 'Password must be at least 8 characters');
-      return;
-    }
-    if (_newPassword != _confirmPassword) {
-      setState(() => _errorMessage = 'Passwords do not match');
-      return;
-    }
-
-    final authService = context.read<AuthService>();
-    final success = await authService.changePassword(_newPassword);
-
-    if (!mounted) return;
-
-    if (success) {
-      final role = authService.currentUser?.role;
-      context.go(role?.menuItems.first.route ?? '/');
-    } else {
-      setState(() => _errorMessage = authService.errorMessage);
-    }
+  if (_newPassword.length < 8) {
+    setState(() => _errorMessage = 'Password must be at least 8 characters');
+    return;
+  }
+  if (_newPassword != _confirmPassword) {
+    setState(() => _errorMessage = 'Passwords do not match');
+    return;
   }
 
+  final authService = context.read<AuthService>();
+
+  try {
+    setState(() => _isLoading = true);
+    final adminApi = AdminApiService(authService);
+    
+    final email = authService.currentUser?.email ?? '';
+    await adminApi.changePassword(_newPassword);
+    
+    await authService.login(email, _newPassword);
+
+    if (!mounted) return;
+    final role = authService.currentUser?.role;
+    context.go(role?.menuItems.first.route ?? '/');
+  } on ApiValidationException catch (e) {
+    setState(() => _errorMessage = e.fieldErrors.values.first);
+  } catch (e) {
+    setState(() => _errorMessage = e.toString().replaceFirst('Exception: ', ''));
+  } finally {
+    if (mounted) setState(() => _isLoading = false);
+  }
+}
   @override
   Widget build(BuildContext context) {
     final authService = context.watch<AuthService>();
@@ -117,13 +128,13 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                 const SizedBox(height: 24),
 
                 CustomInputField(
-  label: 'New Password',
-  value: _newPassword,
-  icon: _obscureNew ? Icons.visibility_off : Icons.visibility,
-  obscureText: _obscureNew,
-  onChanged: (v) => setState(() => _newPassword = v),
-  onIconTap: () => setState(() => _obscureNew = !_obscureNew),
-),
+                  label: 'New Password',
+                  value: _newPassword,
+                  icon: _obscureNew ? Icons.visibility_off : Icons.visibility,
+                  obscureText: _obscureNew,
+                  onChanged: (v) => setState(() => _newPassword = v),
+                  onIconTap: () => setState(() => _obscureNew = !_obscureNew),
+                ),
                 const SizedBox(height: 16),
 
                 CustomInputField(
@@ -134,7 +145,6 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                   onChanged: (v) => setState(() => _confirmPassword = v),
                   onIconTap: () => setState(() => _obscureConfirm = !_obscureConfirm),
                 ),
-
                 const SizedBox(height: 8),
 
                 if (_errorMessage != null) ...[
@@ -161,7 +171,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
                 ],
                 const SizedBox(height: 24),
 
-                authService.isLoading
+                _isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : CustomButton(
                         label: 'Set Password',

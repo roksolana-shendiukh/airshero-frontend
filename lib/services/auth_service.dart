@@ -66,54 +66,34 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  Future<bool> changePassword(String newPassword) async {
-    _isLoading = true;
-    _errorMessage = null;
+  Future<void> refreshSession() async {
+    final firebaseUser = _firebaseAuth.currentUser;
+    if (firebaseUser == null) return;
+
+    await Future.delayed(const Duration(milliseconds: 500));
+    _idToken = await firebaseUser.getIdToken(true);
+    final idTokenResult = await firebaseUser.getIdTokenResult(true);
+    final claims = idTokenResult.claims ?? {};
+
+    _currentUser = UserModel(
+      id: firebaseUser.uid,
+      email: firebaseUser.email ?? '',
+      firstName: claims['firstName'] ?? '',
+      lastName: claims['lastName'] ?? '',
+      role: _parseRole(claims['role']),
+      status: _parseStatus(claims['status']),
+      createdAt: DateTime.now(),
+    );
+
     notifyListeners();
-
-    try {
-      final firebaseUser = _firebaseAuth.currentUser;
-      if (firebaseUser == null) throw Exception('Not authenticated');
-
-      await firebaseUser.updatePassword(newPassword);
-
-      // Оновлюємо токен щоб отримати свіжі claims
-      _idToken = await firebaseUser.getIdToken(true);
-      final idTokenResult = await firebaseUser.getIdTokenResult(true);
-      final claims = idTokenResult.claims ?? {};
-
-      _currentUser = UserModel(
-        id: firebaseUser.uid,
-        email: firebaseUser.email ?? '',
-        firstName: claims['firstName'] ?? '',
-        lastName: claims['lastName'] ?? '',
-        role: _parseRole(claims['role']),
-        status: UserStatus.pendingActivation,
-        createdAt: DateTime.now(),
-      );
-
-      notifyListeners();
-      return true;
-    } on FirebaseAuthException catch (e) {
-      _errorMessage = _parseFirebaseError(e.code);
-      notifyListeners();
-      return false;
-    } catch (e) {
-      _errorMessage = e.toString();
-      notifyListeners();
-      return false;
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
   }
 
   Future<String?> getToken() async {
-    final user = _firebaseAuth.currentUser;
-    if (user == null) return null;
-    _idToken = await user.getIdToken();
-    return _idToken;
-  }
+  final user = _firebaseAuth.currentUser;
+  if (user == null) return null;
+  _idToken = await user.getIdToken();
+  return _idToken;
+}
 
   Future<void> logout() async {
     await _firebaseAuth.signOut();
@@ -122,6 +102,30 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> restoreSession() async {
+    final firebaseUser = _firebaseAuth.currentUser;
+    if (firebaseUser == null) return;
+
+    try {
+      _idToken = await firebaseUser.getIdToken();
+      final idTokenResult = await firebaseUser.getIdTokenResult();
+      final claims = idTokenResult.claims ?? {};
+
+      _currentUser = UserModel(
+        id: firebaseUser.uid,
+        email: firebaseUser.email ?? '',
+        firstName: claims['firstName'] ?? '',
+        lastName: claims['lastName'] ?? '',
+        role: _parseRole(claims['role']),
+        status: _parseStatus(claims['status']),
+        createdAt: DateTime.now(),
+      );
+    } catch (_) {
+      _currentUser = null;
+    }
+
+    notifyListeners();
+  }
   UserRole _parseRole(dynamic role) {
     switch (role) {
       case 'salesAgent': return UserRole.salesAgent;
