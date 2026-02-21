@@ -37,7 +37,6 @@ class PassengerDetailsPage extends StatefulWidget {
 class _PassengerDetailsPageState extends State<PassengerDetailsPage> {
   final Map<int, Map<String, dynamic>> _passengerData = {};
 
-  // ← ТУТ MOCK ФУНКЦІЯ
   List<PassengerModel> _getMockSavedPassengers() {
     return [
       PassengerModel(
@@ -114,7 +113,6 @@ class _PassengerDetailsPageState extends State<PassengerDetailsPage> {
         children: [
           const SizedBox(height: 16),
 
-          // TITLE
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Text(
