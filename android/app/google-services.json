@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1042769401900",
+    "project_id": "airshero-b81e4",
+    "storage_bucket": "airshero-b81e4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1042769401900:android:c4ad56c7b8cbe73fc35989",
+        "android_client_info": {
+          "package_name": "com.example.airshero_f"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC3C6Ei0NEh1QD3OlZnNl0xuepvkaWZjaU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

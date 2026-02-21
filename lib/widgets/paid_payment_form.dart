@@ -85,7 +85,6 @@ class PaidPaymentForm extends StatelessWidget {
           
           const SizedBox(height: 16),
           
-          // Payment Method
           Text(
             'Payment Method *',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -94,7 +93,6 @@ class PaidPaymentForm extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           DropdownButtonFormField<int>(
-            value: selectedPaymentMethod,
             decoration: InputDecoration(
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),

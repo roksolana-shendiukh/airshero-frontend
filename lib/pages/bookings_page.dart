@@ -3,16 +3,17 @@ import 'package:go_router/go_router.dart';
 import '../widgets/flight_search_form.dart';
 import '../widgets/responsive_layout.dart';
 import '../widgets/animation/animated_flight_progress.dart';
+import '../models/class.dart';
 import '../config/routes.dart';
 
-class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+class BookingsPage extends StatefulWidget {
+  const BookingsPage({super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  State<BookingsPage> createState() => _BookingsPageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _BookingsPageState extends State<BookingsPage> {
   bool _isCalendarOpen = false;
   bool _isSearching = false;
   final GlobalKey _formKey = GlobalKey();
@@ -23,7 +24,7 @@ class _HomePageState extends State<HomePage> {
     required DateTime departDate,
     DateTime? returnDate,
     required Map<String, int> passengers,
-    required String flightClass,
+    required Map<int, Class> passengerClasses,
   }) async {
     if (_isCalendarOpen) {
       setState(() => _isCalendarOpen = false);
@@ -32,13 +33,11 @@ class _HomePageState extends State<HomePage> {
     setState(() => _isSearching = true);
 
     try {
-      // Симулюємо API запит
       await Future.delayed(const Duration(seconds: 3));
 
       if (mounted) {
         setState(() => _isSearching = false);
 
-        // Навігація на результати
         context.push(
           '/search-results',
           extra: SearchResultsArguments(
@@ -47,14 +46,13 @@ class _HomePageState extends State<HomePage> {
             departDate: departDate,
             returnDate: returnDate,
             passengers: passengers,
-            flightClass: flightClass,
+            passengerClasses: passengerClasses,
           ),
         );
       }
     } catch (error) {
       if (mounted) {
         setState(() => _isSearching = false);
-
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Search failed: $error')),
         );
@@ -76,13 +74,10 @@ class _HomePageState extends State<HomePage> {
             final formPosition = formBox.localToGlobal(Offset.zero);
             final formSize = formBox.size;
 
-            final clickX = event.position.dx;
-            final clickY = event.position.dy;
-
-            final isInsideForm = clickX >= formPosition.dx &&
-                clickX <= formPosition.dx + formSize.width &&
-                clickY >= formPosition.dy &&
-                clickY <= formPosition.dy + formSize.height + 500;
+            final isInsideForm = event.position.dx >= formPosition.dx &&
+                event.position.dx <= formPosition.dx + formSize.width &&
+                event.position.dy >= formPosition.dy &&
+                event.position.dy <= formPosition.dy + formSize.height + 500;
 
             if (!isInsideForm) {
               setState(() => _isCalendarOpen = false);
@@ -104,7 +99,7 @@ class _HomePageState extends State<HomePage> {
                   required DateTime departDate,
                   DateTime? returnDate,
                   required Map<String, int> passengers,
-                  required String flightClass,
+                  required Map<int, Class> passengerClasses,
                 }) {
                   _handleSearch(
                     fromLocation: fromLocation,
@@ -112,7 +107,7 @@ class _HomePageState extends State<HomePage> {
                     departDate: departDate,
                     returnDate: returnDate,
                     passengers: passengers,
-                    flightClass: flightClass,
+                    passengerClasses: passengerClasses,
                   );
                 },
               ),
@@ -161,10 +156,7 @@ class _HomePageState extends State<HomePage> {
                     children: [
                       Text(
                         'Searching for flights...',
-                        style: Theme.of(context)
-                            .textTheme
-                            .headlineSmall
-                            ?.copyWith(
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                               color: Theme.of(context).colorScheme.primary,
                               fontWeight: FontWeight.bold,
                             ),
@@ -172,12 +164,9 @@ class _HomePageState extends State<HomePage> {
                       const SizedBox(height: 16),
                       Text(
                         'Finding the best deals for you',
-                        style:
-                            Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurfaceVariant,
-                                ),
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
                       ),
                     ],
                   ),

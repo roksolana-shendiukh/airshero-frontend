@@ -6,6 +6,7 @@ import '../widgets/passenger_form_card.dart';
 import '../widgets/custom_button.dart';
 import '../models/baggage_models.dart';
 import '../models/passenger_model.dart';
+import '../models/class.dart';
 import '../widgets/booking_progress_header.dart';
 import '../widgets/price_summary_card.dart';
 
@@ -15,8 +16,7 @@ class BaggageSelectionPage extends StatefulWidget {
   final DateTime departDate;
   final DateTime? returnDate;
   final Map<String, int> passengers;
-  final String flightClass;
-  
+  final Map<int, Class> passengerClasses;
   final String airlineName;
   final String airlineLogoUrl;
   final String fromAirportCode;
@@ -34,7 +34,7 @@ class BaggageSelectionPage extends StatefulWidget {
     required this.departDate,
     this.returnDate,
     required this.passengers,
-    required this.flightClass,
+    required this.passengerClasses,
     required this.airlineName,
     required this.airlineLogoUrl,
     required this.fromAirportCode,
@@ -53,9 +53,14 @@ class BaggageSelectionPage extends StatefulWidget {
 class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
   final Map<int, Map<int, int>> _passengerBaggageSelections = {};
   final Map<int, Map<String, dynamic>> _passengerData = {};
-  
+
   int _currentPassengerIndex = 0;
   bool _hasVisitedPayment = false;
+
+  String get _classLabel {
+    final classes = widget.passengerClasses.values.toSet();
+    return classes.length == 1 ? classes.first.label : 'Mixed class';
+  }
 
   @override
   void initState() {
@@ -70,78 +75,33 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
   List<BaggagePricingInFlight> _getMockBaggageOptions() {
     return [
       BaggagePricingInFlight(
-        id: 1,
-        baggagePricingRuleId: 3,
-        flightId: 1,
-        flightClassId: 1,
+        id: 1, baggagePricingRuleId: 3, flightId: 1, flightClassId: 1,
         price: widget.isRoundTrip ? 100.00 : 50.00,
-        rule: const BaggagePricingRule(
-          id: 3,
-          baggageTypeId: 1,
-          dimension: '158x75x70',
-          maxWeight: 23.00,
-          overweightFeePerKg: 250.00,
-        ),
+        rule: const BaggagePricingRule(id: 3, baggageTypeId: 1, dimension: '158x75x70', maxWeight: 23.00, overweightFeePerKg: 250.00),
         type: const BaggageType(id: 1, name: 'Checked baggage'),
       ),
       BaggagePricingInFlight(
-        id: 2,
-        baggagePricingRuleId: 5,
-        flightId: 1,
-        flightClassId: 1,
+        id: 2, baggagePricingRuleId: 5, flightId: 1, flightClassId: 1,
         price: widget.isRoundTrip ? 300.00 : 150.00,
-        rule: const BaggagePricingRule(
-          id: 5,
-          baggageTypeId: 2,
-          dimension: '200x80x60',
-          maxWeight: 50.00,
-          overweightFeePerKg: 400.00,
-        ),
+        rule: const BaggagePricingRule(id: 5, baggageTypeId: 2, dimension: '200x80x60', maxWeight: 50.00, overweightFeePerKg: 400.00),
         type: const BaggageType(id: 2, name: 'Oversized baggage'),
       ),
       BaggagePricingInFlight(
-        id: 3,
-        baggagePricingRuleId: 7,
-        flightId: 1,
-        flightClassId: 1,
+        id: 3, baggagePricingRuleId: 7, flightId: 1, flightClassId: 1,
         price: widget.isRoundTrip ? 160.00 : 80.00,
-        rule: const BaggagePricingRule(
-          id: 7,
-          baggageTypeId: 3,
-          dimension: '70x50x40',
-          maxWeight: 25.00,
-          overweightFeePerKg: 300.00,
-        ),
+        rule: const BaggagePricingRule(id: 7, baggageTypeId: 3, dimension: '70x50x40', maxWeight: 25.00, overweightFeePerKg: 300.00),
         type: const BaggageType(id: 3, name: 'Fragile baggage'),
       ),
       BaggagePricingInFlight(
-        id: 4,
-        baggagePricingRuleId: 9,
-        flightId: 1,
-        flightClassId: 1,
+        id: 4, baggagePricingRuleId: 9, flightId: 1, flightClassId: 1,
         price: widget.isRoundTrip ? 150.00 : 75.00,
-        rule: const BaggagePricingRule(
-          id: 9,
-          baggageTypeId: 4,
-          dimension: '120x80x40',
-          maxWeight: 25.00,
-          overweightFeePerKg: 300.00,
-        ),
+        rule: const BaggagePricingRule(id: 9, baggageTypeId: 4, dimension: '120x80x40', maxWeight: 25.00, overweightFeePerKg: 300.00),
         type: const BaggageType(id: 4, name: 'Sports equipment'),
       ),
       BaggagePricingInFlight(
-        id: 5,
-        baggagePricingRuleId: 14,
-        flightId: 1,
-        flightClassId: 1,
+        id: 5, baggagePricingRuleId: 14, flightId: 1, flightClassId: 1,
         price: widget.isRoundTrip ? 200.00 : 100.00,
-        rule: const BaggagePricingRule(
-          id: 14,
-          baggageTypeId: 5,
-          dimension: '100x70x50',
-          maxWeight: 30.00,
-          overweightFeePerKg: 350.00,
-        ),
+        rule: const BaggagePricingRule(id: 14, baggageTypeId: 5, dimension: '100x70x50', maxWeight: 30.00, overweightFeePerKg: 350.00),
         type: const BaggageType(id: 5, name: 'Special baggage'),
       ),
     ];
@@ -149,62 +109,31 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
 
   List<PassengerModel> _getMockSavedPassengers() {
     return [
-      PassengerModel(
-        id: '1',
-        firstName: 'John',
-        lastName: 'Doe',
-        sex: 'Male',
-        dateOfBirth: DateTime(1990, 5, 15),
-        citizenship: 'Ukraine',
-        documentType: 'Passport',
-        documentNumber: 'AB123456',
-        documentExpire: DateTime(2028, 12, 31),
-      ),
-      PassengerModel(
-        id: '2',
-        firstName: 'Jane',
-        lastName: 'Smith',
-        sex: 'Female',
-        dateOfBirth: DateTime(1995, 8, 22),
-        citizenship: 'Poland',
-        documentType: 'ID Card',
-        documentNumber: 'CD789012',
-        documentExpire: DateTime(2027, 6, 30),
-      ),
+      PassengerModel(id: '1', firstName: 'John', lastName: 'Doe', sex: 'Male', dateOfBirth: DateTime(1990, 5, 15), citizenship: 'Ukraine', documentType: 'Passport', documentNumber: 'AB123456', documentExpire: DateTime(2028, 12, 31)),
+      PassengerModel(id: '2', firstName: 'Jane', lastName: 'Smith', sex: 'Female', dateOfBirth: DateTime(1995, 8, 22), citizenship: 'Poland', documentType: 'ID Card', documentNumber: 'CD789012', documentExpire: DateTime(2027, 6, 30)),
     ];
   }
 
   String _getPassengerLabel(int index) {
     final adultsCount = widget.passengers['adults'] ?? 0;
     final childrenCount = widget.passengers['children'] ?? 0;
-    
-    if (index < adultsCount) {
-      return 'Adult ${index + 1}';
-    } else if (index < adultsCount + childrenCount) {
-      return 'Child ${index - adultsCount + 1}';
-    } else {
-      return 'Infant ${index - adultsCount - childrenCount + 1}';
-    }
+    if (index < adultsCount) return 'Adult ${index + 1}';
+    if (index < adultsCount + childrenCount) return 'Child ${index - adultsCount + 1}';
+    return 'Infant ${index - adultsCount - childrenCount + 1}';
   }
 
   String _getPassengerType(int index) {
     final adultsCount = widget.passengers['adults'] ?? 0;
     final childrenCount = widget.passengers['children'] ?? 0;
-    
-    if (index < adultsCount) {
-      return 'Adult';
-    } else if (index < adultsCount + childrenCount) {
-      return 'Child';
-    } else {
-      return 'Infant';
-    }
+    if (index < adultsCount) return 'Adult';
+    if (index < adultsCount + childrenCount) return 'Child';
+    return 'Infant';
   }
 
   int get _totalPassengers => widget.passengers.values.reduce((a, b) => a + b);
 
-  int _getTotalBaggageForPassenger(int passengerIndex) {
-    return _passengerBaggageSelections[passengerIndex]?.values.fold<int>(0, (sum, qty) => sum + qty) ?? 0;
-  }
+  int _getTotalBaggageForPassenger(int passengerIndex) =>
+      _passengerBaggageSelections[passengerIndex]?.values.fold<int>(0, (sum, qty) => sum + qty) ?? 0;
 
   int get _totalBaggageCount {
     int total = 0;
@@ -217,7 +146,6 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
   double get _totalBaggagePrice {
     double total = 0;
     final options = _getMockBaggageOptions();
-    
     _passengerBaggageSelections.forEach((_, baggageMap) {
       baggageMap.forEach((baggageId, quantity) {
         final option = options.firstWhere((opt) => opt.id == baggageId);
@@ -232,7 +160,6 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
   bool _isFormValid() {
     for (int i = 0; i < _totalPassengers; i++) {
       final data = _passengerData[i];
-      
       if (data == null || data.isEmpty) return false;
       if (data['firstName'] == null || data['firstName'].toString().isEmpty) return false;
       if (data['lastName'] == null || data['lastName'].toString().isEmpty) return false;
@@ -240,56 +167,41 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
       if (data['documentNumber'] == null || data['documentNumber'].toString().isEmpty) return false;
       if (data['documentExpire'] == null) return false;
     }
-    
     return true;
   }
 
   String _getPassengerDisplayName(int index) {
     final data = _passengerData[index];
-    
-    // Якщо форма не заповнена - показуємо тип (Adult 1, Child 1, тощо)
-    if (data == null || data.isEmpty || 
-        data['firstName'] == null || data['firstName'].toString().isEmpty) {
+    if (data == null || data.isEmpty || data['firstName'] == null || data['firstName'].toString().isEmpty) {
       return _getPassengerLabel(index);
     }
-    
-    String firstName = data['firstName'].toString();
-    
-    // Перевіряємо чи є інші пасажири з таким же ім'ям
+    final firstName = data['firstName'].toString();
     bool hasDuplicate = false;
     for (int i = 0; i < _totalPassengers; i++) {
       if (i != index) {
         final otherData = _passengerData[i];
-        if (otherData != null && 
-            otherData['firstName'] != null && 
-            otherData['firstName'].toString().toLowerCase() == firstName.toLowerCase()) {
+        if (otherData != null && otherData['firstName']?.toString().toLowerCase() == firstName.toLowerCase()) {
           hasDuplicate = true;
           break;
         }
       }
     }
-    
-    // Якщо є дублікат імені - додаємо прізвище
     if (hasDuplicate && data['lastName'] != null && data['lastName'].toString().isNotEmpty) {
-      String lastName = data['lastName'].toString();
-      return '$firstName $lastName';
+      return '$firstName ${data['lastName']}';
     }
-    
     return firstName;
   }
 
   void _navigateToPayment() {
-    setState(() {
-      _hasVisitedPayment = true;
-    });
-    
+    setState(() => _hasVisitedPayment = true);
+
     context.push('/payment', extra: {
       'fromCity': widget.fromCity,
       'toCity': widget.toCity,
       'departDate': widget.departDate,
       'returnDate': widget.returnDate,
       'passengers': widget.passengers,
-      'flightClass': widget.flightClass,
+      'passengerClasses': widget.passengerClasses,
       'airlineName': widget.airlineName,
       'airlineLogoUrl': widget.airlineLogoUrl,
       'fromAirportCode': widget.fromAirportCode,
@@ -317,7 +229,7 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
         departDate: widget.departDate,
         returnDate: widget.returnDate,
         totalPassengers: _totalPassengers,
-        flightClass: widget.flightClass,
+        flightClass: _classLabel,
         currentStep: 'baggage',
         airlineName: widget.airlineName,
         baggageCount: _totalBaggageCount > 0 ? _totalBaggageCount : null,
@@ -327,11 +239,8 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
       body: Column(
         children: [
           const SizedBox(height: 16),
-
           _buildPassengerSelector(context),
-
           const SizedBox(height: 24),
-
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: PassengerFormCard(
@@ -339,47 +248,32 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
               passengerType: _getPassengerType(_currentPassengerIndex),
               savedPassengers: savedPassengers,
               initialData: _passengerData[_currentPassengerIndex],
-              onDataChanged: (data) {
-                setState(() {
-                  _passengerData[_currentPassengerIndex] = data;
-                });
-              },
+              onDataChanged: (data) => setState(() => _passengerData[_currentPassengerIndex] = data),
             ),
           ),
-
           const SizedBox(height: 24),
-
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
                 'Select baggage for ${_getPassengerLabel(_currentPassengerIndex)}',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
             ),
           ),
-
           const SizedBox(height: 8),
-
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
                 'Select one baggage type (up to 3 items)',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),
             ),
           ),
-
           const SizedBox(height: 16),
-
-          // BAGGAGE OPTIONS - GRID
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Wrap(
@@ -387,29 +281,21 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
               runSpacing: 12,
               children: baggageOptions.map((option) {
                 final currentQuantity = _passengerBaggageSelections[_currentPassengerIndex]?[option.id] ?? 0;
-                
                 return BaggageOptionCard(
                   option: option,
                   quantity: currentQuantity,
                   isDisabled: false,
                   onCardTap: () {
-                    // Якщо ця картка вже обрана - нічого не робимо
                     if (currentQuantity > 0) return;
-                    
                     setState(() {
-                      // Скидаємо всі інші опції для цього пасажира
                       _passengerBaggageSelections[_currentPassengerIndex]?.clear();
-                      
-                      // Встановлюємо цю опцію з кількістю 1
                       _passengerBaggageSelections[_currentPassengerIndex] ??= {};
                       _passengerBaggageSelections[_currentPassengerIndex]![option.id] = 1;
                     });
                   },
                   onIncrement: () {
                     if (currentQuantity > 0 && currentQuantity < 3) {
-                      setState(() {
-                        _passengerBaggageSelections[_currentPassengerIndex]![option.id] = currentQuantity + 1;
-                      });
+                      setState(() => _passengerBaggageSelections[_currentPassengerIndex]![option.id] = currentQuantity + 1);
                     }
                   },
                   onDecrement: () {
@@ -428,32 +314,22 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
               }).toList(),
             ),
           ),
-
           const SizedBox(height: 24),
-
-          // PRICE SUMMARY
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: _buildPriceSummary(context),
           ),
-
           const SizedBox(height: 24),
-
-          // PROCEED TO PAYMENT BUTTON
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Align(
               alignment: Alignment.centerRight,
               child: SizedBox(
                 width: 220,
-                child: CustomButton(
-                  label: 'Proceed to Payment',
-                  onPressed: _navigateToPayment,
-                ),
+                child: CustomButton(label: 'Proceed to Payment', onPressed: _navigateToPayment),
               ),
             ),
           ),
-
           const SizedBox(height: 48),
         ],
       ),
@@ -470,84 +346,48 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
         itemBuilder: (context, index) {
           final isSelected = index == _currentPassengerIndex;
           final baggageCount = _getTotalBaggageForPassenger(index);
-          final hasBaggage = baggageCount > 0;
-          final hasPassengerData = (_passengerData[index]?.isNotEmpty ?? false);
-          
+          final hasPassengerData = _passengerData[index]?.isNotEmpty ?? false;
           String passengerName = _getPassengerLabel(index);
-          if (hasPassengerData && 
-              _passengerData[index]!['firstName'] != null && 
-              _passengerData[index]!['firstName'].toString().isNotEmpty) {
+          if (hasPassengerData && _passengerData[index]!['firstName']?.toString().isNotEmpty == true) {
             passengerName = _passengerData[index]!['firstName'].toString();
           }
-          
+
           return Padding(
             padding: const EdgeInsets.only(right: 12),
             child: InkWell(
-              onTap: () {
-                setState(() {
-                  _currentPassengerIndex = index;
-                });
-              },
+              onTap: () => setState(() => _currentPassengerIndex = index),
               borderRadius: BorderRadius.circular(12),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 constraints: const BoxConstraints(maxHeight: 76),
                 decoration: BoxDecoration(
-                  color: isSelected
-                      ? Theme.of(context).colorScheme.primaryContainer
-                      : Theme.of(context).colorScheme.surfaceContainerHighest,
+                  color: isSelected ? Theme.of(context).colorScheme.primaryContainer : Theme.of(context).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isSelected
-                        ? Theme.of(context).colorScheme.primary
-                        : Colors.transparent,
-                    width: 2,
-                  ),
+                  border: Border.all(color: isSelected ? Theme.of(context).colorScheme.primary : Colors.transparent, width: 2),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      hasPassengerData ? Icons.person : Icons.person_outline,
-                      size: 20,
-                      color: isSelected
-                          ? Theme.of(context).colorScheme.onPrimaryContainer
-                          : Theme.of(context).colorScheme.onSurface,
-                    ),
+                    Icon(hasPassengerData ? Icons.person : Icons.person_outline, size: 20,
+                        color: isSelected ? Theme.of(context).colorScheme.onPrimaryContainer : Theme.of(context).colorScheme.onSurface),
                     const SizedBox(height: 2),
-                    Text(
-                      passengerName,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                        color: isSelected
-                            ? Theme.of(context).colorScheme.onPrimaryContainer
-                            : Theme.of(context).colorScheme.onSurface,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (hasBaggage) ...[
+                    Text(passengerName,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          color: isSelected ? Theme.of(context).colorScheme.onPrimaryContainer : Theme.of(context).colorScheme.onSurface,
+                        ),
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                    if (baggageCount > 0) ...[
                       const SizedBox(height: 2),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.luggage,
-                            size: 10,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                          const SizedBox(width: 2),
-                          Text(
-                            '$baggageCount',
+                      Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.luggage, size: 10, color: Theme.of(context).colorScheme.primary),
+                        const SizedBox(width: 2),
+                        Text('$baggageCount',
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              fontSize: 10,
-                              color: Theme.of(context).colorScheme.primary,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
+                              fontSize: 10, color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold,
+                            )),
+                      ]),
                     ],
                   ],
                 ),
@@ -561,37 +401,23 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
 
   Widget _buildPriceSummary(BuildContext context) {
     final baggageOptions = _getMockBaggageOptions();
-    
-    // Збираємо ціни по пасажирах
     List<PassengerPriceItem> passengerPrices = [];
-    
+
     for (int i = 0; i < _totalPassengers; i++) {
-      String passengerType = _getPassengerType(i);
-      
-      // Отримуємо ім'я пасажира з форми
-      String passengerLabel = _getPassengerDisplayName(i);
-      
-      double passengerFlightPrice = 0;
-      
-      // Визначаємо базову ціну рейсу для цього типу пасажира
-      if (passengerType == 'Adult') {
-        passengerFlightPrice = widget.basePrice / _totalPassengers;
-      } else if (passengerType == 'Child') {
-        passengerFlightPrice = widget.basePrice / _totalPassengers * 0.75;
-      } else {
-        passengerFlightPrice = widget.basePrice / _totalPassengers * 0.1;
-      }
-      
-      // Рахуємо ціну багажу для цього пасажира
+      final passengerType = _getPassengerType(i);
+      final passengerLabel = _getPassengerDisplayName(i);
+      double passengerFlightPrice = widget.basePrice / _totalPassengers;
+      if (passengerType == 'Child') passengerFlightPrice *= 0.75;
+      if (passengerType == 'Infant') passengerFlightPrice *= 0.1;
+
       double passengerBaggagePrice = 0;
       final baggageMap = _passengerBaggageSelections[i] ?? {};
       baggageMap.forEach((baggageId, quantity) {
         final option = baggageOptions.firstWhere((opt) => opt.id == baggageId);
         passengerBaggagePrice += option.price * quantity;
       });
-      
-      int baggageCount = baggageMap.values.fold<int>(0, (sum, qty) => sum + qty);
-      
+      final baggageCount = baggageMap.values.fold<int>(0, (sum, qty) => sum + qty);
+
       passengerPrices.add(PassengerPriceItem(
         passengerType: passengerLabel,
         count: 1,
@@ -601,7 +427,7 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
         baggageCount: baggageCount,
       ));
     }
-    
+
     return PriceSummaryCard(
       passengerPrices: passengerPrices,
       totalPrice: _grandTotal,

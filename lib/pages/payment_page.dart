@@ -6,6 +6,7 @@ import '../widgets/payment_status_selector.dart';
 import '../widgets/paid_payment_form.dart';
 import '../widgets/partially_paid_payment_form.dart';
 import '../widgets/custom_button.dart';
+import '../models/class.dart';
 
 class PaymentPage extends StatefulWidget {
   final String fromCity;
@@ -13,8 +14,7 @@ class PaymentPage extends StatefulWidget {
   final DateTime departDate;
   final DateTime? returnDate;
   final Map<String, int> passengers;
-  final String flightClass;
-  
+  final Map<int, Class> passengerClasses;
   final String airlineName;
   final String airlineLogoUrl;
   final String fromAirportCode;
@@ -24,7 +24,6 @@ class PaymentPage extends StatefulWidget {
   final String duration;
   final double basePrice;
   final bool isRoundTrip;
-  
   final Map<int, Map<int, int>> baggageSelections;
   final Map<int, Map<String, dynamic>> passengerData;
   final double totalPrice;
@@ -36,7 +35,7 @@ class PaymentPage extends StatefulWidget {
     required this.departDate,
     this.returnDate,
     required this.passengers,
-    required this.flightClass,
+    required this.passengerClasses,
     required this.airlineName,
     required this.airlineLogoUrl,
     required this.fromAirportCode,
@@ -70,6 +69,11 @@ class _PaymentPageState extends State<PaymentPage> {
     return total;
   }
 
+  String get _classLabel {
+    final classes = widget.passengerClasses.values.toSet();
+    return classes.length == 1 ? classes.first.label : 'Mixed class';
+  }
+
   final List<Map<String, dynamic>> _paymentMethods = [
     {'id': 1, 'name': 'Cash', 'icon': Icons.money},
     {'id': 2, 'name': 'Credit Card', 'icon': Icons.credit_card},
@@ -79,28 +83,20 @@ class _PaymentPageState extends State<PaymentPage> {
 
   bool _isFormValid() {
     if (_selectedPaymentMethod == null) return false;
-    
     if (_selectedPaymentStatus == 'partially_paid') {
       if (_depositAmount <= 0) return false;
       if (_depositAmount >= widget.totalPrice) return false;
     }
-    
     return true;
   }
 
   void _completeBooking() {
     if (!_isFormValid()) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill in all required fields'),
-          backgroundColor: Colors.red,
-        ),
+        const SnackBar(content: Text('Please fill in all required fields'), backgroundColor: Colors.red),
       );
       return;
     }
-
-    final paymentDateTime = DateTime.now();
-
     context.go('/');
   }
 
@@ -113,7 +109,7 @@ class _PaymentPageState extends State<PaymentPage> {
         departDate: widget.departDate,
         returnDate: widget.returnDate,
         totalPassengers: _totalPassengers,
-        flightClass: widget.flightClass,
+        flightClass: _classLabel,
         currentStep: 'payment',
         airlineName: widget.airlineName,
         baggageCount: _totalBaggageCount > 0 ? _totalBaggageCount : null,
@@ -124,22 +120,15 @@ class _PaymentPageState extends State<PaymentPage> {
         child: Column(
           children: [
             const SizedBox(height: 16),
-
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: PaymentStatusSelector(
                 selectedStatus: _selectedPaymentStatus,
-                onStatusChanged: (status) {
-                  setState(() {
-                    _selectedPaymentStatus = status;
-                  });
-                },
+                onStatusChanged: (status) => setState(() => _selectedPaymentStatus = status),
                 totalAmount: widget.totalPrice,
               ),
             ),
-
             const SizedBox(height: 24),
-
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: _selectedPaymentStatus == 'paid'
@@ -147,32 +136,18 @@ class _PaymentPageState extends State<PaymentPage> {
                       totalAmount: widget.totalPrice,
                       selectedPaymentMethod: _selectedPaymentMethod,
                       paymentMethods: _paymentMethods,
-                      onPaymentMethodChanged: (method) {
-                        setState(() {
-                          _selectedPaymentMethod = method;
-                        });
-                      },
+                      onPaymentMethodChanged: (method) => setState(() => _selectedPaymentMethod = method),
                     )
                   : PartiallyPaidPaymentForm(
                       totalAmount: widget.totalPrice,
                       depositAmount: _depositAmount,
-                      onDepositChanged: (amount) {
-                        setState(() {
-                          _depositAmount = amount;
-                        });
-                      },
+                      onDepositChanged: (amount) => setState(() => _depositAmount = amount),
                       selectedPaymentMethod: _selectedPaymentMethod,
                       paymentMethods: _paymentMethods,
-                      onPaymentMethodChanged: (method) {
-                        setState(() {
-                          _selectedPaymentMethod = method;
-                        });
-                      },
+                      onPaymentMethodChanged: (method) => setState(() => _selectedPaymentMethod = method),
                     ),
             ),
-
             const SizedBox(height: 24),
-
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Align(
@@ -186,7 +161,6 @@ class _PaymentPageState extends State<PaymentPage> {
                 ),
               ),
             ),
-
             const SizedBox(height: 48),
           ],
         ),

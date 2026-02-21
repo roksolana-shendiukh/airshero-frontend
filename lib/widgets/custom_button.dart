@@ -4,6 +4,7 @@ class CustomButton extends StatelessWidget {
   final String label;
   final VoidCallback? onPressed;
   final double verticalPadding;
+  final double horizontalPadding;
   final double borderRadius;
   final IconData? icon;
   final bool isIconAfterLabel;
@@ -13,6 +14,7 @@ class CustomButton extends StatelessWidget {
     required this.label,
     this.onPressed,
     this.verticalPadding = 20,
+    this.horizontalPadding = 16,
     this.borderRadius = 6,
     this.icon,
     this.isIconAfterLabel = true,
@@ -21,7 +23,7 @@ class CustomButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget buttonChild;
-    
+
     if (icon != null) {
       buttonChild = Row(
         mainAxisSize: MainAxisSize.min,
@@ -57,7 +59,10 @@ class CustomButton extends StatelessWidget {
     return ElevatedButton(
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
-        padding: EdgeInsets.symmetric(vertical: verticalPadding),
+        padding: EdgeInsets.symmetric(
+          vertical: verticalPadding,
+          horizontal: horizontalPadding,
+        ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(borderRadius),
         ),

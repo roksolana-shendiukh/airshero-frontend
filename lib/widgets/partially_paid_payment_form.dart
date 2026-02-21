@@ -198,7 +198,6 @@ class PartiallyPaidPaymentForm extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           DropdownButtonFormField<int>(
-            value: selectedPaymentMethod,
             decoration: InputDecoration(
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
