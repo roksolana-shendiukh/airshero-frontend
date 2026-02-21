@@ -16,7 +16,7 @@ typedef SearchCallback = void Function({
 class FlightSearchForm extends StatefulWidget {
   final bool isCalendarOpen;
   final ValueChanged<bool> onCalendarToggle;
-  final SearchCallback? onSearch; // ← ЗМІНЕНО: було VoidCallback?
+  final SearchCallback? onSearch; 
 
   const FlightSearchForm({
     super.key,
