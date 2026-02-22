@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart'; // Додано для debugPrint
 import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
 import '../models/city_model.dart';
@@ -39,36 +40,77 @@ class BookingApiService {
     required String fromCity,
     required String toCity,
     required DateTime departDate,
-    DateTime? returnDate,
-    required int adults,
-    int children = 0,
-    int infants = 0,
   }) async {
-    final params = {
-      'from': fromCity,
-      'to': toCity,
-      'departDate':
-          '${departDate.year}-${departDate.month.toString().padLeft(2, '0')}-${departDate.day.toString().padLeft(2, '0')}',
-      'adults': adults.toString(),
-      'children': children.toString(),
-      'infants': infants.toString(),
-      if (returnDate != null)
-        'returnDate':
-            '${returnDate.year}-${returnDate.month.toString().padLeft(2, '0')}-${returnDate.day.toString().padLeft(2, '0')}',
-    };
+    final String formattedDate =
+        "${departDate.year}-${departDate.month.toString().padLeft(2, '0')}-${departDate.day.toString().padLeft(2, '0')}";
 
-    final uri = Uri.parse('${AppConfig.baseUrl}/bookings/search')
-        .replace(queryParameters: params);
+    final uri = Uri.parse('${AppConfig.baseUrl}/flights/search').replace(
+      queryParameters: {
+        'from_city': fromCity,
+        'to_city': toCity,
+        'depart_date': formattedDate,
+      },
+    );
 
     final response = await http.get(uri, headers: await _headers());
 
     if (response.statusCode == 200) {
-      final Map<String, dynamic> data = jsonDecode(response.body);
-      final List<dynamic> flights = data['flights'];
-      return flights
-          .map((e) => FlightModel.fromJson(e as Map<String, dynamic>))
-          .toList();
+      final List<dynamic> data = json.decode(response.body);
+      return data.map((json) => FlightModel.fromJson(json as Map<String, dynamic>)).toList();
+    } 
+    
+    if (response.statusCode == 404) {
+      return [];
     }
-    throw Exception('Failed to search flights: ${response.statusCode}');
+
+    throw Exception('Server error: ${response.statusCode}');
   }
-}
+
+  Future<List<CityModel>> getAlternativeDestinations(int fromCityId) async {
+    final uri = Uri.parse('${AppConfig.baseUrl}/flights/alternatives/$fromCityId');
+    final response = await http.get(uri, headers: await _headers());
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.map((e) => CityModel.fromJson(e)).toList();
+    }
+    return [];
+  }
+
+  Future<List<CityModel>> getAlternatives(int fromCityId) async {
+    final uri = Uri.parse('${AppConfig.baseUrl}/cities/alternatives/$fromCityId');
+    final response = await http.get(uri, headers: await _headers());
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.map((e) => CityModel.fromJson(e)).toList();
+    }
+    return [];
+  }
+
+  Future<List<String>> getAvailableDates(int fromCityId, int toCityId) async {
+    try {
+      final uri = Uri.parse('${AppConfig.baseUrl}/cities/available-dates').replace(
+        queryParameters: {
+          'from_city': fromCityId.toString(),
+          'to_city': toCityId.toString(),
+        },
+      );
+      
+      final response = await http.get(uri, headers: await _headers());
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((date) => date.toString()).toList();
+      } else {
+        debugPrint('Помилка сервера при отриманні дат: ${response.statusCode}');
+        return [];
+      }
+    } catch (e) {
+      debugPrint('Помилка мережі (getAvailableDates): $e');
+      return [];
+    }
+  }
+
+
+} 

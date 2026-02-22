@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../widgets/responsive_layout.dart';
 import '../widgets/flight_route_card.dart';
 import '../widgets/booking_progress_header.dart';
 import '../models/class.dart';
+import '../models/flight_model.dart';
+import '../services/booking_api_service.dart';
+import '../services/auth_service.dart';
 import '../config/routes.dart';
 
 class SearchResultsPage extends StatefulWidget {
@@ -29,10 +33,67 @@ class SearchResultsPage extends StatefulWidget {
 }
 
 class _SearchResultsPageState extends State<SearchResultsPage> {
+  List<FlightModel> _flights = [];
+  bool _isLoading = true;
+  String? _error;
 
   String get _classLabel {
     final classes = widget.passengerClasses.values.toSet();
     return classes.length == 1 ? classes.first.label : 'Mixed class';
+  }
+
+  bool get _isAnyClass =>
+      widget.passengerClasses.values.any((c) => c == Class.any);
+
+  Set<String> get _selectedClassNames => widget.passengerClasses.values
+      .where((c) => c != Class.any)
+      .map((c) => c.label)
+      .toSet();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFlights();
+  }
+
+  Future<void> _loadFlights() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final authService = context.read<AuthService>();
+      final service = BookingApiService(authService);
+      final flights = await service.searchFlights(
+        fromCity: widget.fromCity,
+        toCity: widget.toCity,
+        departDate: widget.departDate,
+      );
+
+      final filtered = _isAnyClass
+          ? flights
+          : flights
+              .where((f) => _selectedClassNames.contains(f.className))
+              .toList();
+
+      setState(() {
+        _flights = filtered;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  Map<int, List<FlightModel>> get _groupedFlights {
+    final Map<int, List<FlightModel>> grouped = {};
+    for (final f in _flights) {
+      grouped.putIfAbsent(f.flightId, () => []).add(f);
+    }
+    return grouped;
   }
 
   @override
@@ -43,7 +104,98 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
     final childrenCount = widget.passengers['children'] ?? 0;
     final infantsCount = widget.passengers['infants'] ?? 0;
 
-    final flights = _getMockFlights();
+    Widget body;
+
+    if (_isLoading) {
+      body = const Center(child: CircularProgressIndicator());
+    } else if (_error != null) {
+      body = Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 48, color: Colors.red),
+            const SizedBox(height: 16),
+            Text('Failed to load flights',
+                style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            TextButton(
+                onPressed: _loadFlights, child: const Text('Try again')),
+          ],
+        ),
+      );
+    } else if (_flights.isEmpty) {
+      body = Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.airplane_ticket, size: 48),
+            const SizedBox(height: 16),
+            Text('No flights found for this route',
+                style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            Text('${widget.fromCity} → ${widget.toCity}',
+                style: Theme.of(context).textTheme.bodyMedium),
+          ],
+        ),
+      );
+    } else {
+      final grouped = _groupedFlights;
+      body = ListView(
+        children: [
+          const SizedBox(height: 16),
+          for (final entry in grouped.entries)
+            for (final flight in entry.value)
+              FlightRouteCard(
+                airlineName: flight.airlineName,
+                airlineLogoUrl: flight.airlineLogoUrl ?? '',
+                flightClass: flight.className,
+                fromAirportCode: flight.departsCode,
+                toAirportCode: flight.arrivesCode,
+                departureTime: flight.departureTime,
+                arrivalTime: flight.arrivalTime,
+                duration: flight.flightDuration,
+                isRoundTrip: isRoundTrip,
+                pricePerAdult: flight.ticketPrice,
+                adultsCount: adultsCount,
+                pricePerChild:
+                    childrenCount > 0 ? flight.ticketPrice * 0.75 : null,
+                childrenCount: childrenCount > 0 ? childrenCount : null,
+                pricePerInfant:
+                    infantsCount > 0 ? flight.ticketPrice * 0.1 : null,
+                infantsCount: infantsCount > 0 ? infantsCount : null,
+                onBook: () {
+                  context.push(
+                    '/baggage-selection',
+                    extra: BaggageSelectionArguments(
+                      fromCity: widget.fromCity,
+                      toCity: widget.toCity,
+                      departDate: widget.departDate,
+                      returnDate: widget.returnDate,
+                      passengers: widget.passengers,
+                      passengerClasses: widget.passengerClasses,
+                      airlineName: flight.airlineName,
+                      airlineLogoUrl: flight.airlineLogoUrl ?? '',
+                      fromAirportCode: flight.departsCode,
+                      toAirportCode: flight.arrivesCode,
+                      departureTime: flight.departureTime,
+                      arrivalTime: flight.arrivalTime,
+                      duration: flight.flightDuration,
+                      basePrice: flight.ticketPrice * adultsCount +
+                          (childrenCount > 0
+                              ? flight.ticketPrice * 0.75 * childrenCount
+                              : 0) +
+                          (infantsCount > 0
+                              ? flight.ticketPrice * 0.1 * infantsCount
+                              : 0),
+                      isRoundTrip: isRoundTrip,
+                    ),
+                  );
+                },
+              ),
+          const SizedBox(height: 48),
+        ],
+      );
+    }
 
     return ResponsiveLayout(
       header: BookingProgressHeader(
@@ -56,118 +208,7 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
         currentStep: 'search',
         onBack: () => context.go('/'),
       ),
-      body: Column(
-        children: [
-          const SizedBox(height: 16),
-
-          ...flights.map((flight) {
-            return FlightRouteCard(
-              airlineName: flight['airline'] as String,
-              airlineLogoUrl: flight['logo'] as String,
-              flightClass: _classLabel,
-              fromAirportCode: 'KBP',
-              toAirportCode: 'LHR',
-              departureTime: flight['departTime'] as String,
-              arrivalTime: flight['arriveTime'] as String,
-              duration: flight['duration'] as String,
-              hasBaggage: flight['baggage'] as bool,
-              isRoundTrip: isRoundTrip,
-              pricePerAdult: flight['priceAdult'] as double,
-              adultsCount: adultsCount,
-              pricePerChild: childrenCount > 0 ? flight['priceChild'] as double : null,
-              childrenCount: childrenCount > 0 ? childrenCount : null,
-              pricePerInfant: infantsCount > 0 ? flight['priceInfant'] as double : null,
-              infantsCount: infantsCount > 0 ? infantsCount : null,
-              onBook: () {
-                context.push(
-                  '/baggage-selection',
-                  extra: BaggageSelectionArguments(
-                    fromCity: widget.fromCity,
-                    toCity: widget.toCity,
-                    departDate: widget.departDate,
-                    returnDate: widget.returnDate,
-                    passengers: widget.passengers,
-                    passengerClasses: widget.passengerClasses,
-                    airlineName: flight['airline'] as String,
-                    airlineLogoUrl: flight['logo'] as String,
-                    fromAirportCode: 'KBP',
-                    toAirportCode: 'LHR',
-                    departureTime: flight['departTime'] as String,
-                    arrivalTime: flight['arriveTime'] as String,
-                    duration: flight['duration'] as String,
-                    basePrice: (flight['priceAdult'] as double) * adultsCount +
-                        (childrenCount > 0 ? (flight['priceChild'] as double) * childrenCount : 0) +
-                        (infantsCount > 0 ? (flight['priceInfant'] as double) * infantsCount : 0),
-                    isRoundTrip: isRoundTrip,
-                  ),
-                );
-              },
-            );
-          }),
-
-          const SizedBox(height: 48),
-        ],
-      ),
+      body: body,
     );
-  }
-
-  List<Map<String, dynamic>> _getMockFlights() {
-    return [
-      {
-        'airline': 'Ukraine International Airlines',
-        'logo': 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a3/Ukraine_International_Airlines_logo.svg/200px-Ukraine_International_Airlines_logo.svg.png',
-        'departTime': '10:30',
-        'arriveTime': '14:45',
-        'duration': '4h 15m',
-        'baggage': true,
-        'priceAdult': 350.0,
-        'priceChild': 280.0,
-        'priceInfant': 50.0,
-      },
-      {
-        'airline': 'Wizz Air',
-        'logo': 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e6/Wizz_Air_logo.svg/200px-Wizz_Air_logo.svg.png',
-        'departTime': '06:15',
-        'arriveTime': '10:30',
-        'duration': '4h 15m',
-        'baggage': false,
-        'priceAdult': 180.0,
-        'priceChild': 150.0,
-        'priceInfant': 0.0,
-      },
-      {
-        'airline': 'Lufthansa',
-        'logo': 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/Lufthansa_Logo_2018.svg/200px-Lufthansa_Logo_2018.svg.png',
-        'departTime': '18:00',
-        'arriveTime': '22:15',
-        'duration': '4h 15m',
-        'baggage': true,
-        'priceAdult': 420.0,
-        'priceChild': 340.0,
-        'priceInfant': 60.0,
-      },
-      {
-        'airline': 'Turkish Airlines',
-        'logo': 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/00/Turkish_Airlines_logo_2019_compact.svg/200px-Turkish_Airlines_logo_2019_compact.svg.png',
-        'departTime': '13:20',
-        'arriveTime': '17:35',
-        'duration': '4h 15m',
-        'baggage': true,
-        'priceAdult': 390.0,
-        'priceChild': 310.0,
-        'priceInfant': 55.0,
-      },
-      {
-        'airline': 'Ryanair',
-        'logo': 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/60/Ryanair_logo.svg/200px-Ryanair_logo.svg.png',
-        'departTime': '21:45',
-        'arriveTime': '02:00',
-        'duration': '4h 15m',
-        'baggage': false,
-        'priceAdult': 120.0,
-        'priceChild': 100.0,
-        'priceInfant': 0.0,
-      },
-    ];
   }
 }

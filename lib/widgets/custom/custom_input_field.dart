@@ -25,6 +25,7 @@ class CustomInputField extends StatefulWidget {
   final bool searchAirports;
   final bool isFromField;
   final Function(String from, String to)? onPairSelect;
+  final Function(CityModel)? onCitySelected;
 
   const CustomInputField({
     super.key,
@@ -46,6 +47,7 @@ class CustomInputField extends StatefulWidget {
     this.searchAirports = false,
     this.isFromField = true,
     this.onPairSelect,
+    this.onCitySelected,
   });
 
   @override
@@ -158,6 +160,7 @@ class _CustomInputFieldState extends State<CustomInputField> {
         searchResults: widget.searchAirports ? _searchResults : null,
         isSearching: _isSearching,
         isFromField: widget.isFromField,
+        onCitySelected: widget.onCitySelected,
         onSelect: (value) {
           _controller.text = value;
           widget.onChanged?.call(value);

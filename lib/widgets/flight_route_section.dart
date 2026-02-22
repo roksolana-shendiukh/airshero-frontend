@@ -43,17 +43,23 @@ class FlightRouteSection extends StatelessWidget {
                 ),
               ),
               child: ClipOval(
-                child: Image.network(
-                  airlineLogoUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Icon(
-                      Icons.flight,
-                      size: 20,
-                      color: Theme.of(context).colorScheme.primary,
-                    );
-                  },
-                ),
+                child: airlineLogoUrl.isNotEmpty
+                    ? Image.network(
+                        airlineLogoUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Icon(
+                            Icons.flight,
+                            size: 20,
+                            color: Theme.of(context).colorScheme.primary,
+                          );
+                        },
+                      )
+                    : Icon(
+                        Icons.flight,
+                        size: 20,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
               ),
             ),
             const SizedBox(width: 12),

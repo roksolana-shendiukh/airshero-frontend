@@ -1,6 +1,5 @@
-
-
 enum Class {
+  any(id: 0, label: 'Any'),
   economy(id: 1, label: 'Economy'),
   premiumEconomy(id: 2, label: 'Premium Economy'),
   business(id: 3, label: 'Business'),

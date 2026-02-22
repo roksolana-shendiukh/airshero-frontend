@@ -12,6 +12,7 @@ class CustomDropdownOverlay extends StatelessWidget {
   final bool isSearching;
   final bool isFromField;
   final ValueChanged<String> onSelect;
+  final Function(CityModel)? onCitySelected;
   final Function(String from, String to)? onPairSelect;
 
   const CustomDropdownOverlay({
@@ -26,6 +27,7 @@ class CustomDropdownOverlay extends StatelessWidget {
     this.isSearching = false,
     this.isFromField = true,
     required this.onSelect,
+    this.onCitySelected,
     this.onPairSelect,
   });
 
@@ -67,7 +69,6 @@ class CustomDropdownOverlay extends StatelessWidget {
                         child: Center(child: CircularProgressIndicator()),
                       ),
 
-                    // ── Результати пошуку ────────────────────────────────
                     ] else if (searchResults != null && searchResults!.isNotEmpty) ...[
                       const Padding(
                         padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -75,11 +76,12 @@ class CustomDropdownOverlay extends StatelessWidget {
                       ),
                       ...searchResults!.map((city) {
                         return buildHoverableTile(
-                          leading: Icon(Icons.location_city,
-                              color: Theme.of(context).colorScheme.primary),
-                          title: Text(city.displayName,
-                              style: const TextStyle(fontWeight: FontWeight.w500)),
-                          onTap: () => onSelect(city.cityName),
+                          leading: Icon(Icons.location_city, color: Theme.of(context).colorScheme.primary),
+                          title: Text(city.displayName, style: const TextStyle(fontWeight: FontWeight.w500)),
+                          onTap: () {
+                            onSelect(city.cityName); 
+                            onCitySelected?.call(city); 
+                          },
                         );
                       }),
 

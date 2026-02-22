@@ -8,6 +8,8 @@ class CustomDateRangePicker extends StatefulWidget {
   final Function(DateTime?, DateTime?) onDatesSelected;
   final ValueChanged<bool>? onSelectingReturnChanged;
   final VoidCallback? onClose;
+  
+  final List<String> availableDates; 
 
   const CustomDateRangePicker({
     super.key,
@@ -17,6 +19,7 @@ class CustomDateRangePicker extends StatefulWidget {
     required this.onDatesSelected,
     this.onSelectingReturnChanged,
     this.onClose,
+    this.availableDates = const [], 
   });
 
   @override
@@ -57,6 +60,14 @@ class _CustomDateRangePickerState extends State<CustomDateRangePicker> {
 
       widget.onDatesSelected(_tempDepartDate, _tempReturnDate);
     });
+  }
+
+  bool _isDateAvailable(DateTime date) {
+    if (widget.availableDates.isEmpty) return true;
+
+    final formattedDate = "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
+    
+    return widget.availableDates.contains(formattedDate);
   }
 
   Widget _buildCalendar(DateTime month) {
@@ -117,13 +128,18 @@ class _CustomDateRangePickerState extends State<CustomDateRangePicker> {
                     _tempReturnDate != null &&
                     date.isAfter(_tempDepartDate!) &&
                     date.isBefore(_tempReturnDate!);
+                
                 final isPast = date.isBefore(DateTime.now().subtract(const Duration(days: 1)));
+                
+                final isAvailable = _isDateAvailable(date);
+                
+                final isDisabled = isPast || !isAvailable;
 
                 Color? bgColor;
                 Color? textColor;
 
-                if (isPast) {
-                  textColor = Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.4);
+                if (isDisabled) {
+                  textColor = Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.3);
                 } else if (isDepart || isReturn) {
                   bgColor = Theme.of(context).colorScheme.primary;
                   textColor = Theme.of(context).colorScheme.onPrimary;
@@ -140,13 +156,13 @@ class _CustomDateRangePickerState extends State<CustomDateRangePicker> {
                 return Padding(
                   padding: const EdgeInsets.all(2),
                   child: GestureDetector(
-                    onTap: isPast ? null : () => _selectDate(date),
+                    onTap: isDisabled ? null : () => _selectDate(date),
                     child: Container(
                       height: 40,
                       decoration: BoxDecoration(
                         color: bgColor,
                         borderRadius: BorderRadius.circular(8),
-                        border: isToday && !isDepart && !isReturn
+                        border: isToday && !isDepart && !isReturn && !isDisabled
                             ? Border.all(
                                 color: Theme.of(context).colorScheme.primary,
                                 width: 2,
@@ -163,6 +179,7 @@ class _CustomDateRangePickerState extends State<CustomDateRangePicker> {
                                 color: textColor,
                                 fontWeight: isDepart || isReturn ? FontWeight.bold : FontWeight.normal,
                                 fontSize: 14,
+                                decoration: !isAvailable && !isPast ? TextDecoration.lineThrough : null, 
                               ),
                             ),
                             if (isDepart || isReturn)
