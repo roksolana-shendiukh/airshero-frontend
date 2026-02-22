@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'custom_button.dart';
+import 'custom/custom_button.dart';
 import '../models/class.dart';
 
 class PassengerSelector extends StatefulWidget {

@@ -3,8 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../services/auth_service.dart';
 import '../services/admin_api_service.dart';
-import '../widgets/custom_input_field.dart';
-import '../widgets/custom_button.dart';
+import '../widgets/custom/custom_input_field.dart';
+import '../widgets/custom/custom_button.dart';
 
 class ChangePasswordPage extends StatefulWidget {
   const ChangePasswordPage({super.key});

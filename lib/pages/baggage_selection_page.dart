@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../widgets/responsive_layout.dart';
 import '../widgets/baggage_option_card.dart';
-import '../widgets/passenger_form_card.dart';
-import '../widgets/custom_button.dart';
+import '/widgets/passenger_form_card.dart';
+import '/widgets/custom/custom_button.dart';
 import '../models/baggage_models.dart';
 import '../models/passenger_model.dart';
 import '../models/class.dart';
 import '../widgets/booking_progress_header.dart';
 import '../widgets/price_summary_card.dart';
+
 
 class BaggageSelectionPage extends StatefulWidget {
   final String fromCity;

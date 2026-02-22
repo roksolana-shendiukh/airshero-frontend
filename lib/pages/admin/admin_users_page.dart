@@ -9,7 +9,7 @@ import '../../widgets/admin/user_table_pagination.dart';
 import '../../widgets/admin/user_management_header.dart';
 import '../../widgets/admin/bulk_actions_bar.dart';
 import '../../widgets/admin/create_user_dialog.dart';
-import '../../widgets/custom_select_field.dart';
+import '../../widgets/custom/custom_select_field.dart';
 import '../../services/admin_api_service.dart';
 import '../../services/auth_service.dart';
 

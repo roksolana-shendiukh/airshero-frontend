@@ -5,7 +5,7 @@ import '../widgets/booking_progress_header.dart';
 import '../widgets/payment_status_selector.dart';
 import '../widgets/paid_payment_form.dart';
 import '../widgets/partially_paid_payment_form.dart';
-import '../widgets/custom_button.dart';
+import '../widgets/custom/custom_button.dart';
 import '../models/class.dart';
 
 class PaymentPage extends StatefulWidget {

@@ -1,24 +1,23 @@
 import 'package:flutter/material.dart';
-import 'custom_input_field.dart';
-import 'custom_date_range_picker.dart';
-import 'custom_button.dart';
+import 'custom/custom_input_field.dart';
+import 'custom/custom_date_range_picker.dart';
+import 'custom/custom_button.dart';
 import 'passenger_selector.dart';
 import '../models/class.dart';
+import '../services/recent_searches_service.dart';
 
-typedef SearchCallback =
-    void Function({
-      required String fromLocation,
-      required String toLocation,
-      required DateTime departDate,
-      DateTime? returnDate,
-      required Map<String, int> passengers,
-      required Map<int, Class> passengerClasses,
-    });
+typedef SearchCallback = void Function({
+  required String fromLocation,
+  required String toLocation,
+  required DateTime departDate,
+  DateTime? returnDate,
+  required Map<String, int> passengers,
+  required Map<int, Class> passengerClasses,
+});
 
 class FlightSearchForm extends StatefulWidget {
   final bool isCalendarOpen;
   final ValueChanged<bool> onCalendarToggle;
-
   final SearchCallback? onSearch;
 
   const FlightSearchForm({
@@ -38,12 +37,14 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
   DateTime? departDate;
   DateTime? returnDate;
   Map<String, int> passengers = {'adults': 1, 'children': 0, 'infants': 0};
-
   Map<int, Class> passengerClasses = {0: Class.economy};
 
-  final ValueNotifier<bool> _isSelectingReturnNotifier = ValueNotifier<bool>(
-    false,
-  );
+  List<Map<String, String>> _recentSearches = [];
+  List<String> _recentCities = [];
+  final _recentSearchesService = RecentSearchesService();
+
+  final ValueNotifier<bool> _isSelectingReturnNotifier =
+      ValueNotifier<bool>(false);
   bool _isPassengerSelectorOpen = false;
   final GlobalKey _passengerFieldKey = GlobalKey();
   final GlobalKey _departFieldKey = GlobalKey();
@@ -53,8 +54,24 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
   Size? _lastConstraints;
 
   bool get _isSelectingReturn => _isSelectingReturnNotifier.value;
-  set _isSelectingReturn(bool value) =>
-      _isSelectingReturnNotifier.value = value;
+  set _isSelectingReturn(bool value) => _isSelectingReturnNotifier.value = value;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRecentSearches();
+  }
+
+  Future<void> _loadRecentSearches() async {
+    final routes = await _recentSearchesService.loadRoutes();
+    final cities = await _recentSearchesService.loadCities();
+    if (mounted) {
+      setState(() {
+        _recentSearches = routes;
+        _recentCities = cities;
+      });
+    }
+  }
 
   String _formatDate(DateTime? date) {
     if (date == null) return 'Select date';
@@ -64,9 +81,8 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
   String _formatPassengers() {
     final total = passengers.values.reduce((a, b) => a + b);
     final classes = passengerClasses.values.toSet();
-    final classLabel = classes.length == 1
-        ? classes.first.label
-        : 'Mixed class';
+    final classLabel =
+        classes.length == 1 ? classes.first.label : 'Mixed class';
     return '$total passenger${total > 1 ? 's' : ''}, $classLabel';
   }
 
@@ -90,7 +106,6 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
               'children': data['children'],
               'infants': data['infants'],
             };
-
             final rawClasses = data['passengerClasses'] as Map<int, String>;
             passengerClasses = rawClasses.map(
               (index, label) => MapEntry(index, Class.fromLabel(label)),
@@ -182,6 +197,10 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
   }
 
   void _handleSearch() {
+    if (fromLocation.isNotEmpty && toLocation.isNotEmpty) {
+      _recentSearchesService.add(fromLocation, toLocation);
+      _loadRecentSearches();
+    }
     widget.onSearch?.call(
       fromLocation: fromLocation,
       toLocation: toLocation,
@@ -223,18 +242,18 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
                     child: CustomInputField(
                       label: 'From',
                       value: fromLocation,
-                      icon: Icons.flight_takeoff,
-                      nearestAirports: const [
-                        {'name': 'Boryspil', 'iata': 'KBP'},
-                        {'name': 'Zhulyany', 'iata': 'IEV'},
-                      ],
-                      previousSearches: const [
-                        {'from': 'Kyiv', 'to': 'Lviv'},
-                        {'from': 'Kyiv', 'to': 'Paris'},
-                      ],
+                      icon: Icons.location_on,
+                      searchAirports: true,
+                      isFromField: true,
+                      previousSearches: _recentSearches,
+                      recentCities: _recentCities,
                       onChanged: (value) =>
                           setState(() => fromLocation = value),
                       onTap: _closeAllOverlays,
+                      onPairSelect: (from, to) => setState(() {
+                        fromLocation = from;
+                        toLocation = to;
+                      }),
                     ),
                   ),
                   Padding(
@@ -258,16 +277,17 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
                     child: CustomInputField(
                       label: 'To',
                       value: toLocation,
-                      icon: Icons.flight_land,
-                      nearestAirports: const [
-                        {'name': 'Heathrow', 'iata': 'LHR'},
-                        {'name': 'Gatwick', 'iata': 'LGW'},
-                      ],
-                      previousSearches: const [
-                        {'from': 'Kyiv', 'to': 'London'},
-                      ],
+                      icon: Icons.location_on,
+                      searchAirports: true,
+                      isFromField: false,
+                      previousSearches: _recentSearches,
+                      recentCities: _recentCities,
                       onChanged: (value) => setState(() => toLocation = value),
                       onTap: _closeAllOverlays,
+                      onPairSelect: (from, to) => setState(() {
+                        fromLocation = from;
+                        toLocation = to;
+                      }),
                     ),
                   ),
                 ],
@@ -288,7 +308,6 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
                       onTap: () {
                         _hidePassengerSelector();
                         setState(() => _isPassengerSelectorOpen = false);
-
                         if (!widget.isCalendarOpen) {
                           _isSelectingReturn = false;
                           widget.onCalendarToggle(true);
@@ -312,7 +331,6 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
                       onTap: () {
                         _hidePassengerSelector();
                         setState(() => _isPassengerSelectorOpen = false);
-
                         if (!widget.isCalendarOpen) {
                           _isSelectingReturn = true;
                           widget.onCalendarToggle(true);
@@ -414,7 +432,6 @@ class _PassengerSelectorOverlayState extends State<_PassengerSelectorOverlay> {
     final position = _getPosition();
     final fieldHeight = _getHeight();
     final passengerTop = position.dy + fieldHeight + 8;
-
     final classLabels = widget.passengerClasses.map(
       (index, fc) => MapEntry(index, fc.label),
     );

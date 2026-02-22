@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../widgets/responsive_layout.dart';
 import '../widgets/passenger_form_card.dart';
 import '../widgets/booking_progress_header.dart';
-import '../widgets/custom_button.dart';
+import '../widgets/custom/custom_button.dart';
 import '../models/passenger_model.dart';
 
 class PassengerDetailsPage extends StatefulWidget {

@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'custom_dropdown_overlay.dart';
+import '/models/city_model.dart';
+import '/services/booking_api_service.dart';
+import '/services/auth_service.dart';
 
 class CustomInputField extends StatefulWidget {
   final String label;
@@ -11,13 +15,16 @@ class CustomInputField extends StatefulWidget {
   final VoidCallback? onTap;
   final VoidCallback? onIconTap;
   final bool isSelected;
-  final List<Map<String, String>>? nearestAirports;
   final List<Map<String, String>>? previousSearches;
+  final List<String>? recentCities;
   final ValueChanged<String>? onChanged;
   final bool readOnly;
   final TextInputType? keyboardType;
   final List<TextInputFormatter>? inputFormatters;
-  final bool obscureText; // ← додано
+  final bool obscureText;
+  final bool searchAirports;
+  final bool isFromField;
+  final Function(String from, String to)? onPairSelect;
 
   const CustomInputField({
     super.key,
@@ -29,13 +36,16 @@ class CustomInputField extends StatefulWidget {
     this.onTap,
     this.onIconTap,
     this.isSelected = false,
-    this.nearestAirports,
     this.previousSearches,
+    this.recentCities,
     this.onChanged,
     this.readOnly = false,
     this.keyboardType,
     this.inputFormatters,
-    this.obscureText = false, // ← додано
+    this.obscureText = false,
+    this.searchAirports = false,
+    this.isFromField = true,
+    this.onPairSelect,
   });
 
   @override
@@ -49,6 +59,9 @@ class _CustomInputFieldState extends State<CustomInputField> {
   OverlayEntry? _overlayEntry;
   bool _isHovered = false;
 
+  List<CityModel> _searchResults = [];
+  bool _isSearching = false;
+
   @override
   void initState() {
     super.initState();
@@ -61,7 +74,7 @@ class _CustomInputFieldState extends State<CustomInputField> {
           _showOverlay();
         }
       } else {
-        Future.delayed(const Duration(milliseconds: 200), _hideOverlay);
+        Future.delayed(const Duration(milliseconds: 300), _hideOverlay);
       }
       setState(() {});
     });
@@ -70,7 +83,8 @@ class _CustomInputFieldState extends State<CustomInputField> {
   @override
   void didUpdateWidget(covariant CustomInputField oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.value != oldWidget.value && _controller.text != widget.value) {
+    if (widget.value != oldWidget.value &&
+        _controller.text != widget.value) {
       _controller.value = TextEditingValue(
         text: widget.value,
         selection: TextSelection.collapsed(offset: widget.value.length),
@@ -78,34 +92,89 @@ class _CustomInputFieldState extends State<CustomInputField> {
     }
   }
 
-  void _showOverlay() {
-    if (_overlayEntry != null) return;
-    final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
-    if (renderBox == null) return;
+  Future<void> _onTextChanged(String value) async {
+    widget.onChanged?.call(value);
 
-    final size = renderBox.size;
+    if (!widget.searchAirports) return;
 
-    if ((widget.nearestAirports?.isNotEmpty ?? false) ||
-        (widget.previousSearches?.isNotEmpty ?? false)) {
-      _overlayEntry = OverlayEntry(
-        builder: (context) => CustomDropdownOverlay(
-          layerLink: _layerLink,
-          width: size.width,
-          isActive: true,
-          selectedValue: _controller.text,
-          nearestAirports: widget.nearestAirports,
-          previousSearches: widget.previousSearches,
-          onSelect: (value) {
-            _controller.text = value;
-            widget.onChanged?.call(value);
-            _focusNode.unfocus();
-          },
-        ),
-      );
-      Overlay.of(context).insert(_overlayEntry!);
+    if (_overlayEntry == null) _showOverlay();
+
+    if (value.trim().length < 1) {
+      setState(() {
+        _searchResults = [];
+        _isSearching = false;
+      });
+      _overlayEntry?.markNeedsBuild();
+      return;
+    }
+
+    setState(() => _isSearching = true);
+    _overlayEntry?.markNeedsBuild();
+
+    try {
+      final authService = context.read<AuthService>();
+      final service = BookingApiService(authService);
+      final results = await service.searchCities(value.trim());
+      if (mounted) {
+        setState(() {
+          _searchResults = results;
+          _isSearching = false;
+        });
+        _overlayEntry?.markNeedsBuild();
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isSearching = false);
+        _overlayEntry?.markNeedsBuild();
+      }
     }
   }
 
+  void _showOverlay() {
+    if (_overlayEntry != null) {
+      return;
+    }
+    final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
+    if (renderBox == null) {
+      return;
+    }
+
+    if (!widget.searchAirports &&
+        (widget.previousSearches?.isEmpty ?? true) &&
+        (widget.recentCities?.isEmpty ?? true)) {
+      return;
+    }
+
+    final size = renderBox.size;
+
+    _overlayEntry = OverlayEntry(
+      builder: (context) => CustomDropdownOverlay(
+        layerLink: _layerLink,
+        width: size.width,
+        isActive: true,
+        selectedValue: _controller.text,
+        previousSearches: widget.previousSearches,
+        recentCities: widget.recentCities,
+        searchResults: widget.searchAirports ? _searchResults : null,
+        isSearching: _isSearching,
+        isFromField: widget.isFromField,
+        onSelect: (value) {
+          _controller.text = value;
+          widget.onChanged?.call(value);
+          _focusNode.unfocus();
+        },
+        onPairSelect: widget.onPairSelect != null
+            ? (from, to) {
+                widget.onPairSelect!(from, to);
+                _controller.text = widget.isFromField ? from : to;
+                _focusNode.unfocus();
+              }
+            : null,
+      ),
+    );
+    Overlay.of(context).insert(_overlayEntry!);
+  }
+    
   void _hideOverlay() {
     _overlayEntry?.remove();
     _overlayEntry = null;
@@ -121,7 +190,8 @@ class _CustomInputFieldState extends State<CustomInputField> {
 
   @override
   Widget build(BuildContext context) {
-    final bool isActive = _focusNode.hasFocus || widget.isSelected || _isHovered;
+    final bool isActive =
+        _focusNode.hasFocus || widget.isSelected || _isHovered;
     final bool hasIconTap = widget.onIconTap != null;
 
     final hoverColor = Theme.of(context)
@@ -168,7 +238,7 @@ class _CustomInputFieldState extends State<CustomInputField> {
                     enableInteractiveSelection: true,
                     keyboardType: widget.keyboardType,
                     inputFormatters: widget.inputFormatters,
-                    onChanged: (value) => widget.onChanged?.call(value),
+                    onChanged: _onTextChanged,
                     onTap: () {
                       if (widget.readOnly && !hasIconTap) {
                         widget.onTap?.call();
@@ -180,7 +250,8 @@ class _CustomInputFieldState extends State<CustomInputField> {
                       }
                     },
                     style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurface),
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                     cursorColor: Theme.of(context).colorScheme.primary,
                     decoration: InputDecoration(
                       prefixIcon: hasIconTap

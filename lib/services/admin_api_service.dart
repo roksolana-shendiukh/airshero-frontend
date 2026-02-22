@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'auth_service.dart';
+import '../config/app_config.dart';
 
 class ApiValidationException implements Exception {
   final Map<String, String> fieldErrors;
@@ -19,7 +20,6 @@ Map<String, String> _parsePydanticErrors(List detail) {
 }
 
 class AdminApiService {
-  static const String _baseUrl = 'http://localhost:8000';
 
   final AuthService _authService;
 
@@ -35,7 +35,7 @@ class AdminApiService {
 
   Future<List<Map<String, dynamic>>> getUsers() async {
     final response = await http.get(
-      Uri.parse('$_baseUrl/admin/users'),
+      Uri.parse('$AppConfig.baseUrl/admin/users'),
       headers: await _headers(),
     );
     if (response.statusCode == 200) {
@@ -53,7 +53,7 @@ class AdminApiService {
     required int roleId,
   }) async {
     final response = await http.post(
-      Uri.parse('$_baseUrl/admin/users'),
+      Uri.parse('$AppConfig.baseUrl/admin/users'),
       headers: await _headers(),
       body: jsonEncode({
         'email': email,
@@ -82,7 +82,7 @@ class AdminApiService {
 
   Future<void> changePassword(String password) async {
     final response = await http.post(
-      Uri.parse('$_baseUrl/change-password'),
+      Uri.parse('$AppConfig.baseUrl/change-password'),
       headers: await _headers(),
       body: jsonEncode({'password': password}),
     );
@@ -98,7 +98,7 @@ class AdminApiService {
 
   Future<void> setRole(String uid, int roleId) async {
     final response = await http.patch(
-      Uri.parse('$_baseUrl/admin/users/$uid/role'),
+      Uri.parse('$AppConfig.baseUrl/admin/users/$uid/role'),
       headers: await _headers(),
       body: jsonEncode({'roleId': roleId}),
     );
@@ -109,7 +109,7 @@ class AdminApiService {
 
   Future<void> setStatus(String uid, String status) async {
     final response = await http.patch(
-      Uri.parse('$_baseUrl/admin/users/$uid/status'),
+      Uri.parse('$AppConfig.baseUrl/admin/users/$uid/status'),
       headers: await _headers(),
       body: jsonEncode({'status': status}),
     );
