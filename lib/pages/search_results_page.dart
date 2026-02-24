@@ -4,28 +4,32 @@ import 'package:provider/provider.dart';
 import '../widgets/responsive_layout.dart';
 import '../widgets/flight_route_card.dart';
 import '../widgets/booking_progress_header.dart';
+import '../models/grouped_flight.dart';
+import '../models/flight_combo.dart';
+import '../utils/flight_combo_builder.dart';
 import '../models/class.dart';
-import '../models/flight_model.dart';
 import '../services/booking_api_service.dart';
 import '../services/auth_service.dart';
 import '../config/routes.dart';
 
 class SearchResultsPage extends StatefulWidget {
+  final int fromCityId;
   final String fromCity;
+  final int toCityId;
   final String toCity;
   final DateTime departDate;
   final DateTime? returnDate;
   final Map<String, int> passengers;
-  final Map<int, Class> passengerClasses;
 
   const SearchResultsPage({
     super.key,
+    required this.fromCityId,
     required this.fromCity,
+    required this.toCityId,
     required this.toCity,
     required this.departDate,
     this.returnDate,
     required this.passengers,
-    required this.passengerClasses,
   });
 
   @override
@@ -33,27 +37,27 @@ class SearchResultsPage extends StatefulWidget {
 }
 
 class _SearchResultsPageState extends State<SearchResultsPage> {
-  List<FlightModel> _flights = [];
+  List<FlightCombo> _combos = [];
   bool _isLoading = true;
   String? _error;
 
-  String get _classLabel {
-    final classes = widget.passengerClasses.values.toSet();
-    return classes.length == 1 ? classes.first.label : 'Mixed class';
-  }
+  // Фільтри — клас для кожного пасажира (всі Any за замовчуванням)
+  late Map<int, Class> _passengerClasses;
 
-  bool get _isAnyClass =>
-      widget.passengerClasses.values.any((c) => c == Class.any);
-
-  Set<String> get _selectedClassNames => widget.passengerClasses.values
-      .where((c) => c != Class.any)
-      .map((c) => c.label)
-      .toSet();
+  bool get _isRoundTrip => widget.returnDate != null;
 
   @override
   void initState() {
     super.initState();
+    _initPassengerClasses();
     _loadFlights();
+  }
+
+  void _initPassengerClasses() {
+    final total = widget.passengers.values.reduce((a, b) => a + b);
+    _passengerClasses = {
+      for (int i = 0; i < total; i++) i: Class.any,
+    };
   }
 
   Future<void> _loadFlights() async {
@@ -61,48 +65,100 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
       _isLoading = true;
       _error = null;
     });
+
     try {
       final authService = context.read<AuthService>();
       final service = BookingApiService(authService);
-      final flights = await service.searchFlights(
-        fromCity: widget.fromCity,
-        toCity: widget.toCity,
-        departDate: widget.departDate,
-      );
 
-      final filtered = _isAnyClass
-          ? flights
-          : flights
-              .where((f) => _selectedClassNames.contains(f.className))
-              .toList();
+      final futures = [
+        service.searchFlights(
+          fromCityId: widget.fromCityId,
+          toCityId: widget.toCityId,
+          departDate: widget.departDate,
+        ),
+        if (_isRoundTrip)
+          service.searchFlights(
+            fromCityId: widget.toCityId,
+            toCityId: widget.fromCityId,
+            departDate: widget.returnDate!,
+          ),
+      ];
 
-      setState(() {
-        _flights = filtered;
-        _isLoading = false;
-      });
+      final results = await Future.wait(futures);
+
+      final outboundGrouped = GroupedFlight.fromFlightList(results[0]);
+      final returnGrouped = _isRoundTrip
+          ? GroupedFlight.fromFlightList(results[1])
+          : <GroupedFlight>[];
+
+      _rebuildCombos(outboundGrouped, returnGrouped);
     } catch (e) {
       setState(() {
-        _error = e.toString();
+        _error = 'Could not fetch flights. Please try again later.';
         _isLoading = false;
       });
     }
   }
 
-  Map<int, List<FlightModel>> get _groupedFlights {
-    final Map<int, List<FlightModel>> grouped = {};
-    for (final f in _flights) {
-      grouped.putIfAbsent(f.flightId, () => []).add(f);
+  void _rebuildCombos(
+    List<GroupedFlight> outbound,
+    List<GroupedFlight> returnFlights,
+  ) {
+    final combos = FlightComboBuilder.build(
+      outboundFlights: outbound,
+      returnFlights: returnFlights,
+      passengerClasses: _passengerClasses,
+      passengers: widget.passengers,
+    );
+    setState(() {
+      _combos = combos;
+      _isLoading = false;
+    });
+  }
+
+  /// Будує Map<String, String> passengerLabel → assignedClass з FlightCombo
+  Map<String, String> _buildClassLabels(FlightCombo combo) {
+    final Map<String, String> result = {};
+    for (final a in combo.outboundAssignments) {
+      result[a.passengerLabel] = a.assignedClass;
     }
-    return grouped;
+    return result;
+  }
+
+  /// Форматує клас для хедера
+  String get _classLabel {
+    final classes = _passengerClasses.values.toSet();
+    if (classes.every((c) => c == Class.any)) return 'Any class';
+    if (classes.length == 1) return classes.first.label;
+    return 'Mixed class';
+  }
+
+  void _handleBook(FlightCombo resolvedCombo) {
+    context.push(
+      '/baggage-selection',
+      extra: BaggageSelectionArguments(
+        fromCity: widget.fromCity,
+        toCity: widget.toCity,
+        departDate: widget.departDate,
+        returnDate: widget.returnDate,
+        passengers: widget.passengers,
+        passengerClassLabels: _buildClassLabels(resolvedCombo),
+        airlineName: resolvedCombo.outbound.airlineName,
+        airlineLogoUrl: resolvedCombo.outbound.airlineLogoUrl ?? '',
+        fromAirportCode: resolvedCombo.outbound.departsCode,
+        toAirportCode: resolvedCombo.outbound.arrivesCode,
+        departureTime: resolvedCombo.outbound.departureTime,
+        arrivalTime: resolvedCombo.outbound.arrivalTime,
+        duration: resolvedCombo.outbound.formattedDuration,
+        basePrice: resolvedCombo.totalPrice,
+        isRoundTrip: _isRoundTrip,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final isRoundTrip = widget.returnDate != null;
     final totalPassengers = widget.passengers.values.reduce((a, b) => a + b);
-    final adultsCount = widget.passengers['adults'] ?? 1;
-    final childrenCount = widget.passengers['children'] ?? 0;
-    final infantsCount = widget.passengers['infants'] ?? 0;
 
     Widget body;
 
@@ -115,20 +171,18 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
           children: [
             const Icon(Icons.error_outline, size: 48, color: Colors.red),
             const SizedBox(height: 16),
-            Text('Failed to load flights',
-                style: Theme.of(context).textTheme.titleMedium),
+            Text(_error!, style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
-            TextButton(
-                onPressed: _loadFlights, child: const Text('Try again')),
+            TextButton(onPressed: _loadFlights, child: const Text('Try again')),
           ],
         ),
       );
-    } else if (_flights.isEmpty) {
+    } else if (_combos.isEmpty) {
       body = Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.airplane_ticket, size: 48),
+            const Icon(Icons.airplane_ticket, size: 48, color: Colors.grey),
             const SizedBox(height: 16),
             Text('No flights found for this route',
                 style: Theme.of(context).textTheme.titleMedium),
@@ -139,61 +193,15 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
         ),
       );
     } else {
-      final grouped = _groupedFlights;
-      body = ListView(
-        children: [
-          const SizedBox(height: 16),
-          for (final entry in grouped.entries)
-            for (final flight in entry.value)
-              FlightRouteCard(
-                airlineName: flight.airlineName,
-                airlineLogoUrl: flight.airlineLogoUrl ?? '',
-                flightClass: flight.className,
-                fromAirportCode: flight.departsCode,
-                toAirportCode: flight.arrivesCode,
-                departureTime: flight.departureTime,
-                arrivalTime: flight.arrivalTime,
-                duration: flight.flightDuration,
-                isRoundTrip: isRoundTrip,
-                pricePerAdult: flight.ticketPrice,
-                adultsCount: adultsCount,
-                pricePerChild:
-                    childrenCount > 0 ? flight.ticketPrice * 0.75 : null,
-                childrenCount: childrenCount > 0 ? childrenCount : null,
-                pricePerInfant:
-                    infantsCount > 0 ? flight.ticketPrice * 0.1 : null,
-                infantsCount: infantsCount > 0 ? infantsCount : null,
-                onBook: () {
-                  context.push(
-                    '/baggage-selection',
-                    extra: BaggageSelectionArguments(
-                      fromCity: widget.fromCity,
-                      toCity: widget.toCity,
-                      departDate: widget.departDate,
-                      returnDate: widget.returnDate,
-                      passengers: widget.passengers,
-                      passengerClasses: widget.passengerClasses,
-                      airlineName: flight.airlineName,
-                      airlineLogoUrl: flight.airlineLogoUrl ?? '',
-                      fromAirportCode: flight.departsCode,
-                      toAirportCode: flight.arrivesCode,
-                      departureTime: flight.departureTime,
-                      arrivalTime: flight.arrivalTime,
-                      duration: flight.flightDuration,
-                      basePrice: flight.ticketPrice * adultsCount +
-                          (childrenCount > 0
-                              ? flight.ticketPrice * 0.75 * childrenCount
-                              : 0) +
-                          (infantsCount > 0
-                              ? flight.ticketPrice * 0.1 * infantsCount
-                              : 0),
-                      isRoundTrip: isRoundTrip,
-                    ),
-                  );
-                },
-              ),
-          const SizedBox(height: 48),
-        ],
+      body = ListView.builder(
+        padding: const EdgeInsets.only(top: 16, bottom: 48),
+        itemCount: _combos.length,
+        itemBuilder: (context, index) {
+          return FlightRouteCard(
+            combo: _combos[index],
+            onBook: _handleBook,
+          );
+        },
       );
     }
 
@@ -206,7 +214,7 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
         totalPassengers: totalPassengers,
         flightClass: _classLabel,
         currentStep: 'search',
-        onBack: () => context.go('/'),
+        onBack: () => context.go('/sales/bookings'),
       ),
       body: body,
     );

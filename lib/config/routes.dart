@@ -9,24 +9,25 @@ import '../pages/login_page.dart';
 import '../pages/change_password_page.dart';
 import '../services/auth_service.dart';
 import '../models/user_model.dart';
-import '../models/class.dart';
 import 'package:provider/provider.dart';
 
 class SearchResultsArguments {
+  final int fromCityId;
   final String fromCity;
+  final int toCityId;
   final String toCity;
   final DateTime departDate;
   final DateTime? returnDate;
   final Map<String, int> passengers;
-  final Map<int, Class> passengerClasses;
 
   SearchResultsArguments({
+    required this.fromCityId,
     required this.fromCity,
+    required this.toCityId,
     required this.toCity,
     required this.departDate,
     this.returnDate,
     required this.passengers,
-    required this.passengerClasses,
   });
 }
 
@@ -36,7 +37,8 @@ class BaggageSelectionArguments {
   final DateTime departDate;
   final DateTime? returnDate;
   final Map<String, int> passengers;
-  final Map<int, Class> passengerClasses;
+  /// passengerLabel → assignedClass, e.g. {'Adult 1': 'Business', 'Child 1': 'Economy'}
+  final Map<String, String> passengerClassLabels;
   final String airlineName;
   final String airlineLogoUrl;
   final String fromAirportCode;
@@ -53,7 +55,7 @@ class BaggageSelectionArguments {
     required this.departDate,
     this.returnDate,
     required this.passengers,
-    required this.passengerClasses,
+    required this.passengerClassLabels,
     required this.airlineName,
     required this.airlineLogoUrl,
     required this.fromAirportCode,
@@ -72,7 +74,8 @@ class PaymentArguments {
   final DateTime departDate;
   final DateTime? returnDate;
   final Map<String, int> passengers;
-  final Map<int, Class> passengerClasses;
+  /// passengerLabel → assignedClass
+  final Map<String, String> passengerClassLabels;
   final String airlineName;
   final String airlineLogoUrl;
   final String fromAirportCode;
@@ -92,7 +95,7 @@ class PaymentArguments {
     required this.departDate,
     this.returnDate,
     required this.passengers,
-    required this.passengerClasses,
+    required this.passengerClassLabels,
     required this.airlineName,
     required this.airlineLogoUrl,
     required this.fromAirportCode,
@@ -152,17 +155,47 @@ class AppRouter {
         name: 'search-results',
         builder: (context, state) {
           final args = state.extra as SearchResultsArguments?;
-          if (args == null) {
+          if (args != null) {
+            return SearchResultsPage(
+              fromCityId: args.fromCityId,
+              fromCity: args.fromCity,
+              toCityId: args.toCityId,
+              toCity: args.toCity,
+              departDate: args.departDate,
+              returnDate: args.returnDate,
+              passengers: args.passengers,
+            );
+          }
+
+          final q = state.uri.queryParameters;
+          final fromCity = q['from'] ?? '';
+          final toCity = q['to'] ?? '';
+          final departDateStr = q['date'] ?? '';
+          final returnDateStr = q['returnDate'];
+
+          if (fromCity.isEmpty || toCity.isEmpty || departDateStr.isEmpty) {
             WidgetsBinding.instance.addPostFrameCallback((_) => context.go('/'));
             return const SizedBox.shrink();
           }
+
+          final departDate = DateTime.tryParse(departDateStr);
+          if (departDate == null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) => context.go('/'));
+            return const SizedBox.shrink();
+          }
+
           return SearchResultsPage(
-            fromCity: args.fromCity,
-            toCity: args.toCity,
-            departDate: args.departDate,
-            returnDate: args.returnDate,
-            passengers: args.passengers,
-            passengerClasses: args.passengerClasses,
+            fromCityId: int.tryParse(q['fromId'] ?? '0') ?? 0,
+            fromCity: fromCity,
+            toCityId: int.tryParse(q['toId'] ?? '0') ?? 0,
+            toCity: toCity,
+            departDate: departDate,
+            returnDate: returnDateStr != null ? DateTime.tryParse(returnDateStr) : null,
+            passengers: {
+              'adults': int.tryParse(q['adults'] ?? '1') ?? 1,
+              'children': int.tryParse(q['children'] ?? '0') ?? 0,
+              'infants': int.tryParse(q['infants'] ?? '0') ?? 0,
+            },
           );
         },
       ),
@@ -182,7 +215,7 @@ class AppRouter {
             departDate: args.departDate,
             returnDate: args.returnDate,
             passengers: args.passengers,
-            passengerClasses: args.passengerClasses,
+            passengerClassLabels: args.passengerClassLabels,
             airlineName: args.airlineName,
             airlineLogoUrl: args.airlineLogoUrl,
             fromAirportCode: args.fromAirportCode,
@@ -211,7 +244,7 @@ class AppRouter {
             departDate: extra['departDate'] as DateTime,
             returnDate: extra['returnDate'] as DateTime?,
             passengers: extra['passengers'] as Map<String, int>,
-            passengerClasses: extra['passengerClasses'] as Map<int, Class>,
+            passengerClassLabels: extra['passengerClassLabels'] as Map<String, String>,
             airlineName: extra['airlineName'] as String,
             airlineLogoUrl: extra['airlineLogoUrl'] as String,
             fromAirportCode: extra['fromAirportCode'] as String,

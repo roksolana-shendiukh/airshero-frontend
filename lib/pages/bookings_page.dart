@@ -3,8 +3,9 @@ import 'package:go_router/go_router.dart';
 import '../widgets/flight_search_form.dart';
 import '../widgets/responsive_layout.dart';
 import '../widgets/animation/animated_flight_progress.dart';
-import '../models/class.dart';
+
 import '../config/routes.dart';
+import '../services/recent_searches_service.dart';
 
 class BookingsPage extends StatefulWidget {
   const BookingsPage({super.key});
@@ -17,20 +18,32 @@ class _BookingsPageState extends State<BookingsPage> {
   bool _isCalendarOpen = false;
   bool _isSearching = false;
   final GlobalKey _formKey = GlobalKey();
+  final _recentSearchesService = RecentSearchesService();
 
   void _handleSearch({
+    required int fromCityId,
     required String fromLocation,
+    required int toCityId,
     required String toLocation,
     required DateTime departDate,
     DateTime? returnDate,
     required Map<String, int> passengers,
-    required Map<int, Class> passengerClasses,
   }) async {
     if (_isCalendarOpen) {
       setState(() => _isCalendarOpen = false);
     }
 
     setState(() => _isSearching = true);
+
+    await _recentSearchesService.saveLastSearch(
+      fromCityId: fromCityId,
+      fromCity: fromLocation,
+      toCityId: toCityId,
+      toCity: toLocation,
+      departDate: departDate,
+      returnDate: returnDate,
+      passengers: passengers,
+    );
 
     try {
       await Future.delayed(const Duration(seconds: 3));
@@ -39,14 +52,31 @@ class _BookingsPageState extends State<BookingsPage> {
         setState(() => _isSearching = false);
 
         context.push(
-          '/search-results',
+          Uri(
+            path: '/search-results',
+            queryParameters: {
+              'from': fromLocation,
+              'to': toLocation,
+              'fromId': fromCityId.toString(),
+              'toId': toCityId.toString(),
+              'date':
+                  '${departDate.year}-${departDate.month.toString().padLeft(2, '0')}-${departDate.day.toString().padLeft(2, '0')}',
+              if (returnDate != null)
+                'returnDate':
+                    '${returnDate.year}-${returnDate.month.toString().padLeft(2, '0')}-${returnDate.day.toString().padLeft(2, '0')}',
+              'adults': (passengers['adults'] ?? 1).toString(),
+              'children': (passengers['children'] ?? 0).toString(),
+              'infants': (passengers['infants'] ?? 0).toString(),
+            },
+          ).toString(),
           extra: SearchResultsArguments(
+            fromCityId: fromCityId,
             fromCity: fromLocation,
+            toCityId: toCityId,
             toCity: toLocation,
             departDate: departDate,
             returnDate: returnDate,
             passengers: passengers,
-            passengerClasses: passengerClasses,
           ),
         );
       }
@@ -94,20 +124,22 @@ class _BookingsPageState extends State<BookingsPage> {
                   setState(() => _isCalendarOpen = isOpen);
                 },
                 onSearch: ({
+                  required int fromCityId,
                   required String fromLocation,
+                  required int toCityId,
                   required String toLocation,
                   required DateTime departDate,
                   DateTime? returnDate,
                   required Map<String, int> passengers,
-                  required Map<int, Class> passengerClasses,
                 }) {
                   _handleSearch(
+                    fromCityId: fromCityId,
                     fromLocation: fromLocation,
+                    toCityId: toCityId,
                     toLocation: toLocation,
                     departDate: departDate,
                     returnDate: returnDate,
                     passengers: passengers,
-                    passengerClasses: passengerClasses,
                   );
                 },
               ),
@@ -137,7 +169,7 @@ class _BookingsPageState extends State<BookingsPage> {
                       ),
                       const SizedBox(height: 24),
                       Text(
-                        'Welcome to AirShero F',
+                        'Welcome to AirShero',
                         style: Theme.of(context).textTheme.displayMedium,
                       ),
                       const SizedBox(height: 16),
@@ -156,16 +188,19 @@ class _BookingsPageState extends State<BookingsPage> {
                     children: [
                       Text(
                         'Searching for flights...',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                              color: Theme.of(context).colorScheme.primary,
-                              fontWeight: FontWeight.bold,
-                            ),
+                        style:
+                            Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  fontWeight: FontWeight.bold,
+                                ),
                       ),
                       const SizedBox(height: 16),
                       Text(
                         'Finding the best deals for you',
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
                             ),
                       ),
                     ],

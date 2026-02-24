@@ -3,19 +3,19 @@ import 'custom/custom_input_field.dart';
 import 'custom/custom_date_range_picker.dart';
 import 'custom/custom_button.dart';
 import 'passenger_selector.dart';
-import '../models/class.dart';
 import '../services/recent_searches_service.dart';
 import '../models/city_model.dart';
-import '../services/booking_api_service.dart'; 
-import '../services/auth_service.dart';        
+import '../services/booking_api_service.dart';
+import '../services/auth_service.dart';
 
 typedef SearchCallback = void Function({
+  required int fromCityId,
   required String fromLocation,
+  required int toCityId,
   required String toLocation,
   required DateTime departDate,
   DateTime? returnDate,
   required Map<String, int> passengers,
-  required Map<int, Class> passengerClasses,
 });
 
 class FlightSearchForm extends StatefulWidget {
@@ -46,17 +46,16 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
   DateTime? departDate;
   DateTime? returnDate;
   Map<String, int> passengers = {'adults': 1, 'children': 0, 'infants': 0};
-  Map<int, Class> passengerClasses = {0: Class.economy};
 
   List<String> _availableDates = [];
+  List<String> _returnAvailableDates = [];
   bool _isLoadingDates = false;
 
   List<Map<String, String>> _recentSearches = [];
   List<String> _recentCities = [];
   final _recentSearchesService = RecentSearchesService();
 
-  final ValueNotifier<bool> _isSelectingReturnNotifier =
-      ValueNotifier<bool>(false);
+  final ValueNotifier<bool> _isSelectingReturnNotifier = ValueNotifier<bool>(false);
   bool _isPassengerSelectorOpen = false;
   final GlobalKey _passengerFieldKey = GlobalKey();
   final GlobalKey _departFieldKey = GlobalKey();
@@ -67,11 +66,12 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
 
   bool get _isSelectingReturn => _isSelectingReturnNotifier.value;
   set _isSelectingReturn(bool value) => _isSelectingReturnNotifier.value = value;
+  bool _showCitiesRequired = false;
 
   @override
   void initState() {
     super.initState();
-    _apiService = BookingApiService(AuthService()); 
+    _apiService = BookingApiService(AuthService());
     _loadRecentSearches();
   }
 
@@ -89,60 +89,64 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
   void _fetchAvailableDates() async {
     if (_selectedFromCity == null || _selectedToCity == null) return;
 
-    debugPrint("DEBUG API CALL: From ${_selectedFromCity!.cityName} (ID: ${_selectedFromCity!.cityId}) To ${_selectedToCity!.cityName} (ID: ${_selectedToCity!.cityId})");
-
     setState(() {
       _isLoadingDates = true;
-      _availableDates = []; 
+      _availableDates = [];
+      _returnAvailableDates = [];
     });
 
+    _calendarOverlay?.markNeedsBuild();
+
     try {
-      final datesStr = await _apiService.getAvailableDates(
-        _selectedFromCity!.cityId,
-        _selectedToCity!.cityId,
-      );
+      final results = await Future.wait([
+        _apiService.getAvailableDates(
+          _selectedFromCity!.cityId,
+          _selectedToCity!.cityId,
+        ),
+        _apiService.getAvailableDates(
+          _selectedToCity!.cityId,
+          _selectedFromCity!.cityId,
+        ),
+      ]);
 
       setState(() {
-        _availableDates = datesStr; 
-        
+        _availableDates = results[0];
+        _returnAvailableDates = results[1];
+
         if (_availableDates.isEmpty) {
           _routeExists = false;
-          _loadAlternatives(); 
+          _loadAlternatives();
         } else {
           _routeExists = true;
           _alternatives = [];
-          
           if (departDate != null) {
-            final formattedDepart = "${departDate!.year}-${departDate!.month.toString().padLeft(2, '0')}-${departDate!.day.toString().padLeft(2, '0')}";
-            
-            if (!_availableDates.contains(formattedDepart)) {
+            final formatted =
+                '${departDate!.year}-${departDate!.month.toString().padLeft(2, '0')}-${departDate!.day.toString().padLeft(2, '0')}';
+            if (!_availableDates.contains(formatted)) {
               departDate = DateTime.parse(_availableDates.first);
-              returnDate = null; 
+              returnDate = null;
             }
           }
         }
       });
     } catch (e) {
-      debugPrint("Fetch dates error: $e");
+      debugPrint('Fetch dates error: $e');
       setState(() => _routeExists = false);
-      _loadAlternatives(); 
+      _loadAlternatives();
     } finally {
-      setState(() {
-        _isLoadingDates = false;
-      });
+      setState(() => _isLoadingDates = false);
     }
   }
-
 
   void _loadAlternatives() async {
     try {
       final list = await _apiService.getAlternatives(_selectedFromCity!.cityId);
       setState(() => _alternatives = list);
     } catch (e) {
-      debugPrint("Alternative does not have: $e");
+      debugPrint('Alternatives error: $e');
     }
   }
-  
+
   String _formatDate(DateTime? date) {
     if (date == null) return 'Select date';
     return '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}';
@@ -150,10 +154,7 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
 
   String _formatPassengers() {
     final total = passengers.values.reduce((a, b) => a + b);
-    final classes = passengerClasses.values.toSet();
-    final classLabel =
-        classes.length == 1 ? classes.first.label : 'Mixed class';
-    return '$total passenger${total > 1 ? 's' : ''}, $classLabel';
+    return '$total passenger${total > 1 ? 's' : ''}';
   }
 
   void _showPassengerSelector() {
@@ -168,19 +169,8 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
       builder: (context) => _PassengerSelectorOverlay(
         fieldKey: _passengerFieldKey,
         passengers: passengers,
-        passengerClasses: passengerClasses,
         onChanged: (data) {
-          setState(() {
-            passengers = {
-              'adults': data['adults'],
-              'children': data['children'],
-              'infants': data['infants'],
-            };
-            final rawClasses = data['passengerClasses'] as Map<int, String>;
-            passengerClasses = rawClasses.map(
-              (index, label) => MapEntry(index, Class.fromLabel(label)),
-            );
-          });
+          setState(() => passengers = data);
         },
         onClose: () {
           _hidePassengerSelector();
@@ -199,17 +189,14 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
         _departFieldKey.currentContext?.findRenderObject() as RenderBox?;
     if (box == null || !box.hasSize) return;
 
-    if (_isLoadingDates) {
-        debugPrint("Дати ще вантажаться...");
-    }
-
     _calendarOverlay = OverlayEntry(
       builder: (context) => _CalendarOverlay(
         departFieldKey: _departFieldKey,
         returnFieldKey: _returnFieldKey,
         departDate: departDate,
         returnDate: returnDate,
-        availableDates: _availableDates, 
+        availableDates: _availableDates,
+        returnAvailableDates: _returnAvailableDates,
         isSelectingReturnNotifier: _isSelectingReturnNotifier,
         onDatesSelected: (depart, returnD) {
           setState(() {
@@ -259,30 +246,38 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
   @override
   void didUpdateWidget(FlightSearchForm oldWidget) {
     super.didUpdateWidget(oldWidget);
-
     if (widget.isCalendarOpen && !oldWidget.isCalendarOpen) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (widget.isCalendarOpen && mounted) _showCalendar();
       });
     }
-
     if (!widget.isCalendarOpen && oldWidget.isCalendarOpen) {
       _hideCalendar();
     }
   }
 
   void _handleSearch() {
+    if (_selectedFromCity == null || _selectedToCity == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Please select both departure and destination cities')),
+      );
+      return;
+    }
+
     if (fromLocation.isNotEmpty && toLocation.isNotEmpty) {
       _recentSearchesService.add(fromLocation, toLocation);
       _loadRecentSearches();
     }
+
     widget.onSearch?.call(
+      fromCityId: _selectedFromCity!.cityId,
       fromLocation: fromLocation,
+      toCityId: _selectedToCity!.cityId,
       toLocation: toLocation,
       departDate: departDate ?? DateTime.now(),
       returnDate: returnDate,
       passengers: passengers,
-      passengerClasses: passengerClasses,
     );
   }
 
@@ -291,7 +286,6 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final currentSize = Size(constraints.maxWidth, constraints.maxHeight);
-
         if (_lastConstraints != currentSize) {
           _lastConstraints = currentSize;
           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -329,7 +323,7 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
                           _selectedFromCity = city;
                           fromLocation = city.cityName;
                         });
-                        _fetchAvailableDates(); 
+                        _fetchAvailableDates();
                       },
                       onTap: _closeAllOverlays,
                       onPairSelect: (from, to) => setState(() {
@@ -350,8 +344,11 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
                           final tempCity = _selectedFromCity;
                           _selectedFromCity = _selectedToCity;
                           _selectedToCity = tempCity;
+
+                          final tempDates = _availableDates;
+                          _availableDates = _returnAvailableDates;
+                          _returnAvailableDates = tempDates;
                         });
-                        _fetchAvailableDates(); 
                       },
                       icon: Icon(
                         Icons.swap_horiz,
@@ -378,7 +375,7 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
                               _selectedToCity = city;
                               toLocation = city.cityName;
                             });
-                            _fetchAvailableDates(); 
+                            _fetchAvailableDates();
                           },
                           onTap: _closeAllOverlays,
                           onPairSelect: (from, to) => setState(() {
@@ -405,53 +402,79 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
 
               const SizedBox(height: 12),
 
-              Row(
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: CustomInputField(
-                      key: _departFieldKey,
-                      label: 'Depart',
-                      value: _formatDate(departDate),
-                      icon: Icons.calendar_today,
-                      readOnly: true,
-                      isSelected: widget.isCalendarOpen && !_isSelectingReturn,
-                      onTap: () {
-                        _hidePassengerSelector();
-                        setState(() => _isPassengerSelectorOpen = false);
-                        if (!widget.isCalendarOpen) {
-                          _isSelectingReturn = false;
-                          widget.onCalendarToggle(true);
-                        } else if (_isSelectingReturn) {
-                          _isSelectingReturn = false;
-                        } else {
-                          widget.onCalendarToggle(false);
-                        }
-                      },
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: CustomInputField(
+                          key: _departFieldKey,
+                          label: 'Depart',
+                          value: _formatDate(departDate),
+                          icon: Icons.calendar_today,
+                          readOnly: true,
+                          isSelected: widget.isCalendarOpen && !_isSelectingReturn,
+                          onTap: () {
+                            if (_selectedFromCity == null || _selectedToCity == null) {
+                              setState(() => _showCitiesRequired = true);
+                              return;
+                            }
+                            setState(() => _showCitiesRequired = false);
+                            _hidePassengerSelector();
+                            setState(() => _isPassengerSelectorOpen = false);
+                            if (!widget.isCalendarOpen) {
+                              _isSelectingReturn = false;
+                              widget.onCalendarToggle(true);
+                            } else if (_isSelectingReturn) {
+                              _isSelectingReturn = false;
+                            } else {
+                              widget.onCalendarToggle(false);
+                            }
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: CustomInputField(
+                          key: _returnFieldKey,
+                          label: 'Return',
+                          value: _formatDate(returnDate),
+                          icon: Icons.calendar_today,
+                          readOnly: true,
+                          isSelected: widget.isCalendarOpen && _isSelectingReturn,
+                          onTap: () {
+                            if (_selectedFromCity == null || _selectedToCity == null) {
+                              setState(() => _showCitiesRequired = true);
+                              return;
+                            }
+                            setState(() => _showCitiesRequired = false);
+                            _hidePassengerSelector();
+                            setState(() => _isPassengerSelectorOpen = false);
+                            if (!widget.isCalendarOpen) {
+                              _isSelectingReturn = true;
+                              widget.onCalendarToggle(true);
+                            } else if (!_isSelectingReturn) {
+                              _isSelectingReturn = true;
+                            } else {
+                              widget.onCalendarToggle(false);
+                            }
+                          },
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: CustomInputField(
-                      key: _returnFieldKey,
-                      label: 'Return',
-                      value: _formatDate(returnDate),
-                      icon: Icons.calendar_today,
-                      readOnly: true,
-                      isSelected: widget.isCalendarOpen && _isSelectingReturn,
-                      onTap: () {
-                        _hidePassengerSelector();
-                        setState(() => _isPassengerSelectorOpen = false);
-                        if (!widget.isCalendarOpen) {
-                          _isSelectingReturn = true;
-                          widget.onCalendarToggle(true);
-                        } else if (!_isSelectingReturn) {
-                          _isSelectingReturn = true;
-                        } else {
-                          widget.onCalendarToggle(false);
-                        }
-                      },
+                  if (_showCitiesRequired)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4, left: 4),
+                      child: Text(
+                        'Please select departure and destination cities first',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                          fontSize: 12,
+                        ),
+                      ),
                     ),
-                  ),
                 ],
               ),
 
@@ -464,7 +487,7 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
                     flex: 2,
                     child: CustomInputField(
                       key: _passengerFieldKey,
-                      label: 'Passengers, class',
+                      label: 'Passengers',
                       value: _formatPassengers(),
                       icon: Icons.person,
                       readOnly: true,
@@ -478,8 +501,7 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
                           widget.onCalendarToggle(false);
                           _hideCalendar();
                           WidgetsBinding.instance.addPostFrameCallback((_) {
-                            if (_isPassengerSelectorOpen)
-                              _showPassengerSelector();
+                            if (_isPassengerSelectorOpen) _showPassengerSelector();
                           });
                         }
                       },
@@ -501,25 +523,27 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 8),
                   child: Text(
-                    "Available destinations from this city:",
+                    'Available destinations from this city:',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: _alternatives.map((city) => ActionChip(
-                    label: Text(city.cityName),
-                    onPressed: () {
-                      setState(() {
-                        _selectedToCity = city;
-                        toLocation = city.cityName;
-                        _routeExists = true;
-                        _alternatives = [];
-                      });
-                      _fetchAvailableDates(); 
-                    },
-                  )).toList(),
+                  children: _alternatives
+                      .map((city) => ActionChip(
+                            label: Text(city.cityName),
+                            onPressed: () {
+                              setState(() {
+                                _selectedToCity = city;
+                                toLocation = city.cityName;
+                                _routeExists = true;
+                                _alternatives = [];
+                              });
+                              _fetchAvailableDates();
+                            },
+                          ))
+                      .toList(),
                 ),
               ],
             ],
@@ -530,13 +554,13 @@ class _FlightSearchFormState extends State<FlightSearchForm> {
   }
 }
 
-
 class _CalendarOverlay extends StatefulWidget {
   final GlobalKey departFieldKey;
   final GlobalKey returnFieldKey;
   final DateTime? departDate;
   final DateTime? returnDate;
-  final List<String> availableDates; 
+  final List<String> availableDates;
+  final List<String> returnAvailableDates;
   final ValueNotifier<bool> isSelectingReturnNotifier;
   final Function(DateTime?, DateTime?) onDatesSelected;
   final VoidCallback onClose;
@@ -546,7 +570,8 @@ class _CalendarOverlay extends StatefulWidget {
     required this.returnFieldKey,
     required this.departDate,
     required this.returnDate,
-    required this.availableDates, 
+    required this.availableDates,
+    required this.returnAvailableDates,
     required this.isSelectingReturnNotifier,
     required this.onDatesSelected,
     required this.onClose,
@@ -555,6 +580,7 @@ class _CalendarOverlay extends StatefulWidget {
   @override
   State<_CalendarOverlay> createState() => _CalendarOverlayState();
 }
+
 class _CalendarOverlayState extends State<_CalendarOverlay> {
   Offset _getPosition() {
     final RenderBox? box =
@@ -600,7 +626,7 @@ class _CalendarOverlayState extends State<_CalendarOverlay> {
         Positioned(
           left: position.dx,
           top: calendarTop,
-          width: fieldWidth * 2 + 12,
+          width: 400,
           child: GestureDetector(
             onTap: () {},
             child: Material(
@@ -610,9 +636,11 @@ class _CalendarOverlayState extends State<_CalendarOverlay> {
                 valueListenable: widget.isSelectingReturnNotifier,
                 builder: (context, isSelectingReturn, _) {
                   return CustomDateRangePicker(
+                    key: ValueKey('$isSelectingReturn-${widget.availableDates.length}-${widget.returnAvailableDates.length}'),
                     departDate: widget.departDate,
                     returnDate: widget.returnDate,
-                    availableDates: widget.availableDates, 
+                    availableDates: widget.availableDates,
+                    returnAvailableDates: widget.returnAvailableDates,
                     isSelectingReturn: isSelectingReturn,
                     onDatesSelected: widget.onDatesSelected,
                     onClose: widget.onClose,
@@ -630,14 +658,12 @@ class _CalendarOverlayState extends State<_CalendarOverlay> {
 class _PassengerSelectorOverlay extends StatefulWidget {
   final GlobalKey fieldKey;
   final Map<String, int> passengers;
-  final Map<int, Class> passengerClasses;
-  final ValueChanged<Map<String, dynamic>> onChanged;
+  final ValueChanged<Map<String, int>> onChanged;
   final VoidCallback onClose;
 
   const _PassengerSelectorOverlay({
     required this.fieldKey,
     required this.passengers,
-    required this.passengerClasses,
     required this.onChanged,
     required this.onClose,
   });
@@ -667,9 +693,6 @@ class _PassengerSelectorOverlayState extends State<_PassengerSelectorOverlay> {
     final position = _getPosition();
     final fieldHeight = _getHeight();
     final passengerTop = position.dy + fieldHeight + 8;
-    final classLabels = widget.passengerClasses.map(
-      (index, fc) => MapEntry(index, fc.label),
-    );
 
     return Stack(
       children: [
@@ -694,7 +717,6 @@ class _PassengerSelectorOverlayState extends State<_PassengerSelectorOverlay> {
               borderRadius: BorderRadius.circular(8),
               child: PassengerSelector(
                 initialPassengers: widget.passengers,
-                initialPassengerClasses: classLabels,
                 onChanged: widget.onChanged,
                 onClose: widget.onClose,
               ),
@@ -705,6 +727,3 @@ class _PassengerSelectorOverlayState extends State<_PassengerSelectorOverlay> {
     );
   }
 }
-
-
-

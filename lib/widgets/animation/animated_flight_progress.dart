@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class AnimatedFlightProgress extends StatefulWidget {
-  final bool isSearching; // ← Єдиний параметр: чи йде пошук
+  final bool isSearching; 
   final VoidCallback? onComplete;
 
   const AnimatedFlightProgress({
@@ -23,17 +23,15 @@ class _AnimatedFlightProgressState extends State<AnimatedFlightProgress>
   void initState() {
     super.initState();
     
-    // Анімація від 0 до 0.95 (ніколи не доходить до 100%)
     _controller = AnimationController(
-      duration: const Duration(seconds: 8), // Повільна анімація
+      duration: const Duration(seconds: 8), 
       vsync: this,
     );
 
-    // Швидко на старті, повільно в кінці (як у Booking)
     _animation = Tween<double>(begin: 0.0, end: 0.95).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: Curves.easeOut, // ← Швидко → повільно
+        curve: Curves.easeOut, 
       ),
     );
 
@@ -47,7 +45,6 @@ class _AnimatedFlightProgressState extends State<AnimatedFlightProgress>
     super.didUpdateWidget(oldWidget);
     
     if (widget.isSearching && !oldWidget.isSearching) {
-      // Пошук почався - запускаємо анімацію з початку
       _animation = Tween<double>(begin: 0.0, end: 0.95).animate(
         CurvedAnimation(
           parent: _controller,
@@ -57,7 +54,6 @@ class _AnimatedFlightProgressState extends State<AnimatedFlightProgress>
       _controller.duration = const Duration(seconds: 8);
       _controller.forward(from: 0);
     } else if (!widget.isSearching && oldWidget.isSearching) {
-      // Пошук завершився - швидко доходимо до 100%
       final currentProgress = _animation.value;
       
       _animation = Tween<double>(
@@ -83,7 +79,6 @@ class _AnimatedFlightProgressState extends State<AnimatedFlightProgress>
 
   @override
   Widget build(BuildContext context) {
-    // Не показуємо коли не шукаємо і анімація на 0
     if (!widget.isSearching && _animation.value == 0) {
       return const SizedBox.shrink();
     }
@@ -127,7 +122,6 @@ class _FlightProgressPainter extends CustomPainter {
     final double lineEndX = size.width - padding;
     final double lineLength = lineEndX - lineStartX;
 
-    // Фонова лінія
     paint.color = surfaceColor;
     canvas.drawLine(
       Offset(lineStartX, lineY),
@@ -135,7 +129,6 @@ class _FlightProgressPainter extends CustomPainter {
       paint,
     );
 
-    // Прогрес лінія
     if (progress > 0) {
       paint.color = primaryColor;
       final progressX = lineStartX + (lineLength * progress);
@@ -146,11 +139,9 @@ class _FlightProgressPainter extends CustomPainter {
       );
     }
 
-    // Точки старту/фінішу
     _drawPoint(canvas, Offset(lineStartX, lineY), primaryColor, 6);
     _drawPoint(canvas, Offset(lineEndX, lineY), primaryColor, 6);
 
-    // Літак
     if (progress > 0 && progress <= 1.0) {
       final planeX = lineStartX + (lineLength * progress);
       final planeY = lineY;
@@ -195,10 +186,9 @@ class _FlightProgressPainter extends CustomPainter {
 
     canvas.save();
     canvas.translate(position.dx, position.dy);
-    canvas.rotate(1.5708); // 90 градусів
+    canvas.rotate(1.5708); 
     canvas.translate(-position.dx, -position.dy);
 
-    // Тінь
     final shadowTextPainter = TextPainter(textDirection: TextDirection.ltr);
     shadowTextPainter.text = TextSpan(
       text: String.fromCharCode(Icons.flight.codePoint),

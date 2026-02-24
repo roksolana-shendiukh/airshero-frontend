@@ -357,7 +357,6 @@ class _PassengerFormCardState extends State<PassengerFormCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // HEADER
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [

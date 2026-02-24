@@ -6,10 +6,8 @@ import '/widgets/passenger_form_card.dart';
 import '/widgets/custom/custom_button.dart';
 import '../models/baggage_models.dart';
 import '../models/passenger_model.dart';
-import '../models/class.dart';
 import '../widgets/booking_progress_header.dart';
 import '../widgets/price_summary_card.dart';
-
 
 class BaggageSelectionPage extends StatefulWidget {
   final String fromCity;
@@ -17,7 +15,8 @@ class BaggageSelectionPage extends StatefulWidget {
   final DateTime departDate;
   final DateTime? returnDate;
   final Map<String, int> passengers;
-  final Map<int, Class> passengerClasses;
+  /// passengerLabel → assignedClass, e.g. {'Adult 1': 'Business', 'Child 1': 'Economy'}
+  final Map<String, String> passengerClassLabels;
   final String airlineName;
   final String airlineLogoUrl;
   final String fromAirportCode;
@@ -35,7 +34,7 @@ class BaggageSelectionPage extends StatefulWidget {
     required this.departDate,
     this.returnDate,
     required this.passengers,
-    required this.passengerClasses,
+    required this.passengerClassLabels,
     required this.airlineName,
     required this.airlineLogoUrl,
     required this.fromAirportCode,
@@ -58,9 +57,12 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
   int _currentPassengerIndex = 0;
   bool _hasVisitedPayment = false;
 
+  /// Форматуємо клас для хедера
   String get _classLabel {
-    final classes = widget.passengerClasses.values.toSet();
-    return classes.length == 1 ? classes.first.label : 'Mixed class';
+    final classes = widget.passengerClassLabels.values.toSet();
+    if (classes.isEmpty) return '';
+    if (classes.length == 1) return classes.first;
+    return 'Mixed class';
   }
 
   @override
@@ -202,7 +204,7 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
       'departDate': widget.departDate,
       'returnDate': widget.returnDate,
       'passengers': widget.passengers,
-      'passengerClasses': widget.passengerClasses,
+      'passengerClassLabels': widget.passengerClassLabels,
       'airlineName': widget.airlineName,
       'airlineLogoUrl': widget.airlineLogoUrl,
       'fromAirportCode': widget.fromAirportCode,
@@ -270,7 +272,9 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
               alignment: Alignment.centerLeft,
               child: Text(
                 'Select one baggage type (up to 3 items)',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
           ),
@@ -327,7 +331,10 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
               alignment: Alignment.centerRight,
               child: SizedBox(
                 width: 220,
-                child: CustomButton(label: 'Proceed to Payment', onPressed: _navigateToPayment),
+                child: CustomButton(
+                  label: 'Proceed to Payment',
+                  onPressed: _navigateToPayment,
+                ),
               ),
             ),
           ),
@@ -348,7 +355,9 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
           final isSelected = index == _currentPassengerIndex;
           final baggageCount = _getTotalBaggageForPassenger(index);
           final hasPassengerData = _passengerData[index]?.isNotEmpty ?? false;
-          String passengerName = _getPassengerLabel(index);
+          final label = _getPassengerLabel(index);
+          final classLabel = widget.passengerClassLabels[label] ?? '';
+          String passengerName = label;
           if (hasPassengerData && _passengerData[index]!['firstName']?.toString().isNotEmpty == true) {
             passengerName = _passengerData[index]!['firstName'].toString();
           }
@@ -362,33 +371,70 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 constraints: const BoxConstraints(maxHeight: 76),
                 decoration: BoxDecoration(
-                  color: isSelected ? Theme.of(context).colorScheme.primaryContainer : Theme.of(context).colorScheme.surfaceContainerHighest,
+                  color: isSelected
+                      ? Theme.of(context).colorScheme.primaryContainer
+                      : Theme.of(context).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: isSelected ? Theme.of(context).colorScheme.primary : Colors.transparent, width: 2),
+                  border: Border.all(
+                    color: isSelected ? Theme.of(context).colorScheme.primary : Colors.transparent,
+                    width: 2,
+                  ),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(hasPassengerData ? Icons.person : Icons.person_outline, size: 20,
-                        color: isSelected ? Theme.of(context).colorScheme.onPrimaryContainer : Theme.of(context).colorScheme.onSurface),
+                    Icon(
+                      hasPassengerData ? Icons.person : Icons.person_outline,
+                      size: 20,
+                      color: isSelected
+                          ? Theme.of(context).colorScheme.onPrimaryContainer
+                          : Theme.of(context).colorScheme.onSurface,
+                    ),
                     const SizedBox(height: 2),
-                    Text(passengerName,
+                    Text(
+                      passengerName,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        color: isSelected
+                            ? Theme.of(context).colorScheme.onPrimaryContainer
+                            : Theme.of(context).colorScheme.onSurface,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (classLabel.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        classLabel,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          color: isSelected ? Theme.of(context).colorScheme.onPrimaryContainer : Theme.of(context).colorScheme.onSurface,
+                          fontSize: 10,
+                          color: isSelected
+                              ? Theme.of(context).colorScheme.onPrimaryContainer
+                              : Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.w500,
                         ),
-                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                     if (baggageCount > 0) ...[
                       const SizedBox(height: 2),
-                      Row(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(Icons.luggage, size: 10, color: Theme.of(context).colorScheme.primary),
-                        const SizedBox(width: 2),
-                        Text('$baggageCount',
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.luggage, size: 10, color: Theme.of(context).colorScheme.primary),
+                          const SizedBox(width: 2),
+                          Text(
+                            '$baggageCount',
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              fontSize: 10, color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold,
-                            )),
-                      ]),
+                              fontSize: 10,
+                              color: Theme.of(context).colorScheme.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ],
                 ),

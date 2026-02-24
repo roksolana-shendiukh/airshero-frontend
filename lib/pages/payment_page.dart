@@ -6,7 +6,6 @@ import '../widgets/payment_status_selector.dart';
 import '../widgets/paid_payment_form.dart';
 import '../widgets/partially_paid_payment_form.dart';
 import '../widgets/custom/custom_button.dart';
-import '../models/class.dart';
 
 class PaymentPage extends StatefulWidget {
   final String fromCity;
@@ -14,7 +13,8 @@ class PaymentPage extends StatefulWidget {
   final DateTime departDate;
   final DateTime? returnDate;
   final Map<String, int> passengers;
-  final Map<int, Class> passengerClasses;
+  /// passengerLabel → assignedClass, e.g. {'Adult 1': 'Business', 'Child 1': 'Economy'}
+  final Map<String, String> passengerClassLabels;
   final String airlineName;
   final String airlineLogoUrl;
   final String fromAirportCode;
@@ -35,7 +35,7 @@ class PaymentPage extends StatefulWidget {
     required this.departDate,
     this.returnDate,
     required this.passengers,
-    required this.passengerClasses,
+    required this.passengerClassLabels,
     required this.airlineName,
     required this.airlineLogoUrl,
     required this.fromAirportCode,
@@ -69,9 +69,12 @@ class _PaymentPageState extends State<PaymentPage> {
     return total;
   }
 
+  /// Форматуємо клас для хедера
   String get _classLabel {
-    final classes = widget.passengerClasses.values.toSet();
-    return classes.length == 1 ? classes.first.label : 'Mixed class';
+    final classes = widget.passengerClassLabels.values.toSet();
+    if (classes.isEmpty) return '';
+    if (classes.length == 1) return classes.first;
+    return 'Mixed class';
   }
 
   final List<Map<String, dynamic>> _paymentMethods = [
@@ -93,7 +96,10 @@ class _PaymentPageState extends State<PaymentPage> {
   void _completeBooking() {
     if (!_isFormValid()) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in all required fields'), backgroundColor: Colors.red),
+        const SnackBar(
+          content: Text('Please fill in all required fields'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
@@ -124,7 +130,8 @@ class _PaymentPageState extends State<PaymentPage> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: PaymentStatusSelector(
                 selectedStatus: _selectedPaymentStatus,
-                onStatusChanged: (status) => setState(() => _selectedPaymentStatus = status),
+                onStatusChanged: (status) =>
+                    setState(() => _selectedPaymentStatus = status),
                 totalAmount: widget.totalPrice,
               ),
             ),
@@ -136,15 +143,18 @@ class _PaymentPageState extends State<PaymentPage> {
                       totalAmount: widget.totalPrice,
                       selectedPaymentMethod: _selectedPaymentMethod,
                       paymentMethods: _paymentMethods,
-                      onPaymentMethodChanged: (method) => setState(() => _selectedPaymentMethod = method),
+                      onPaymentMethodChanged: (method) =>
+                          setState(() => _selectedPaymentMethod = method),
                     )
                   : PartiallyPaidPaymentForm(
                       totalAmount: widget.totalPrice,
                       depositAmount: _depositAmount,
-                      onDepositChanged: (amount) => setState(() => _depositAmount = amount),
+                      onDepositChanged: (amount) =>
+                          setState(() => _depositAmount = amount),
                       selectedPaymentMethod: _selectedPaymentMethod,
                       paymentMethods: _paymentMethods,
-                      onPaymentMethodChanged: (method) => setState(() => _selectedPaymentMethod = method),
+                      onPaymentMethodChanged: (method) =>
+                          setState(() => _selectedPaymentMethod = method),
                     ),
             ),
             const SizedBox(height: 24),

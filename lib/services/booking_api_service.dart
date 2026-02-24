@@ -37,33 +37,35 @@ class BookingApiService {
   }
 
   Future<List<FlightModel>> searchFlights({
-    required String fromCity,
-    required String toCity,
+    required int fromCityId,
+    required int toCityId,
     required DateTime departDate,
   }) async {
-    final String formattedDate =
-        "${departDate.year}-${departDate.month.toString().padLeft(2, '0')}-${departDate.day.toString().padLeft(2, '0')}";
+    try {
+      final dateStr = departDate.toIso8601String().split('T')[0];
+      
+      final uri = Uri.parse('${AppConfig.baseUrl}/flights/search').replace(
+        queryParameters: {
+          'from_city': fromCityId.toString(),
+          'to_city': toCityId.toString(),
+          'depart_date': dateStr,
+        },
+      );
 
-    final uri = Uri.parse('${AppConfig.baseUrl}/flights/search').replace(
-      queryParameters: {
-        'from_city': fromCity,
-        'to_city': toCity,
-        'depart_date': formattedDate,
-      },
-    );
+      final response = await http.get(uri, headers: await _headers());
 
-    final response = await http.get(uri, headers: await _headers());
-
-    if (response.statusCode == 200) {
-      final List<dynamic> data = json.decode(response.body);
-      return data.map((json) => FlightModel.fromJson(json as Map<String, dynamic>)).toList();
-    } 
-    
-    if (response.statusCode == 404) {
+      if (response.statusCode == 200) {
+        debugPrint('RESPONSE DATA: ${response.body}');
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((json) => FlightModel.fromJson(json)).toList();
+      } else {
+        debugPrint('Search error: ${response.statusCode}');
+        return [];
+      }
+    } catch (e) {
+      debugPrint('Network error (searchFlights): $e');
       return [];
     }
-
-    throw Exception('Server error: ${response.statusCode}');
   }
 
   Future<List<CityModel>> getAlternativeDestinations(int fromCityId) async {
