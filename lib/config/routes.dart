@@ -48,6 +48,8 @@ class BaggageSelectionArguments {
   final String duration;
   final double basePrice;
   final bool isRoundTrip;
+  final List<Map<String, dynamic>> outboundAssignments;
+  final List<Map<String, dynamic>> returnAssignments;
 
   BaggageSelectionArguments({
     required this.fromCity,
@@ -65,6 +67,8 @@ class BaggageSelectionArguments {
     required this.duration,
     required this.basePrice,
     required this.isRoundTrip,
+    required this.outboundAssignments,
+    this.returnAssignments = const [],
   });
 
   Map<String, dynamic> toMap() => {
@@ -83,6 +87,8 @@ class BaggageSelectionArguments {
         'duration': duration,
         'basePrice': basePrice,
         'isRoundTrip': isRoundTrip,
+        'outboundAssignments': outboundAssignments,
+        'returnAssignments': returnAssignments,
       };
 
   static BaggageSelectionArguments? fromMap(Map<String, dynamic>? map) {
@@ -93,16 +99,20 @@ class BaggageSelectionArguments {
         return DateTime.parse(val as String);
       }
 
+      List<Map<String, dynamic>> parseAssignments(dynamic raw) {
+        if (raw == null) return [];
+        return (raw as List)
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
+      }
+
       return BaggageSelectionArguments(
         fromCity: map['fromCity'] as String,
         toCity: map['toCity'] as String,
         departDate: parseDate(map['departDate']),
-        returnDate: map['returnDate'] != null
-            ? parseDate(map['returnDate'])
-            : null,
+        returnDate: map['returnDate'] != null ? parseDate(map['returnDate']) : null,
         passengers: Map<String, int>.from(map['passengers'] as Map),
-        passengerClassLabels:
-            Map<String, String>.from(map['passengerClassLabels'] as Map),
+        passengerClassLabels: Map<String, String>.from(map['passengerClassLabels'] as Map),
         airlineName: map['airlineName'] as String,
         airlineLogoUrl: map['airlineLogoUrl'] as String,
         fromAirportCode: map['fromAirportCode'] as String,
@@ -112,15 +122,15 @@ class BaggageSelectionArguments {
         duration: map['duration'] as String,
         basePrice: (map['basePrice'] as num).toDouble(),
         isRoundTrip: map['isRoundTrip'] as bool,
+        outboundAssignments: parseAssignments(map['outboundAssignments']),
+        returnAssignments: parseAssignments(map['returnAssignments']),
       );
     } catch (e) {
       debugPrint('BaggageSelectionArguments.fromMap error: $e');
       return null;
     }
   }
-
 }
-
 class PaymentArguments {
   final String fromCity;
   final String toCity;
@@ -309,8 +319,10 @@ class AppRouter {
           return PaymentPage(
             fromCity: extra['fromCity'] as String,
             toCity: extra['toCity'] as String,
-            departDate: extra['departDate'] as DateTime,
-            returnDate: extra['returnDate'] as DateTime?,
+            departDate: DateTime.parse(extra['departDate'] as String),
+            returnDate: extra['returnDate'] != null
+                ? DateTime.parse(extra['returnDate'] as String)
+                : null,
             passengers: extra['passengers'] as Map<String, int>,
             passengerClassLabels:
                 extra['passengerClassLabels'] as Map<String, String>,
@@ -328,6 +340,11 @@ class AppRouter {
             passengerData:
                 extra['passengerData'] as Map<int, Map<String, dynamic>>,
             totalPrice: extra['totalPrice'] as double,
+            sessionId: extra['sessionId'] as String,
+            outboundAssignments:
+                extra['outboundAssignments'] as List<Map<String, dynamic>>,
+            returnAssignments:
+                (extra['returnAssignments'] as List<Map<String, dynamic>>?) ?? [],
           );
         },
       ),
@@ -366,6 +383,8 @@ class AppRouter {
       duration: args.duration,
       basePrice: args.basePrice,
       isRoundTrip: args.isRoundTrip,
+      outboundAssignments: args.outboundAssignments,
+      returnAssignments: args.returnAssignments,
     );
   }
 }

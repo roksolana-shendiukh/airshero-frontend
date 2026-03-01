@@ -43,7 +43,7 @@ class BookingApiService {
   }) async {
     try {
       final dateStr = departDate.toIso8601String().split('T')[0];
-      
+
       final uri = Uri.parse('${AppConfig.baseUrl}/flights/search').replace(
         queryParameters: {
           'from_city': fromCityId.toString(),
@@ -92,13 +92,14 @@ class BookingApiService {
 
   Future<List<String>> getAvailableDates(int fromCityId, int toCityId) async {
     try {
-      final uri = Uri.parse('${AppConfig.baseUrl}/cities/available-dates').replace(
+      final uri =
+          Uri.parse('${AppConfig.baseUrl}/cities/available-dates').replace(
         queryParameters: {
           'from_city': fromCityId.toString(),
           'to_city': toCityId.toString(),
         },
       );
-      
+
       final response = await http.get(uri, headers: await _headers());
 
       if (response.statusCode == 200) {
@@ -114,5 +115,60 @@ class BookingApiService {
     }
   }
 
+  // --- Booking ---
 
-} 
+  Future<List<Map<String, dynamic>>> getPaymentMethods() async {
+    final uri = Uri.parse('${AppConfig.baseUrl}/bookings/payment-methods');
+    final response = await http.get(uri, headers: await _headers());
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    }
+    throw Exception('Failed to load payment methods: ${response.statusCode}');
+  }
+
+  Future<Map<String, dynamic>> createBooking(
+      Map<String, dynamic> body) async {
+    final uri = Uri.parse('${AppConfig.baseUrl}/bookings');
+    final response = await http.post(
+      uri,
+      headers: await _headers(),
+      body: jsonEncode(body),
+    );
+
+    if (response.statusCode == 201) {
+      return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+    }
+
+    // Повертаємо помилку від бекенду (422 validation, 409 conflict, etc.)
+    final error = jsonDecode(response.body);
+    final detail = error['detail'] ?? 'Failed to create booking';
+    throw Exception(detail.toString());
+  }
+
+  Future<void> processPayment({
+    required int bookingId,
+    required int paymentMethodId,
+    required String status,
+    required double amount,
+  }) async {
+    final uri =
+        Uri.parse('${AppConfig.baseUrl}/bookings/$bookingId/payment');
+    final response = await http.post(
+      uri,
+      headers: await _headers(),
+      body: jsonEncode({
+        'paymentMethodId': paymentMethodId,
+        'status': status,
+        'amount': amount,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      final error = jsonDecode(response.body);
+      final detail = error['detail'] ?? 'Failed to process payment';
+      throw Exception(detail.toString());
+    }
+  }
+}

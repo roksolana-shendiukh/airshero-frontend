@@ -49,6 +49,9 @@ class LocalPassengerService {
     if (result['dateOfBirth'] is DateTime) {
       result['dateOfBirth'] = (result['dateOfBirth'] as DateTime).toIso8601String();
     }
+    if (result['documentIssue'] is DateTime) {
+      result['documentIssue'] = (result['documentIssue'] as DateTime).toIso8601String();
+    }
     if (result['documentExpire'] is DateTime) {
       result['documentExpire'] = (result['documentExpire'] as DateTime).toIso8601String();
     }
@@ -59,6 +62,9 @@ class LocalPassengerService {
     final result = Map<String, dynamic>.from(data);
     if (result['dateOfBirth'] is String && (result['dateOfBirth'] as String).isNotEmpty) {
       result['dateOfBirth'] = DateTime.tryParse(result['dateOfBirth']);
+    }
+    if (result['documentIssue'] is String && (result['documentIssue'] as String).isNotEmpty) {
+      result['documentIssue'] = DateTime.tryParse(result['documentIssue']);
     }
     if (result['documentExpire'] is String && (result['documentExpire'] as String).isNotEmpty) {
       result['documentExpire'] = DateTime.tryParse(result['documentExpire']);

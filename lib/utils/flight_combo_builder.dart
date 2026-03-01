@@ -8,7 +8,7 @@ class FlightComboBuilder {
     required List<GroupedFlight> returnFlights,
     required Map<int, Class> passengerClasses,
     required Map<String, int> passengers,
-    Map<int, Class>? returnPassengerClasses, 
+    Map<int, Class>? returnPassengerClasses,
   }) {
     final passengerLabels = _buildPassengerLabels(passengers);
     final multipliers = _buildMultipliers(passengers, passengerLabels.length);
@@ -124,12 +124,13 @@ class FlightComboBuilder {
                 continue;
               }
 
-              final price = flight.classPrices[cls]! * multiplier;
+              final info = flight.classPrices[cls]!;
               nextVariants.add(variant.withAssignment(
                 PassengerClassAssignment(
                   passengerLabel: label,
                   assignedClass: cls,
-                  price: price,
+                  price: info.price * multiplier,
+                  flightPriceId: info.flightPriceId,
                 ),
               ));
             }
@@ -137,27 +138,28 @@ class FlightComboBuilder {
         } else {
           for (final variant in variants) {
             for (final entry in flight.classPrices.entries) {
-              final price = entry.value * multiplier;
               nextVariants.add(variant.withAssignment(
                 PassengerClassAssignment(
                   passengerLabel: label,
                   assignedClass: entry.key,
-                  price: price,
+                  price: entry.value.price * multiplier,
+                  flightPriceId: entry.value.flightPriceId,
                 ),
               ));
             }
           }
         }
       } else {
-        final price = flight.priceFor(requestedClass.label);
+        final info = flight.classPrices[requestedClass.label];
 
-        if (price != null) {
+        if (info != null) {
           for (final variant in variants) {
             nextVariants.add(variant.withAssignment(
               PassengerClassAssignment(
                 passengerLabel: label,
                 assignedClass: requestedClass.label,
-                price: price * multiplier,
+                price: info.price * multiplier,
+                flightPriceId: info.flightPriceId,
               ),
             ));
           }
@@ -167,12 +169,13 @@ class FlightComboBuilder {
               ClassWarning(
                 passengerLabel: label,
                 requestedClass: requestedClass.label,
-                alternatives: Map<String, double>.from(flight.classPrices),
+                alternatives: Map<String, ClassPriceInfo>.from(flight.classPrices),
               ),
               PassengerClassAssignment(
                 passengerLabel: label,
                 assignedClass: '',
                 price: 0,
+                flightPriceId: 0,
               ),
             ));
           }

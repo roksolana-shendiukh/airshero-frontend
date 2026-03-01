@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../models/passenger_model.dart';
@@ -161,7 +162,8 @@ class _PassengerFormCardState extends State<PassengerFormCard> {
         _selectedDocumentTypeId = _documentTypes.first['documentTypeId'] as int;
       }
     });
-    _notifyParent();
+    // _notifyParent() тут не потрібен — дефолтні значення не змінюють
+    // дані пасажира, які батько вже зберіг.
   }
 
   @override
@@ -170,6 +172,14 @@ class _PassengerFormCardState extends State<PassengerFormCard> {
 
     if (oldWidget.passengerIndex != widget.passengerIndex ||
         oldWidget.initialData != widget.initialData) {
+
+      _firstNameController.removeListener(_onFormChanged);
+      _lastNameController.removeListener(_onFormChanged);
+      _documentNumberController.removeListener(_onDocumentNumberChanged);
+      _dateOfBirthController.removeListener(_handleDateOfBirthInput);
+      _documentIssueController.removeListener(_handleDocumentIssueInput);
+      _documentExpireController.removeListener(_handleDocumentExpireInput);
+
       _firstNameController.text      = widget.initialData?['firstName'] ?? '';
       _lastNameController.text       = widget.initialData?['lastName'] ?? '';
       _documentNumberController.text = widget.initialData?['documentNumber'] ?? '';
@@ -199,68 +209,98 @@ class _PassengerFormCardState extends State<PassengerFormCard> {
         _documentExpireController.text = _documentExpire != null
             ? DateFormat('dd.MM.yyyy').format(_documentExpire!) : '';
       });
+
+      _firstNameController.addListener(_onFormChanged);
+      _lastNameController.addListener(_onFormChanged);
+      _documentNumberController.addListener(_onDocumentNumberChanged);
+      _dateOfBirthController.addListener(_handleDateOfBirthInput);
+      _documentIssueController.addListener(_handleDocumentIssueInput);
+      _documentExpireController.addListener(_handleDocumentExpireInput);
+
       _removeDatePicker();
+      // _notifyParent() тут НЕ викликаємо — батько вже має ці дані,
+      // зворотній виклик спричиняє нескінченний цикл rebuild.
     }
   }
 
   void _fillFromPassenger(PassengerModel passenger) {
     final doc = passenger.document;
 
-    _firstNameController.text = passenger.firstName;
-    _lastNameController.text  = passenger.lastName;
-
-    if (doc != null) {
-      _documentNumberController.text = doc.documentNumber ?? '';
-      _originalDocumentNumber        = doc.documentNumber;
-      _originalDocumentExpire        = doc.documentDateOfExpire?.toString();
-
-      if (doc.documentDateOfIssue != null) {
-        _documentIssue = doc.documentDateOfIssue is DateTime
-            ? doc.documentDateOfIssue as DateTime
-            : DateTime.tryParse(doc.documentDateOfIssue.toString());
-        _documentIssueController.text = _documentIssue != null
-            ? DateFormat('dd.MM.yyyy').format(_documentIssue!) : '';
-      }
-
-      if (doc.documentDateOfExpire != null) {
-        _documentExpire = doc.documentDateOfExpire is DateTime
-            ? doc.documentDateOfExpire as DateTime
-            : DateTime.tryParse(doc.documentDateOfExpire.toString());
-        _documentExpireController.text = _documentExpire != null
-            ? DateFormat('dd.MM.yyyy').format(_documentExpire!) : '';
-      }
-
-      final citizenship = _citizenships.firstWhere(
-        (c) => c['citizenshipId'] == doc.citizenshipId,
-        orElse: () => _citizenships.isNotEmpty ? _citizenships.first : {},
-      );
-      if (citizenship.isNotEmpty) {
-        _selectedCitizenshipId = citizenship['citizenshipId'] as int;
-      }
-
-      final docType = _documentTypes.firstWhere(
-        (d) => d['documentTypeId'] == doc.documentTypeId,
-        orElse: () => _documentTypes.isNotEmpty ? _documentTypes.first : {},
-      );
-      if (docType.isNotEmpty) {
-        _selectedDocumentTypeId = docType['documentTypeId'] as int;
-      }
-    }
-
-    if (passenger.dateOfBirth != null) {
-      _dateOfBirth = passenger.dateOfBirth is DateTime
-          ? passenger.dateOfBirth as DateTime
-          : DateTime.tryParse(passenger.dateOfBirth.toString());
-      _dateOfBirthController.text = _dateOfBirth != null
-          ? DateFormat('dd.MM.yyyy').format(_dateOfBirth!) : '';
-    }
-
-    final sex = passenger.sex;
-    if (sex != null) {
-      _selectedSex = sex == false ? 'Female' : 'Male';
-    }
-
     setState(() {
+      _firstNameController.text = passenger.firstName;
+      _lastNameController.text  = passenger.lastName;
+
+      if (passenger.dateOfBirth != null) {
+        _dateOfBirth = passenger.dateOfBirth is DateTime
+            ? passenger.dateOfBirth as DateTime
+            : DateTime.tryParse(passenger.dateOfBirth.toString());
+        _dateOfBirthController.text = _dateOfBirth != null
+            ? DateFormat('dd.MM.yyyy').format(_dateOfBirth!)
+            : '';
+      } else {
+        _dateOfBirth = null;
+        _dateOfBirthController.text = '';
+      }
+
+      final sex = passenger.sex;
+      if (sex != null) {
+        _selectedSex = sex == false ? 'Female' : 'Male';
+      }
+
+      if (doc != null) {
+        _documentNumberController.text = doc.documentNumber ?? '';
+        _originalDocumentNumber        = doc.documentNumber;
+        _originalDocumentExpire        = doc.documentDateOfExpire?.toString();
+
+        if (doc.documentDateOfIssue != null) {
+          _documentIssue = doc.documentDateOfIssue is DateTime
+              ? doc.documentDateOfIssue as DateTime
+              : DateTime.tryParse(doc.documentDateOfIssue.toString());
+          _documentIssueController.text = _documentIssue != null
+              ? DateFormat('dd.MM.yyyy').format(_documentIssue!)
+              : '';
+        } else {
+          _documentIssue = null;
+          _documentIssueController.text = '';
+        }
+
+        if (doc.documentDateOfExpire != null) {
+          _documentExpire = doc.documentDateOfExpire is DateTime
+              ? doc.documentDateOfExpire as DateTime
+              : DateTime.tryParse(doc.documentDateOfExpire.toString());
+          _documentExpireController.text = _documentExpire != null
+              ? DateFormat('dd.MM.yyyy').format(_documentExpire!)
+              : '';
+        } else {
+          _documentExpire = null;
+          _documentExpireController.text = '';
+        }
+
+        final citizenship = _citizenships.firstWhere(
+          (c) => c['citizenshipId'] == doc.citizenshipId,
+          orElse: () => _citizenships.isNotEmpty ? _citizenships.first : {},
+        );
+        _selectedCitizenshipId = citizenship.isNotEmpty
+            ? citizenship['citizenshipId'] as int
+            : _selectedCitizenshipId;
+
+        final docType = _documentTypes.firstWhere(
+          (d) => d['documentTypeId'] == doc.documentTypeId,
+          orElse: () => _documentTypes.isNotEmpty ? _documentTypes.first : {},
+        );
+        _selectedDocumentTypeId = docType.isNotEmpty
+            ? docType['documentTypeId'] as int
+            : _selectedDocumentTypeId;
+      } else {
+        _documentNumberController.text = '';
+        _documentIssue = null;
+        _documentIssueController.text = '';
+        _documentExpire = null;
+        _documentExpireController.text = '';
+        _originalDocumentNumber = null;
+        _originalDocumentExpire = null;
+      }
+
       _foundPassengerId = passenger.id != null ? int.tryParse(passenger.id!) : null;
       _documentChanged  = false;
       _isSaved          = false;
@@ -338,7 +378,7 @@ class _PassengerFormCardState extends State<PassengerFormCard> {
   }
 
   void _notifyParent() {
-    widget.onDataChanged({
+    final data = {
       'firstName':        _firstNameController.text,
       'lastName':         _lastNameController.text,
       'sex':              _selectedSex,
@@ -351,7 +391,19 @@ class _PassengerFormCardState extends State<PassengerFormCard> {
       'isSaved':          _isSaved,
       'foundPassengerId': _foundPassengerId,
       'documentChanged':  _documentChanged,
-    });
+    };
+
+    // Якщо зараз іде build — відкладаємо до наступного кадру,
+    // інакше викликаємо одразу щоб уникнути зайвих перебудов.
+    if (SchedulerBinding.instance.schedulerPhase == SchedulerPhase.persistentCallbacks) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        widget.onDataChanged(data);
+      });
+    } else {
+      if (!mounted) return;
+      widget.onDataChanged(data);
+    }
   }
 
   bool _validateForm() {

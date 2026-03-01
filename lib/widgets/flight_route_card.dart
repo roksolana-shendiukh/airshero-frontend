@@ -44,11 +44,12 @@ class _FlightRouteCardState extends State<FlightRouteCard> {
       if (choice == null) return a;
       final warning = widget.combo.outboundWarnings
           .firstWhere((w) => w.passengerLabel == a.passengerLabel);
-      final newPrice = warning.alternatives[choice] ?? a.price;
+      final info = warning.alternatives[choice];
       return PassengerClassAssignment(
         passengerLabel: a.passengerLabel,
         assignedClass: choice,
-        price: newPrice,
+        price: info?.price ?? a.price,
+        flightPriceId: info?.flightPriceId ?? a.flightPriceId,
       );
     }).toList();
   }
@@ -59,11 +60,12 @@ class _FlightRouteCardState extends State<FlightRouteCard> {
       if (choice == null) return a;
       final warning = widget.combo.returnWarnings
           .firstWhere((w) => w.passengerLabel == a.passengerLabel);
-      final newPrice = warning.alternatives[choice] ?? a.price;
+      final info = warning.alternatives[choice];
       return PassengerClassAssignment(
         passengerLabel: a.passengerLabel,
         assignedClass: choice,
-        price: newPrice,
+        price: info?.price ?? a.price,
+        flightPriceId: info?.flightPriceId ?? a.flightPriceId,
       );
     }).toList();
   }
@@ -190,7 +192,7 @@ class _FlightRouteCardState extends State<FlightRouteCard> {
 
           const SizedBox(height: 16),
 
-         Align(
+          Align(
             alignment: Alignment.centerRight,
             child: SizedBox(
               width: 220,
@@ -299,10 +301,14 @@ class _FlightRouteCardState extends State<FlightRouteCard> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.errorContainer.withValues(alpha: 0.2),
+        color: Theme.of(context)
+            .colorScheme
+            .errorContainer
+            .withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: Theme.of(context).colorScheme.error.withValues(alpha: 0.3),
+          color:
+              Theme.of(context).colorScheme.error.withValues(alpha: 0.3),
         ),
       ),
       child: Column(
@@ -342,7 +348,8 @@ class _FlightRouteCardState extends State<FlightRouteCard> {
                     final isSelected = selected == e.key;
                     return ChoiceChip(
                       label: Text(
-                        '${e.key} (\$${e.value.toStringAsFixed(0)})',
+                        // e.value тепер ClassPriceInfo — беремо .price
+                        '${e.key} (\$${e.value.price.toStringAsFixed(0)})',
                         style: const TextStyle(fontSize: 12),
                       ),
                       selected: isSelected,
@@ -354,10 +361,12 @@ class _FlightRouteCardState extends State<FlightRouteCard> {
                         color: isSelected
                             ? Theme.of(context).colorScheme.onPrimaryContainer
                             : Theme.of(context).colorScheme.onSurfaceVariant,
-                        fontWeight:
-                            isSelected ? FontWeight.w600 : FontWeight.normal,
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.normal,
                       ),
-                      onSelected: (_) => onChoiceChanged(w.passengerLabel, e.key),
+                      onSelected: (_) =>
+                          onChoiceChanged(w.passengerLabel, e.key),
                     );
                   }).toList(),
                 ),

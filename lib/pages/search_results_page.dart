@@ -159,33 +159,46 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
     return 'Mixed class';
   }
 
-void _handleBook(FlightCombo resolvedCombo) async {
-  final args = BaggageSelectionArguments(
-    fromCity: widget.fromCity,
-    toCity: widget.toCity,
-    departDate: widget.departDate,
-    returnDate: widget.returnDate,
-    passengers: widget.passengers,
-    passengerClassLabels: _buildClassLabels(resolvedCombo),
-    airlineName: resolvedCombo.outbound.airlineName,
-    airlineLogoUrl: resolvedCombo.outbound.airlineLogoUrl ?? '',
-    fromAirportCode: resolvedCombo.outbound.departsCode,
-    toAirportCode: resolvedCombo.outbound.arrivesCode,
-    departureTime: resolvedCombo.outbound.departureTime,
-    arrivalTime: resolvedCombo.outbound.arrivalTime,
-    duration: resolvedCombo.outbound.formattedDuration,
-    basePrice: resolvedCombo.totalPrice,
-    isRoundTrip: _isRoundTrip,
-  );
+  void _handleBook(FlightCombo resolvedCombo) async {
+    List<Map<String, dynamic>> serializeAssignments(
+        List<PassengerClassAssignment> assignments) {
+      return assignments
+          .map((a) => {
+                'passengerLabel': a.passengerLabel,
+                'assignedClass': a.assignedClass,
+                'price': a.price,
+                'flightPriceId': a.flightPriceId,
+              })
+          .toList();
+    }
 
-  debugPrint('Saving baggage args...');
-  await NavigationStorageService.saveBaggageArgs(args.toMap());
-  debugPrint('Saved. Navigating...');
+    final args = BaggageSelectionArguments(
+      fromCity: widget.fromCity,
+      toCity: widget.toCity,
+      departDate: widget.departDate,
+      returnDate: widget.returnDate,
+      passengers: widget.passengers,
+      passengerClassLabels: _buildClassLabels(resolvedCombo),
+      airlineName: resolvedCombo.outbound.airlineName,
+      airlineLogoUrl: resolvedCombo.outbound.airlineLogoUrl ?? '',
+      fromAirportCode: resolvedCombo.outbound.departsCode,
+      toAirportCode: resolvedCombo.outbound.arrivesCode,
+      departureTime: resolvedCombo.outbound.departureTime,
+      arrivalTime: resolvedCombo.outbound.arrivalTime,
+      duration: resolvedCombo.outbound.formattedDuration,
+      basePrice: resolvedCombo.totalPrice,
+      isRoundTrip: _isRoundTrip,
+      outboundAssignments: serializeAssignments(resolvedCombo.outboundAssignments),
+      returnAssignments: serializeAssignments(resolvedCombo.returnAssignments),
+    );
 
-  if (!mounted) return;
-  context.go('/baggage-selection', extra: args);
-}
+    debugPrint('Saving baggage args...');
+    await NavigationStorageService.saveBaggageArgs(args.toMap());
+    debugPrint('Saved. Navigating...');
 
+    if (!mounted) return;
+    context.go('/baggage-selection', extra: args);
+  }
 
   void _handleBack() async {
     await _recentSearchesService.clearLastSearch();

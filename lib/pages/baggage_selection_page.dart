@@ -26,6 +26,8 @@ class BaggageSelectionPage extends StatefulWidget {
   final String duration;
   final double basePrice;
   final bool isRoundTrip;
+  final List<Map<String, dynamic>> outboundAssignments;
+  final List<Map<String, dynamic>> returnAssignments;
 
   const BaggageSelectionPage({
     super.key,
@@ -44,6 +46,8 @@ class BaggageSelectionPage extends StatefulWidget {
     required this.duration,
     required this.basePrice,
     required this.isRoundTrip,
+    required this.outboundAssignments,
+    this.returnAssignments = const [],
   });
 
   @override
@@ -70,7 +74,6 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
   void initState() {
     super.initState();
 
-    // Генеруємо sessionId на основі маршруту + дати + timestamp
     _sessionId = 'booking_${widget.fromAirportCode}_${widget.toAirportCode}'
         '_${widget.departDate.millisecondsSinceEpoch}';
 
@@ -208,8 +211,8 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
     context.push('/payment', extra: {
       'fromCity': widget.fromCity,
       'toCity': widget.toCity,
-      'departDate': widget.departDate,
-      'returnDate': widget.returnDate,
+      'departDate': widget.departDate.toIso8601String(),
+      'returnDate': widget.returnDate?.toIso8601String(),
       'passengers': widget.passengers,
       'passengerClassLabels': widget.passengerClassLabels,
       'airlineName': widget.airlineName,
@@ -225,9 +228,11 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
       'passengerData': _passengerData,
       'totalPrice': _grandTotal,
       'sessionId': _sessionId,
+      'outboundAssignments': widget.outboundAssignments,
+      'returnAssignments': widget.returnAssignments,
     });
   }
-
+  
   @override
   Widget build(BuildContext context) {
     final baggageOptions = _getMockBaggageOptions();

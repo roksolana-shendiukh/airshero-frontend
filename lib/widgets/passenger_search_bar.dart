@@ -70,7 +70,6 @@ class _PassengerSearchBarState extends State<PassengerSearchBar> {
     }
   }
 
-  // Вибір з dropdown
   Future<void> _selectSuggestion(Map<String, dynamic> suggestion) async {
     final docNumber = suggestion['documentNumber'] as String;
     _controller.text = docNumber;
@@ -79,7 +78,6 @@ class _PassengerSearchBarState extends State<PassengerSearchBar> {
     await _fetchPassenger(docNumber);
   }
 
-  // Enter — якщо є suggestions беремо перший, інакше шукаємо напряму
   Future<void> _onSubmitted(String value) async {
     final query = value.trim();
     if (query.isEmpty) return;
@@ -99,11 +97,12 @@ class _PassengerSearchBarState extends State<PassengerSearchBar> {
       _notFound = false;
     });
 
-    widget.onClear(); // очищуємо форму поки шукаємо
+    widget.onClear();
 
     final api = PassengerApiService(widget.authService);
     final passenger = await api.searchPassengerByDocument(docNumber);
 
+    debugPrint('passenger found: ${passenger?.firstName}');
     if (!mounted) return;
     setState(() {
       _isLoadingPassenger = false;
@@ -113,7 +112,6 @@ class _PassengerSearchBarState extends State<PassengerSearchBar> {
     if (passenger != null) {
       widget.onPassengerFound(passenger);
     }
-    // якщо null — форма залишається очищеною (onClear вже викликано)
   }
 
   void _clear() {
@@ -152,22 +150,25 @@ class _PassengerSearchBarState extends State<PassengerSearchBar> {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxHeight: 280),
                 child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (_isSearching)
-                        const Padding(
-                          padding: EdgeInsets.all(16),
-                          child: Center(child: CircularProgressIndicator()),
-                        )
-                      else
-                        ..._suggestions.map((s) => _SuggestionTile(
-                              documentNumber: s['documentNumber'] as String,
-                              firstName: s['firstName'] as String,
-                              lastName: s['lastName'] as String,
-                              onTap: () => _selectSuggestion(s),
-                            )),
-                    ],
+                  // ↓ StatefulBuilder дозволяє overlay бачити актуальний стан
+                  child: StatefulBuilder(
+                    builder: (_, __) => Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (_isSearching)
+                          const Padding(
+                            padding: EdgeInsets.all(16),
+                            child: Center(child: CircularProgressIndicator()),
+                          )
+                        else
+                          ..._suggestions.map((s) => _SuggestionTile(
+                                documentNumber: s['documentNumber'] as String,
+                                firstName: s['firstName'] as String,
+                                lastName: s['lastName'] as String,
+                                onTap: () => _selectSuggestion(s),
+                              )),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -253,7 +254,6 @@ class _PassengerSearchBarState extends State<PassengerSearchBar> {
           ),
         ),
 
-        // Не знайдено
         if (_notFound) ...[
           const SizedBox(height: 8),
           Padding(

@@ -1,9 +1,9 @@
 import 'grouped_flight.dart';
 
 class ClassWarning {
-  final String passengerLabel;   
-  final String requestedClass; 
-  final Map<String, double> alternatives;
+  final String passengerLabel;
+  final String requestedClass;
+  final Map<String, ClassPriceInfo> alternatives;
 
   const ClassWarning({
     required this.passengerLabel,
@@ -16,11 +16,13 @@ class PassengerClassAssignment {
   final String passengerLabel;
   final String assignedClass;
   final double price;
+  final int flightPriceId;
 
   const PassengerClassAssignment({
     required this.passengerLabel,
     required this.assignedClass,
     required this.price,
+    required this.flightPriceId,
   });
 }
 
@@ -29,11 +31,9 @@ class FlightCombo {
   final GroupedFlight? returnFlight;
 
   final List<PassengerClassAssignment> outboundAssignments;
-
   final List<PassengerClassAssignment> returnAssignments;
 
   final List<ClassWarning> outboundWarnings;
-
   final List<ClassWarning> returnWarnings;
 
   final double totalPrice;

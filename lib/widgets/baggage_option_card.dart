@@ -111,7 +111,6 @@ class _BaggageOptionCardState extends State<BaggageOptionCard> {
                 
                 const SizedBox(height: 16),
                 
-                // DIMENSIONS
                 Row(
                   children: [
                     Icon(
@@ -135,7 +134,6 @@ class _BaggageOptionCardState extends State<BaggageOptionCard> {
                 
                 const SizedBox(height: 8),
                 
-                // WEIGHT
                 Row(
                   children: [
                     Icon(
@@ -155,7 +153,6 @@ class _BaggageOptionCardState extends State<BaggageOptionCard> {
                 
                 const SizedBox(height: 16),
                 
-                // PRICE
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -177,7 +174,6 @@ class _BaggageOptionCardState extends State<BaggageOptionCard> {
                 
                 const SizedBox(height: 16),
                 
-                // QUANTITY SELECTOR - показується тільки якщо обрано
                 if (isSelected)
                   Container(
                     width: double.infinity,
@@ -218,7 +214,6 @@ class _BaggageOptionCardState extends State<BaggageOptionCard> {
                     ),
                   ),
                 
-                // LIMIT INFO
                 if (isSelected) ...[
                   const SizedBox(height: 8),
                   Center(

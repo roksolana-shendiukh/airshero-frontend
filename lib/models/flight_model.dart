@@ -1,4 +1,6 @@
 class FlightModel {
+  final int flightId;
+  final int flightPriceId;
   final String flightNumber;
   final String airlineName;
   final String? airlineLogoUrl;
@@ -14,6 +16,8 @@ class FlightModel {
   final String flightStatus;
 
   const FlightModel({
+    required this.flightId,
+    required this.flightPriceId,
     required this.flightNumber,
     required this.airlineName,
     this.airlineLogoUrl,
@@ -31,6 +35,8 @@ class FlightModel {
 
   factory FlightModel.fromJson(Map<String, dynamic> json) {
     return FlightModel(
+      flightId: (json['flightId'] as num?)?.toInt() ?? 0,
+      flightPriceId: (json['flightPriceId'] as num?)?.toInt() ?? 0,
       flightNumber: json['flightNumber'] as String? ?? 'N/A',
       airlineName: json['airlineName'] as String? ?? 'Unknown',
       airlineLogoUrl: json['airlineLogoUrl'] as String?,

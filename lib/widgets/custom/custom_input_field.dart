@@ -12,7 +12,7 @@ class CustomInputField extends StatefulWidget {
   final IconData icon;
   final String? errorText;
   final String? hint;
-  final String? focusHint; 
+  final String? focusHint;
   final VoidCallback? onTap;
   final VoidCallback? onIconTap;
   final bool isSelected;
@@ -72,9 +72,6 @@ class _CustomInputFieldState extends State<CustomInputField> {
     _controller = TextEditingController(text: widget.value);
 
     _focusNode.addListener(() {
-      // NOTE: widget.onTap?.call() REMOVED from here.
-      // For readOnly fields it caused a 3rd duplicate call alongside
-      // GestureDetector.onTap and TextField.onTap.
       if (!_focusNode.hasFocus) {
         Future.delayed(const Duration(milliseconds: 300), _hideOverlay);
       }
@@ -195,12 +192,6 @@ class _CustomInputFieldState extends State<CustomInputField> {
     final bool hasIconTap = widget.onIconTap != null;
     final bool showFocusHint =
         _focusNode.hasFocus && widget.focusHint != null;
-    // For readOnly fields (Depart, Return, Passengers):
-    //   GestureDetector.onTap is the ONE handler, TextField.onTap = null.
-    // For editable fields (From, To):
-    //   GestureDetector.onTap = null, TextField.onTap is the ONE handler.
-    // This ensures widget.onTap is called exactly once per click.
-    final bool isReadOnly = widget.readOnly && !hasIconTap;
 
     final hoverColor = Theme.of(context)
         .colorScheme
@@ -225,66 +216,61 @@ class _CustomInputFieldState extends State<CustomInputField> {
               fontSize: 12,
             ),
             child: MouseRegion(
-              cursor: isReadOnly
+              cursor: widget.readOnly
                   ? SystemMouseCursors.click
                   : SystemMouseCursors.text,
               onEnter: (_) => setState(() => _isHovered = true),
               onExit: (_) => setState(() => _isHovered = false),
-              child: GestureDetector(
-                onTap: isReadOnly ? widget.onTap : null,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  decoration: BoxDecoration(
-                    color: hoverColor,
-                    borderRadius: BorderRadius.circular(6),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                decoration: BoxDecoration(
+                  color: hoverColor,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: TextField(
+                  controller: _controller,
+                  focusNode: _focusNode,
+                  readOnly: widget.readOnly,
+                  obscureText: widget.obscureText,
+                  enableInteractiveSelection: true,
+                  keyboardType: widget.keyboardType,
+                  inputFormatters: widget.inputFormatters,
+                  onChanged: _onTextChanged,
+                  onTap: () {
+                    widget.onTap?.call();
+                    if (!widget.readOnly && widget.onIconTap == null) {
+                      _showOverlay();
+                    }
+                  },
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
-                  child: TextField(
-                    controller: _controller,
-                    focusNode: _focusNode,
-                    readOnly: isReadOnly,
-                    obscureText: widget.obscureText,
-                    enableInteractiveSelection: true,
-                    keyboardType: widget.keyboardType,
-                    inputFormatters: widget.inputFormatters,
-                    onChanged: _onTextChanged,
-                    onTap: isReadOnly
-                        ? null
-                        : () {
-                            widget.onTap?.call();
-                            if (widget.onIconTap == null) {
-                              _showOverlay();
-                            }
-                          },
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                    cursorColor: Theme.of(context).colorScheme.primary,
-                    decoration: InputDecoration(
-                      prefixIcon: hasIconTap
-                          ? IconButton(
-                              icon: Icon(
-                                widget.icon,
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                              onPressed: widget.onIconTap,
-                            )
-                          : Icon(
+                  cursorColor: Theme.of(context).colorScheme.primary,
+                  decoration: InputDecoration(
+                    prefixIcon: hasIconTap
+                        ? IconButton(
+                            icon: Icon(
                               widget.icon,
                               color: Theme.of(context).colorScheme.primary,
                             ),
-                      labelText: widget.label,
-                      labelStyle: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      fillColor: Colors.transparent,
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 16,
-                      ),
+                            onPressed: widget.onIconTap,
+                          )
+                        : Icon(
+                            widget.icon,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                    labelText: widget.label,
+                    labelStyle: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    fillColor: Colors.transparent,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 16,
                     ),
                   ),
                 ),

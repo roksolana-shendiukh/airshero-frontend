@@ -1,7 +1,17 @@
 import 'flight_model.dart';
 
-/// Один рейс з усіма доступними класами і цінами
+class ClassPriceInfo {
+  final int flightPriceId;
+  final double price;
+
+  const ClassPriceInfo({
+    required this.flightPriceId,
+    required this.price,
+  });
+}
+
 class GroupedFlight {
+  final int flightId;
   final String flightNumber;
   final String airlineName;
   final String? airlineLogoUrl;
@@ -14,10 +24,10 @@ class GroupedFlight {
   final String flightDuration;
   final String flightStatus;
 
-  /// className → ticketPrice
-  final Map<String, double> classPrices;
+  final Map<String, ClassPriceInfo> classPrices;
 
   const GroupedFlight({
+    required this.flightId,
     required this.flightNumber,
     required this.airlineName,
     this.airlineLogoUrl,
@@ -32,15 +42,18 @@ class GroupedFlight {
     required this.classPrices,
   });
 
-  /// Групуємо плоский список FlightModel по flightNumber
   static List<GroupedFlight> fromFlightList(List<FlightModel> flights) {
     final Map<String, GroupedFlight> map = {};
 
     for (final f in flights) {
       if (map.containsKey(f.flightNumber)) {
-        map[f.flightNumber]!.classPrices[f.className] = f.ticketPrice;
+        map[f.flightNumber]!.classPrices[f.className] = ClassPriceInfo(
+          flightPriceId: f.flightPriceId,
+          price: f.ticketPrice,
+        );
       } else {
         map[f.flightNumber] = GroupedFlight(
+          flightId: f.flightId,
           flightNumber: f.flightNumber,
           airlineName: f.airlineName,
           airlineLogoUrl: f.airlineLogoUrl,
@@ -52,7 +65,12 @@ class GroupedFlight {
           arrivesDatetime: f.arrivesDatetime,
           flightDuration: f.flightDuration,
           flightStatus: f.flightStatus,
-          classPrices: {f.className: f.ticketPrice},
+          classPrices: {
+            f.className: ClassPriceInfo(
+              flightPriceId: f.flightPriceId,
+              price: f.ticketPrice,
+            ),
+          },
         );
       }
     }
@@ -76,5 +94,7 @@ class GroupedFlight {
 
   Set<String> get availableClasses => classPrices.keys.toSet();
 
-  double? priceFor(String className) => classPrices[className];
+  double? priceFor(String className) => classPrices[className]?.price;
+
+  int? flightPriceIdFor(String className) => classPrices[className]?.flightPriceId;
 }
