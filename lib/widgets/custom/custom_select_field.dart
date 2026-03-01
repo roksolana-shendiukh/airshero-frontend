@@ -5,6 +5,7 @@ class CustomSelectField extends StatefulWidget {
   final String value;
   final IconData icon;
   final List<String> items;
+  final List<String>? itemLabels;
   final ValueChanged<String?> onChanged;
   final String? errorText;
 
@@ -15,6 +16,7 @@ class CustomSelectField extends StatefulWidget {
     required this.icon,
     required this.items,
     required this.onChanged,
+    this.itemLabels,
     this.errorText,
   });
 
@@ -35,6 +37,8 @@ class _CustomSelectFieldState extends State<CustomSelectField> {
         .primaryContainer
         .withValues(alpha: isActive ? 0.3 : 0.1);
 
+    final currentValue = widget.items.contains(widget.value) ? widget.value : null;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -48,6 +52,7 @@ class _CustomSelectFieldState extends State<CustomSelectField> {
               borderRadius: BorderRadius.circular(6),
             ),
             child: DropdownButtonFormField<String>(
+              value: currentValue,
               isExpanded: true,
               onTap: () => setState(() => _isFocused = true),
               decoration: InputDecoration(
@@ -74,17 +79,22 @@ class _CustomSelectFieldState extends State<CustomSelectField> {
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
               dropdownColor: Theme.of(context).colorScheme.surface,
-              items: widget.items.map((String item) {
+              items: List.generate(widget.items.length, (index) {
+                final value = widget.items[index];
+                final label = widget.itemLabels != null &&
+                        index < widget.itemLabels!.length
+                    ? widget.itemLabels![index]
+                    : value;
                 return DropdownMenuItem<String>(
-                  value: item,
+                  value: value,
                   child: Text(
-                    item,
+                    label,
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                 );
-              }).toList(),
+              }),
               onChanged: (value) {
                 setState(() => _isFocused = false);
                 widget.onChanged(value);

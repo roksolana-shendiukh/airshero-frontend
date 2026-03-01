@@ -3,14 +3,18 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../widgets/responsive_layout.dart';
 import '../widgets/flight_route_card.dart';
+import '../widgets/flight_filter_form.dart';
 import '../widgets/booking_progress_header.dart';
 import '../models/grouped_flight.dart';
 import '../models/flight_combo.dart';
+import '../models/flight_filter_state.dart';
 import '../utils/flight_combo_builder.dart';
 import '../models/class.dart';
 import '../services/booking_api_service.dart';
 import '../services/auth_service.dart';
+import '../services/recent_searches_service.dart';
 import '../config/routes.dart';
+import '../services/navigation_storage_service.dart';
 
 class SearchResultsPage extends StatefulWidget {
   final int fromCityId;
@@ -37,12 +41,17 @@ class SearchResultsPage extends StatefulWidget {
 }
 
 class _SearchResultsPageState extends State<SearchResultsPage> {
-  List<FlightCombo> _combos = [];
+  List<FlightCombo> _allCombos = [];
+  List<FlightCombo> _filteredCombos = [];
   bool _isLoading = true;
   String? _error;
 
-  // Фільтри — клас для кожного пасажира (всі Any за замовчуванням)
   late Map<int, Class> _passengerClasses;
+  late Map<int, Class> _returnPassengerClasses;
+  FlightFilterState? _filterState;
+  bool _filtersExpanded = false;
+
+  final _recentSearchesService = RecentSearchesService();
 
   bool get _isRoundTrip => widget.returnDate != null;
 
@@ -58,6 +67,7 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
     _passengerClasses = {
       for (int i = 0; i < total; i++) i: Class.any,
     };
+    _returnPassengerClasses = Map.from(_passengerClasses);
   }
 
   Future<void> _loadFlights() async {
@@ -108,15 +118,32 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
       outboundFlights: outbound,
       returnFlights: returnFlights,
       passengerClasses: _passengerClasses,
+      returnPassengerClasses: _returnPassengerClasses,
       passengers: widget.passengers,
     );
+
+    final newFilterState = FlightFilterState.fromCombos(
+      combos: combos,
+      passengerClasses: _passengerClasses,
+    );
+
     setState(() {
-      _combos = combos;
+      _allCombos = combos;
+      _filteredCombos = combos;
+      _filterState = newFilterState;
       _isLoading = false;
     });
   }
 
-  /// Будує Map<String, String> passengerLabel → assignedClass з FlightCombo
+  void _onFilterChanged(FlightFilterState newState) {
+    setState(() {
+      _filterState = newState;
+      _passengerClasses = newState.passengerClasses;
+      _returnPassengerClasses = newState.returnPassengerClasses;
+      _filteredCombos = newState.apply(_allCombos);
+    });
+  }
+
   Map<String, String> _buildClassLabels(FlightCombo combo) {
     final Map<String, String> result = {};
     for (final a in combo.outboundAssignments) {
@@ -125,7 +152,6 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
     return result;
   }
 
-  /// Форматує клас для хедера
   String get _classLabel {
     final classes = _passengerClasses.values.toSet();
     if (classes.every((c) => c == Class.any)) return 'Any class';
@@ -133,75 +159,234 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
     return 'Mixed class';
   }
 
-  void _handleBook(FlightCombo resolvedCombo) {
-    context.push(
-      '/baggage-selection',
-      extra: BaggageSelectionArguments(
-        fromCity: widget.fromCity,
-        toCity: widget.toCity,
-        departDate: widget.departDate,
-        returnDate: widget.returnDate,
-        passengers: widget.passengers,
-        passengerClassLabels: _buildClassLabels(resolvedCombo),
-        airlineName: resolvedCombo.outbound.airlineName,
-        airlineLogoUrl: resolvedCombo.outbound.airlineLogoUrl ?? '',
-        fromAirportCode: resolvedCombo.outbound.departsCode,
-        toAirportCode: resolvedCombo.outbound.arrivesCode,
-        departureTime: resolvedCombo.outbound.departureTime,
-        arrivalTime: resolvedCombo.outbound.arrivalTime,
-        duration: resolvedCombo.outbound.formattedDuration,
-        basePrice: resolvedCombo.totalPrice,
-        isRoundTrip: _isRoundTrip,
-      ),
-    );
+void _handleBook(FlightCombo resolvedCombo) async {
+  final args = BaggageSelectionArguments(
+    fromCity: widget.fromCity,
+    toCity: widget.toCity,
+    departDate: widget.departDate,
+    returnDate: widget.returnDate,
+    passengers: widget.passengers,
+    passengerClassLabels: _buildClassLabels(resolvedCombo),
+    airlineName: resolvedCombo.outbound.airlineName,
+    airlineLogoUrl: resolvedCombo.outbound.airlineLogoUrl ?? '',
+    fromAirportCode: resolvedCombo.outbound.departsCode,
+    toAirportCode: resolvedCombo.outbound.arrivesCode,
+    departureTime: resolvedCombo.outbound.departureTime,
+    arrivalTime: resolvedCombo.outbound.arrivalTime,
+    duration: resolvedCombo.outbound.formattedDuration,
+    basePrice: resolvedCombo.totalPrice,
+    isRoundTrip: _isRoundTrip,
+  );
+
+  debugPrint('Saving baggage args...');
+  await NavigationStorageService.saveBaggageArgs(args.toMap());
+  debugPrint('Saved. Navigating...');
+
+  if (!mounted) return;
+  context.go('/baggage-selection', extra: args);
+}
+
+
+  void _handleBack() async {
+    await _recentSearchesService.clearLastSearch();
+    if (mounted) context.go('/sales/bookings');
   }
 
   @override
   Widget build(BuildContext context) {
-    final totalPassengers = widget.passengers.values.reduce((a, b) => a + b);
+    final totalPassengers =
+        widget.passengers.values.reduce((a, b) => a + b);
+    final isLargeScreen = MediaQuery.of(context).size.width >= 1024;
 
-    Widget body;
+    Widget flightsList;
 
     if (_isLoading) {
-      body = const Center(child: CircularProgressIndicator());
+      flightsList = const Center(child: CircularProgressIndicator());
     } else if (_error != null) {
-      body = Center(
+      flightsList = Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Icon(Icons.error_outline, size: 48, color: Colors.red),
             const SizedBox(height: 16),
-            Text(_error!, style: Theme.of(context).textTheme.titleMedium),
+            Text(_error!,
+                style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
-            TextButton(onPressed: _loadFlights, child: const Text('Try again')),
+            TextButton(
+                onPressed: _loadFlights, child: const Text('Try again')),
           ],
         ),
       );
-    } else if (_combos.isEmpty) {
-      body = Center(
+    } else if (_filteredCombos.isEmpty) {
+      flightsList = Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.airplane_ticket, size: 48, color: Colors.grey),
+            Icon(
+              _allCombos.isEmpty
+                  ? Icons.airplane_ticket
+                  : Icons.filter_alt_off,
+              size: 48,
+              color: Colors.grey,
+            ),
             const SizedBox(height: 16),
-            Text('No flights found for this route',
-                style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              _allCombos.isEmpty
+                  ? 'No flights found for this route'
+                  : 'No flights match the filters',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: 8),
-            Text('${widget.fromCity} → ${widget.toCity}',
-                style: Theme.of(context).textTheme.bodyMedium),
+            if (_allCombos.isNotEmpty && _filterState != null)
+              TextButton(
+                onPressed: () => _onFilterChanged(
+                  FlightFilterState.fromCombos(
+                    combos: _allCombos,
+                    passengerClasses: {
+                      for (final e in _passengerClasses.entries)
+                        e.key: Class.any
+                    },
+                  ),
+                ),
+                child: const Text('Reset filters'),
+              )
+            else
+              Text(
+                '${widget.fromCity} → ${widget.toCity}',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
           ],
         ),
       );
     } else {
-      body = ListView.builder(
+      flightsList = ListView.builder(
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
         padding: const EdgeInsets.only(top: 16, bottom: 48),
-        itemCount: _combos.length,
+        itemCount: _filteredCombos.length,
         itemBuilder: (context, index) {
           return FlightRouteCard(
-            combo: _combos[index],
+            combo: _filteredCombos[index],
             onBook: _handleBook,
           );
         },
+      );
+    }
+
+    final Widget filterWidget = _filterState == null
+        ? const SizedBox.shrink()
+        : FlightFilterForm(
+            filterState: _filterState!,
+            passengers: widget.passengers,
+            isRoundTrip: _isRoundTrip,
+            onChanged: _onFilterChanged,
+          );
+
+    Widget body;
+
+    if (isLargeScreen) {
+      body = Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(child: flightsList),
+          Container(
+            width: 300,
+            decoration: BoxDecoration(
+              border: Border(
+                left: BorderSide(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
+              ),
+            ),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: filterWidget,
+            ),
+          ),
+        ],
+      );
+    } else {
+      final hasActiveFilters = _filterState?.isDefault == false;
+
+      body = Column(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerHigh,
+              border: Border(
+                bottom: BorderSide(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
+              ),
+            ),
+            child: InkWell(
+              onTap: () =>
+                  setState(() => _filtersExpanded = !_filtersExpanded),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 12),
+                child: Row(
+                  children: [
+                    const Icon(Icons.tune, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Filters',
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleSmall
+                          ?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                    if (hasActiveFilters) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ],
+                    const Spacer(),
+                    Icon(
+                      _filtersExpanded
+                          ? Icons.keyboard_arrow_up
+                          : Icons.keyboard_arrow_down,
+                      size: 20,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          AnimatedCrossFade(
+            firstChild: const SizedBox.shrink(),
+            secondChild: Container(
+              width: double.infinity,
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.5,
+              ),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerLow,
+                border: Border(
+                  bottom: BorderSide(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                  ),
+                ),
+              ),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: filterWidget,
+              ),
+            ),
+            crossFadeState: _filtersExpanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 250),
+          ),
+          Expanded(child: flightsList),
+        ],
       );
     }
 
@@ -214,7 +399,7 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
         totalPassengers: totalPassengers,
         flightClass: _classLabel,
         currentStep: 'search',
-        onBack: () => context.go('/sales/bookings'),
+        onBack: _handleBack,
       ),
       body: body,
     );

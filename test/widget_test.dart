@@ -4,7 +4,10 @@ import 'package:airshero_f/services/auth_service.dart';
 
 void main() {
   testWidgets('App launches successfully', (WidgetTester tester) async {
-    await tester.pumpWidget(AirSheroApp(authService: AuthService()));
+    await tester.pumpWidget(AirSheroApp(
+      authService: AuthService(),
+      initialLightTheme: true,
+    ));
 
     expect(find.text('AirShero F'), findsOneWidget);
   });

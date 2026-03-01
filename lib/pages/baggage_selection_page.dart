@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../widgets/responsive_layout.dart';
 import '../widgets/baggage_option_card.dart';
 import '/widgets/passenger_form_card.dart';
 import '/widgets/custom/custom_button.dart';
 import '../models/baggage_models.dart';
-import '../models/passenger_model.dart';
 import '../widgets/booking_progress_header.dart';
 import '../widgets/price_summary_card.dart';
+import '../services/auth_service.dart';
 
 class BaggageSelectionPage extends StatefulWidget {
   final String fromCity;
@@ -15,7 +16,6 @@ class BaggageSelectionPage extends StatefulWidget {
   final DateTime departDate;
   final DateTime? returnDate;
   final Map<String, int> passengers;
-  /// passengerLabel → assignedClass, e.g. {'Adult 1': 'Business', 'Child 1': 'Economy'}
   final Map<String, String> passengerClassLabels;
   final String airlineName;
   final String airlineLogoUrl;
@@ -57,7 +57,8 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
   int _currentPassengerIndex = 0;
   bool _hasVisitedPayment = false;
 
-  /// Форматуємо клас для хедера
+  late final String _sessionId;
+
   String get _classLabel {
     final classes = widget.passengerClassLabels.values.toSet();
     if (classes.isEmpty) return '';
@@ -68,6 +69,11 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
   @override
   void initState() {
     super.initState();
+
+    // Генеруємо sessionId на основі маршруту + дати + timestamp
+    _sessionId = 'booking_${widget.fromAirportCode}_${widget.toAirportCode}'
+        '_${widget.departDate.millisecondsSinceEpoch}';
+
     final totalPassengers = widget.passengers.values.reduce((a, b) => a + b);
     for (int i = 0; i < totalPassengers; i++) {
       _passengerBaggageSelections[i] = {};
@@ -107,13 +113,6 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
         rule: const BaggagePricingRule(id: 14, baggageTypeId: 5, dimension: '100x70x50', maxWeight: 30.00, overweightFeePerKg: 350.00),
         type: const BaggageType(id: 5, name: 'Special baggage'),
       ),
-    ];
-  }
-
-  List<PassengerModel> _getMockSavedPassengers() {
-    return [
-      PassengerModel(id: '1', firstName: 'John', lastName: 'Doe', sex: 'Male', dateOfBirth: DateTime(1990, 5, 15), citizenship: 'Ukraine', documentType: 'Passport', documentNumber: 'AB123456', documentExpire: DateTime(2028, 12, 31)),
-      PassengerModel(id: '2', firstName: 'Jane', lastName: 'Smith', sex: 'Female', dateOfBirth: DateTime(1995, 8, 22), citizenship: 'Poland', documentType: 'ID Card', documentNumber: 'CD789012', documentExpire: DateTime(2027, 6, 30)),
     ];
   }
 
@@ -169,13 +168,17 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
       if (data['dateOfBirth'] == null) return false;
       if (data['documentNumber'] == null || data['documentNumber'].toString().isEmpty) return false;
       if (data['documentExpire'] == null) return false;
+      if (data['citizenshipId'] == null) return false;
+      if (data['documentTypeId'] == null) return false;
     }
     return true;
   }
 
   String _getPassengerDisplayName(int index) {
     final data = _passengerData[index];
-    if (data == null || data.isEmpty || data['firstName'] == null || data['firstName'].toString().isEmpty) {
+    if (data == null || data.isEmpty ||
+        data['firstName'] == null ||
+        data['firstName'].toString().isEmpty) {
       return _getPassengerLabel(index);
     }
     final firstName = data['firstName'].toString();
@@ -183,13 +186,17 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
     for (int i = 0; i < _totalPassengers; i++) {
       if (i != index) {
         final otherData = _passengerData[i];
-        if (otherData != null && otherData['firstName']?.toString().toLowerCase() == firstName.toLowerCase()) {
+        if (otherData != null &&
+            otherData['firstName']?.toString().toLowerCase() ==
+                firstName.toLowerCase()) {
           hasDuplicate = true;
           break;
         }
       }
     }
-    if (hasDuplicate && data['lastName'] != null && data['lastName'].toString().isNotEmpty) {
+    if (hasDuplicate &&
+        data['lastName'] != null &&
+        data['lastName'].toString().isNotEmpty) {
       return '$firstName ${data['lastName']}';
     }
     return firstName;
@@ -217,13 +224,14 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
       'baggageSelections': _passengerBaggageSelections,
       'passengerData': _passengerData,
       'totalPrice': _grandTotal,
+      'sessionId': _sessionId,
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final baggageOptions = _getMockBaggageOptions();
-    final savedPassengers = _getMockSavedPassengers();
+    final authService = context.read<AuthService>();
 
     return ResponsiveLayout(
       header: BookingProgressHeader(
@@ -239,7 +247,11 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
         onBack: () => context.pop(),
         onForward: _hasVisitedPayment && _isFormValid() ? _navigateToPayment : null,
       ),
-      body: Column(
+      body: ListView(
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
+        padding: const EdgeInsets.only(bottom: 48),
         children: [
           const SizedBox(height: 16),
           _buildPassengerSelector(context),
@@ -249,9 +261,11 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
             child: PassengerFormCard(
               passengerIndex: _currentPassengerIndex,
               passengerType: _getPassengerType(_currentPassengerIndex),
-              savedPassengers: savedPassengers,
               initialData: _passengerData[_currentPassengerIndex],
-              onDataChanged: (data) => setState(() => _passengerData[_currentPassengerIndex] = data),
+              authService: authService,
+              sessionId: _sessionId,
+              onDataChanged: (data) =>
+                  setState(() => _passengerData[_currentPassengerIndex] = data),
             ),
           ),
           const SizedBox(height: 24),
@@ -261,7 +275,10 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
               alignment: Alignment.centerLeft,
               child: Text(
                 'Select baggage for ${_getPassengerLabel(_currentPassengerIndex)}',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.bold),
               ),
             ),
           ),
@@ -273,8 +290,8 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
               child: Text(
                 'Select one baggage type (up to 3 items)',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
               ),
             ),
           ),
@@ -285,7 +302,10 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
               spacing: 12,
               runSpacing: 12,
               children: baggageOptions.map((option) {
-                final currentQuantity = _passengerBaggageSelections[_currentPassengerIndex]?[option.id] ?? 0;
+                final currentQuantity =
+                    _passengerBaggageSelections[_currentPassengerIndex]
+                            ?[option.id] ??
+                        0;
                 return BaggageOptionCard(
                   option: option,
                   quantity: currentQuantity,
@@ -300,7 +320,9 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
                   },
                   onIncrement: () {
                     if (currentQuantity > 0 && currentQuantity < 3) {
-                      setState(() => _passengerBaggageSelections[_currentPassengerIndex]![option.id] = currentQuantity + 1);
+                      setState(() =>
+                          _passengerBaggageSelections[_currentPassengerIndex]![
+                              option.id] = currentQuantity + 1);
                     }
                   },
                   onDecrement: () {
@@ -308,9 +330,11 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
                       setState(() {
                         final newQty = currentQuantity - 1;
                         if (newQty == 0) {
-                          _passengerBaggageSelections[_currentPassengerIndex]?.remove(option.id);
+                          _passengerBaggageSelections[_currentPassengerIndex]
+                              ?.remove(option.id);
                         } else {
-                          _passengerBaggageSelections[_currentPassengerIndex]![option.id] = newQty;
+                          _passengerBaggageSelections[_currentPassengerIndex]![
+                              option.id] = newQty;
                         }
                       });
                     }
@@ -338,7 +362,6 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
               ),
             ),
           ),
-          const SizedBox(height: 48),
         ],
       ),
     );
@@ -346,7 +369,7 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
 
   Widget _buildPassengerSelector(BuildContext context) {
     return SizedBox(
-      height: 80,
+      height: 88,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -358,7 +381,8 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
           final label = _getPassengerLabel(index);
           final classLabel = widget.passengerClassLabels[label] ?? '';
           String passengerName = label;
-          if (hasPassengerData && _passengerData[index]!['firstName']?.toString().isNotEmpty == true) {
+          if (hasPassengerData &&
+              _passengerData[index]!['firstName']?.toString().isNotEmpty == true) {
             passengerName = _passengerData[index]!['firstName'].toString();
           }
 
@@ -369,14 +393,16 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
               borderRadius: BorderRadius.circular(12),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                constraints: const BoxConstraints(maxHeight: 76),
+                constraints: const BoxConstraints(maxHeight: 84),
                 decoration: BoxDecoration(
                   color: isSelected
                       ? Theme.of(context).colorScheme.primaryContainer
                       : Theme.of(context).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: isSelected ? Theme.of(context).colorScheme.primary : Colors.transparent,
+                    color: isSelected
+                        ? Theme.of(context).colorScheme.primary
+                        : Colors.transparent,
                     width: 2,
                   ),
                 ),
@@ -395,11 +421,11 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
                     Text(
                       passengerName,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                        color: isSelected
-                            ? Theme.of(context).colorScheme.onPrimaryContainer
-                            : Theme.of(context).colorScheme.onSurface,
-                      ),
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            color: isSelected
+                                ? Theme.of(context).colorScheme.onPrimaryContainer
+                                : Theme.of(context).colorScheme.onSurface,
+                          ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -408,12 +434,12 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
                       Text(
                         classLabel,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          fontSize: 10,
-                          color: isSelected
-                              ? Theme.of(context).colorScheme.onPrimaryContainer
-                              : Theme.of(context).colorScheme.primary,
-                          fontWeight: FontWeight.w500,
-                        ),
+                              fontSize: 10,
+                              color: isSelected
+                                  ? Theme.of(context).colorScheme.onPrimaryContainer
+                                  : Theme.of(context).colorScheme.primary,
+                              fontWeight: FontWeight.w500,
+                            ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -423,15 +449,17 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.luggage, size: 10, color: Theme.of(context).colorScheme.primary),
+                          Icon(Icons.luggage,
+                              size: 10,
+                              color: Theme.of(context).colorScheme.primary),
                           const SizedBox(width: 2),
                           Text(
                             '$baggageCount',
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              fontSize: 10,
-                              color: Theme.of(context).colorScheme.primary,
-                              fontWeight: FontWeight.bold,
-                            ),
+                                  fontSize: 10,
+                                  color: Theme.of(context).colorScheme.primary,
+                                  fontWeight: FontWeight.bold,
+                                ),
                           ),
                         ],
                       ),
@@ -448,7 +476,7 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
 
   Widget _buildPriceSummary(BuildContext context) {
     final baggageOptions = _getMockBaggageOptions();
-    List<PassengerPriceItem> passengerPrices = [];
+    final List<PassengerPriceItem> passengerPrices = [];
 
     for (int i = 0; i < _totalPassengers; i++) {
       final passengerType = _getPassengerType(i);
@@ -463,7 +491,8 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
         final option = baggageOptions.firstWhere((opt) => opt.id == baggageId);
         passengerBaggagePrice += option.price * quantity;
       });
-      final baggageCount = baggageMap.values.fold<int>(0, (sum, qty) => sum + qty);
+      final baggageCount =
+          baggageMap.values.fold<int>(0, (sum, qty) => sum + qty);
 
       passengerPrices.add(PassengerPriceItem(
         passengerType: passengerLabel,

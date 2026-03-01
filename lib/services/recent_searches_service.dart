@@ -20,7 +20,6 @@ class RecentSearchesService {
     final trimmed = cities.take(5).toList();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_citiesKey, jsonEncode(trimmed));
-    print('Saved cities: $trimmed');
   }
 
   Future<List<Map<String, String>>> loadRoutes() async {
@@ -77,5 +76,10 @@ class RecentSearchesService {
     final raw = prefs.getString(_lastSearchKey);
     if (raw == null) return null;
     return jsonDecode(raw) as Map<String, dynamic>;
+  }
+  
+  Future<void> clearLastSearch() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_lastSearchKey);
   }
 }

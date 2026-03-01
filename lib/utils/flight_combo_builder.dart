@@ -8,9 +8,11 @@ class FlightComboBuilder {
     required List<GroupedFlight> returnFlights,
     required Map<int, Class> passengerClasses,
     required Map<String, int> passengers,
+    Map<int, Class>? returnPassengerClasses, 
   }) {
     final passengerLabels = _buildPassengerLabels(passengers);
     final multipliers = _buildMultipliers(passengers, passengerLabels.length);
+    final returnClasses = returnPassengerClasses ?? passengerClasses;
     final List<FlightCombo> result = [];
 
     for (final outbound in outboundFlights) {
@@ -35,7 +37,7 @@ class FlightComboBuilder {
         for (final ret in returnFlights) {
           final returnVariants = _generateVariants(
             flight: ret,
-            passengerClasses: passengerClasses,
+            passengerClasses: returnClasses,
             passengerLabels: passengerLabels,
             multipliers: multipliers,
             passengers: passengers,
@@ -78,17 +80,12 @@ class FlightComboBuilder {
     final adults = passengers['adults'] ?? 0;
     final children = passengers['children'] ?? 0;
 
-    // Групуємо індекси пасажирів по типу
-    // Тип: 0 = Adult, 1 = Child, 2 = Infant
     final Map<int, List<int>> typeGroups = {};
     for (int i = 0; i < passengerLabels.length; i++) {
       final type = i < adults ? 0 : i < adults + children ? 1 : 2;
       typeGroups.putIfAbsent(type, () => []).add(i);
     }
 
-    // Для кожного типу генеруємо комбінації (з повторенням, без перестановок)
-    // якщо всі пасажири цього типу мають Any.
-    // Якщо хтось має конкретний клас — звичайна логіка.
     List<_FlightVariant> variants = [_FlightVariant.empty()];
 
     for (int i = 0; i < passengerLabels.length; i++) {
@@ -98,24 +95,18 @@ class FlightComboBuilder {
       final type = i < adults ? 0 : i < adults + children ? 1 : 2;
       final groupIndices = typeGroups[type]!;
 
-      // Чи всі пасажири цього типу мають Any?
       final allAnyInGroup = groupIndices
           .every((idx) => (passengerClasses[idx] ?? Class.economy) == Class.any);
 
-      // Позиція поточного пасажира всередині своєї групи
       final posInGroup = groupIndices.indexOf(i);
 
       final List<_FlightVariant> nextVariants = [];
 
       if (requestedClass == Class.any) {
         if (allAnyInGroup) {
-          // Комбінації без перестановок:
-          // для поточного пасажира дозволяємо тільки класи >= класу попереднього
-          // пасажира тієї ж групи
           final availableClasses = flight.classPrices.keys.toList()..sort();
 
           for (final variant in variants) {
-            // Знаходимо клас попереднього пасажира з тієї ж групи
             String? minClass;
             if (posInGroup > 0) {
               final prevIdx = groupIndices[posInGroup - 1];
@@ -127,7 +118,6 @@ class FlightComboBuilder {
             }
 
             for (final cls in availableClasses) {
-              // Пропускаємо класи що йдуть "до" класу попереднього пасажира
               if (minClass != null &&
                   availableClasses.indexOf(cls) <
                       availableClasses.indexOf(minClass)) {
@@ -145,7 +135,6 @@ class FlightComboBuilder {
             }
           }
         } else {
-          // В групі є пасажири з конкретним класом — розгортаємо всі класи
           for (final variant in variants) {
             for (final entry in flight.classPrices.entries) {
               final price = entry.value * multiplier;
@@ -173,7 +162,6 @@ class FlightComboBuilder {
             ));
           }
         } else {
-          // Немає потрібного класу — попередження, пасажир обере в картці
           for (final variant in variants) {
             nextVariants.add(variant.withWarning(
               ClassWarning(
@@ -226,7 +214,6 @@ class FlightComboBuilder {
   }
 }
 
-/// Внутрішня модель для побудови варіантів
 class _FlightVariant {
   final List<PassengerClassAssignment> assignments;
   final List<ClassWarning> warnings;

@@ -64,7 +64,6 @@ class _PassengerSelectorState extends State<PassengerSelector> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Заголовок
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 20, 8, 0),
               child: Row(

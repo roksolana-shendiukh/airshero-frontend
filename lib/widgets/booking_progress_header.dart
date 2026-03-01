@@ -39,21 +39,6 @@ class BookingProgressHeader extends StatelessWidget {
     return '${months[date.month - 1]} ${date.day}';
   }
 
-  String _getStepTitle() {
-    switch (currentStep) {
-      case 'search':
-        return 'Select Flight';
-      case 'baggage':
-        return 'Select Baggage';
-      case 'passengers':
-        return 'Passenger Details';
-      case 'payment':
-        return 'Payment';
-      default:
-        return '';
-    }
-  }
-
   List<String> _getProgressSteps() {
     switch (currentStep) {
       case 'search':
@@ -89,10 +74,8 @@ class BookingProgressHeader extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // NAVIGATION ROW
           Row(
             children: [
-              // BACK BUTTON
               if (onBack != null)
                 IconButton(
                   icon: const Icon(Icons.arrow_back),
@@ -102,21 +85,10 @@ class BookingProgressHeader extends StatelessWidget {
               
               const SizedBox(width: 8),
               
-              // MAIN INFO
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // STEP TITLE
-                    Text(
-                      _getStepTitle(),
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    
-                    // ROUTE & DATES
                     Text(
                       '$fromCity → $toCity',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -125,7 +97,6 @@ class BookingProgressHeader extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     
-                    // DETAILS - тут додаємо інформацію про багаж
                     Wrap(
                       spacing: 4,
                       runSpacing: 4,
@@ -161,7 +132,6 @@ class BookingProgressHeader extends StatelessWidget {
                             color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                         ),
-                        // Інформація про багаж тут
                         if (baggageCount != null && baggageCount! > 0) ...[
                           Text(
                             ' • ',
@@ -183,7 +153,6 @@ class BookingProgressHeader extends StatelessWidget {
                             ),
                           ),
                         ],
-                        // Інформація про авіакомпанію
                         if (airlineName != null) ...[
                           Text(
                             ' • ',
@@ -210,7 +179,6 @@ class BookingProgressHeader extends StatelessWidget {
                 ),
               ),
               
-              // FORWARD BUTTON
               if (onForward != null)
                 IconButton(
                   icon: const Icon(Icons.arrow_forward),
@@ -222,7 +190,6 @@ class BookingProgressHeader extends StatelessWidget {
           
           const SizedBox(height: 12),
           
-          // PROGRESS BREADCRUMBS
           Wrap(
             spacing: 8,
             runSpacing: 8,

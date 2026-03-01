@@ -29,7 +29,6 @@ class ResponsiveLayout extends StatelessWidget {
           drawer: isLargeScreen ? null : _buildDrawer(context, currentUser),
           body: Column(
             children: [
-              /// ===== APP BAR =====
               AppBar(
                 elevation: 0,
                 leading: isLargeScreen
@@ -53,9 +52,7 @@ class ResponsiveLayout extends StatelessWidget {
                     icon: Icon(
                       isLightTheme ? Icons.dark_mode : Icons.light_mode,
                     ),
-                    onPressed: () {
-                      themeNotifier?.toggleTheme();
-                    },
+                    onPressed: () => themeNotifier?.toggleTheme(),
                   ),
                   const SizedBox(width: 8),
                   if (currentUser != null)
@@ -65,8 +62,8 @@ class ResponsiveLayout extends StatelessWidget {
                         backgroundColor: Theme.of(context).colorScheme.primary,
                         child: Text(
                           currentUser.firstName.isNotEmpty
-                            ? currentUser.firstName[0].toUpperCase()
-                            : currentUser.email[0].toUpperCase(),
+                              ? currentUser.firstName[0].toUpperCase()
+                              : currentUser.email[0].toUpperCase(),
                           style: TextStyle(
                             color: Theme.of(context).colorScheme.onPrimary,
                             fontWeight: FontWeight.bold,
@@ -87,21 +84,23 @@ class ResponsiveLayout extends StatelessWidget {
                                 currentUser.role.displayName,
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
                                 ),
                               ),
                             ],
                           ),
                         ),
                         const PopupMenuDivider(),
-                        
                         const PopupMenuItem(
                           value: 'logout',
                           child: Row(
                             children: [
                               Icon(Icons.logout, size: 20, color: Colors.red),
                               SizedBox(width: 12),
-                              Text('Logout', style: TextStyle(color: Colors.red)),
+                              Text('Logout',
+                                  style: TextStyle(color: Colors.red)),
                             ],
                           ),
                         ),
@@ -110,7 +109,7 @@ class ResponsiveLayout extends StatelessWidget {
                         if (value == 'logout') {
                           authService.logout();
                           context.go('/');
-                        } 
+                        }
                       },
                     ),
                   const SizedBox(width: 16),
@@ -126,9 +125,7 @@ class ResponsiveLayout extends StatelessWidget {
                       child: Column(
                         children: [
                           if (header != null) header!,
-                          Expanded(
-                              child: body,
-                          ),
+                          Expanded(child: body),
                         ],
                       ),
                     ),
@@ -144,7 +141,6 @@ class ResponsiveLayout extends StatelessWidget {
 
   String _getAppBarTitle(UserRole? role) {
     if (role == null) return 'AirShero';
-    
     switch (role) {
       case UserRole.salesAgent:
         return 'AirShero Sales';
@@ -169,7 +165,12 @@ class ResponsiveLayout extends StatelessWidget {
     return Container(
       width: 280,
       color: Theme.of(context).colorScheme.surfaceContainerHigh,
-      child: _buildMenuContent(context, currentUser),
+      // SingleChildScrollView з NeverScrollableScrollPhysics —
+      // sidebar не перехоплює scroll events
+      child: SingleChildScrollView(
+        physics: const NeverScrollableScrollPhysics(),
+        child: _buildMenuContent(context, currentUser),
+      ),
     );
   }
 
@@ -181,65 +182,67 @@ class ResponsiveLayout extends StatelessWidget {
     final currentPath = GoRouterState.of(context).uri.path;
     final menuItems = currentUser.role.menuItems;
 
-    return ListView(
+    // Column замість ListView — не є Scrollable, не перехоплює events
+    return Padding(
       padding: const EdgeInsets.symmetric(vertical: 16),
-      children: [
-        // Role Header
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                currentUser.role.displayName.toUpperCase(),
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.2,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  currentUser.role.displayName.toUpperCase(),
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.2,
+                      ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                currentUser.fullName,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface,
-                  fontWeight: FontWeight.w500,
+                const SizedBox(height: 4),
+                Text(
+                  currentUser.fullName,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurface,
+                        fontWeight: FontWeight.w500,
+                      ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-        const Divider(height: 24),
-
-        // Menu Items
-        ...menuItems.map((item) {
-          return HoverableMenuItem(
-            icon: item.icon,
-            title: item.title,
-            isActive: currentPath == item.route,
-            onTap: () {
-              if (Navigator.canPop(context)) Navigator.pop(context);
-              context.go(item.route);
-            },
-          );
-        }),
-      ],
+          const Divider(height: 24),
+          ...menuItems.map((item) => HoverableMenuItem(
+                icon: item.icon,
+                title: item.title,
+                isActive: currentPath == item.route,
+                onTap: () {
+                  if (Navigator.canPop(context)) Navigator.pop(context);
+                  context.go(item.route);
+                },
+              )),
+        ],
+      ),
     );
   }
 
   Widget _buildGuestMenu(BuildContext context) {
-    return ListView(
+    return Padding(
       padding: const EdgeInsets.symmetric(vertical: 16),
-      children: [
-        HoverableMenuItem(
-          icon: Icons.search,
-          title: 'Search Flights',
-          onTap: () {
-            if (Navigator.canPop(context)) Navigator.pop(context);
-            context.go('/');
-          },
-        ),
-      ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          HoverableMenuItem(
+            icon: Icons.search,
+            title: 'Search Flights',
+            onTap: () {
+              if (Navigator.canPop(context)) Navigator.pop(context);
+              context.go('/');
+            },
+          ),
+        ],
+      ),
     );
   }
 }
@@ -268,7 +271,7 @@ class _HoverableMenuItemState extends State<HoverableMenuItem> {
   @override
   Widget build(BuildContext context) {
     final isActive = widget.isActive;
-    
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: MouseRegion(
@@ -278,13 +281,23 @@ class _HoverableMenuItemState extends State<HoverableMenuItem> {
           onTap: widget.onTap,
           borderRadius: BorderRadius.circular(12),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             decoration: BoxDecoration(
               color: isActive
-                  ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.5)
+                  ? Theme.of(context)
+                      .colorScheme
+                      .primaryContainer
+                      .withValues(alpha: 0.5)
                   : _isHovered
-                      ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3)
-                      : Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.1),
+                      ? Theme.of(context)
+                          .colorScheme
+                          .primaryContainer
+                          .withValues(alpha: 0.3)
+                      : Theme.of(context)
+                          .colorScheme
+                          .primaryContainer
+                          .withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
@@ -302,7 +315,8 @@ class _HoverableMenuItemState extends State<HoverableMenuItem> {
                     widget.title,
                     style: TextStyle(
                       fontSize: 16,
-                      fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+                      fontWeight:
+                          isActive ? FontWeight.bold : FontWeight.w500,
                       color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),

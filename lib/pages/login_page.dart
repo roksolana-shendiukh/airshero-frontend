@@ -49,7 +49,6 @@ class _LoginPageState extends State<LoginPage> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Лого
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [

@@ -12,6 +12,7 @@ class CustomInputField extends StatefulWidget {
   final IconData icon;
   final String? errorText;
   final String? hint;
+  final String? focusHint; 
   final VoidCallback? onTap;
   final VoidCallback? onIconTap;
   final bool isSelected;
@@ -34,6 +35,7 @@ class CustomInputField extends StatefulWidget {
     required this.icon,
     this.errorText,
     this.hint,
+    this.focusHint,
     this.onTap,
     this.onIconTap,
     this.isSelected = false,
@@ -70,12 +72,10 @@ class _CustomInputFieldState extends State<CustomInputField> {
     _controller = TextEditingController(text: widget.value);
 
     _focusNode.addListener(() {
-      if (_focusNode.hasFocus) {
-        widget.onTap?.call();
-        if (!widget.readOnly && widget.onIconTap == null) {
-          _showOverlay();
-        }
-      } else {
+      // NOTE: widget.onTap?.call() REMOVED from here.
+      // For readOnly fields it caused a 3rd duplicate call alongside
+      // GestureDetector.onTap and TextField.onTap.
+      if (!_focusNode.hasFocus) {
         Future.delayed(const Duration(milliseconds: 300), _hideOverlay);
       }
       setState(() {});
@@ -133,13 +133,10 @@ class _CustomInputFieldState extends State<CustomInputField> {
   }
 
   void _showOverlay() {
-    if (_overlayEntry != null) {
-      return;
-    }
+    if (_overlayEntry != null) return;
+
     final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
-    if (renderBox == null) {
-      return;
-    }
+    if (renderBox == null) return;
 
     if (!widget.searchAirports &&
         (widget.previousSearches?.isEmpty ?? true) &&
@@ -177,7 +174,7 @@ class _CustomInputFieldState extends State<CustomInputField> {
     );
     Overlay.of(context).insert(_overlayEntry!);
   }
-    
+
   void _hideOverlay() {
     _overlayEntry?.remove();
     _overlayEntry = null;
@@ -196,6 +193,14 @@ class _CustomInputFieldState extends State<CustomInputField> {
     final bool isActive =
         _focusNode.hasFocus || widget.isSelected || _isHovered;
     final bool hasIconTap = widget.onIconTap != null;
+    final bool showFocusHint =
+        _focusNode.hasFocus && widget.focusHint != null;
+    // For readOnly fields (Depart, Return, Passengers):
+    //   GestureDetector.onTap is the ONE handler, TextField.onTap = null.
+    // For editable fields (From, To):
+    //   GestureDetector.onTap = null, TextField.onTap is the ONE handler.
+    // This ensures widget.onTap is called exactly once per click.
+    final bool isReadOnly = widget.readOnly && !hasIconTap;
 
     final hoverColor = Theme.of(context)
         .colorScheme
@@ -220,13 +225,13 @@ class _CustomInputFieldState extends State<CustomInputField> {
               fontSize: 12,
             ),
             child: MouseRegion(
-              cursor: (widget.readOnly && !hasIconTap)
+              cursor: isReadOnly
                   ? SystemMouseCursors.click
                   : SystemMouseCursors.text,
               onEnter: (_) => setState(() => _isHovered = true),
               onExit: (_) => setState(() => _isHovered = false),
               child: GestureDetector(
-                onTap: (widget.readOnly && !hasIconTap) ? widget.onTap : null,
+                onTap: isReadOnly ? widget.onTap : null,
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 150),
                   decoration: BoxDecoration(
@@ -236,22 +241,20 @@ class _CustomInputFieldState extends State<CustomInputField> {
                   child: TextField(
                     controller: _controller,
                     focusNode: _focusNode,
-                    readOnly: widget.readOnly && !hasIconTap,
+                    readOnly: isReadOnly,
                     obscureText: widget.obscureText,
                     enableInteractiveSelection: true,
                     keyboardType: widget.keyboardType,
                     inputFormatters: widget.inputFormatters,
                     onChanged: _onTextChanged,
-                    onTap: () {
-                      if (widget.readOnly && !hasIconTap) {
-                        widget.onTap?.call();
-                      } else {
-                        widget.onTap?.call();
-                        if (widget.onIconTap == null) {
-                          _showOverlay();
-                        }
-                      }
-                    },
+                    onTap: isReadOnly
+                        ? null
+                        : () {
+                            widget.onTap?.call();
+                            if (widget.onIconTap == null) {
+                              _showOverlay();
+                            }
+                          },
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.onSurface,
                     ),
@@ -288,6 +291,33 @@ class _CustomInputFieldState extends State<CustomInputField> {
               ),
             ),
           ),
+
+          AnimatedSize(
+            duration: const Duration(milliseconds: 150),
+            child: showFocusHint
+                ? Padding(
+                    padding: const EdgeInsets.only(left: 16, top: 4),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          size: 12,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          widget.focusHint!,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+
           if (widget.errorText != null)
             Padding(
               padding: const EdgeInsets.only(left: 16, top: 4),

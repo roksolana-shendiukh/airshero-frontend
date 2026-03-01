@@ -1,0 +1,356 @@
+import 'package:flutter/material.dart';
+import '../../models/passenger_model.dart';
+import '../../services/passenger_api_service.dart';
+import '../../services/auth_service.dart';
+
+class PassengerSearchBar extends StatefulWidget {
+  final AuthService authService;
+  final void Function(PassengerModel passenger) onPassengerFound;
+  final void Function() onClear;
+
+  const PassengerSearchBar({
+    super.key,
+    required this.authService,
+    required this.onPassengerFound,
+    required this.onClear,
+  });
+
+  @override
+  State<PassengerSearchBar> createState() => _PassengerSearchBarState();
+}
+
+class _PassengerSearchBarState extends State<PassengerSearchBar> {
+  final _controller = TextEditingController();
+  final _focusNode = FocusNode();
+  final _layerLink = LayerLink();
+
+  List<Map<String, dynamic>> _suggestions = [];
+  bool _isSearching = false;
+  bool _isLoadingPassenger = false;
+  bool _notFound = false;
+  OverlayEntry? _overlayEntry;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(() {
+      if (!_focusNode.hasFocus) {
+        Future.delayed(const Duration(milliseconds: 200), _hideOverlay);
+      }
+      setState(() {});
+    });
+  }
+
+  Future<void> _onChanged(String value) async {
+    setState(() => _notFound = false);
+    widget.onClear();
+
+    if (value.trim().length < 2) {
+      setState(() => _suggestions = []);
+      _hideOverlay();
+      return;
+    }
+
+    setState(() => _isSearching = true);
+    _showOverlay();
+
+    final api = PassengerApiService(widget.authService);
+    final results = await api.getDocumentSuggestions(value.trim());
+
+    if (!mounted) return;
+    setState(() {
+      _suggestions = results;
+      _isSearching = false;
+    });
+
+    if (results.isNotEmpty) {
+      _overlayEntry?.markNeedsBuild();
+    } else {
+      _hideOverlay();
+    }
+  }
+
+  // Вибір з dropdown
+  Future<void> _selectSuggestion(Map<String, dynamic> suggestion) async {
+    final docNumber = suggestion['documentNumber'] as String;
+    _controller.text = docNumber;
+    _hideOverlay();
+    _focusNode.unfocus();
+    await _fetchPassenger(docNumber);
+  }
+
+  // Enter — якщо є suggestions беремо перший, інакше шукаємо напряму
+  Future<void> _onSubmitted(String value) async {
+    final query = value.trim();
+    if (query.isEmpty) return;
+
+    if (_suggestions.isNotEmpty) {
+      _selectSuggestion(_suggestions.first);
+    } else {
+      _hideOverlay();
+      _focusNode.unfocus();
+      await _fetchPassenger(query);
+    }
+  }
+
+  Future<void> _fetchPassenger(String docNumber) async {
+    setState(() {
+      _isLoadingPassenger = true;
+      _notFound = false;
+    });
+
+    widget.onClear(); // очищуємо форму поки шукаємо
+
+    final api = PassengerApiService(widget.authService);
+    final passenger = await api.searchPassengerByDocument(docNumber);
+
+    if (!mounted) return;
+    setState(() {
+      _isLoadingPassenger = false;
+      _notFound = passenger == null;
+    });
+
+    if (passenger != null) {
+      widget.onPassengerFound(passenger);
+    }
+    // якщо null — форма залишається очищеною (onClear вже викликано)
+  }
+
+  void _clear() {
+    _controller.clear();
+    setState(() {
+      _suggestions = [];
+      _notFound = false;
+    });
+    _hideOverlay();
+    widget.onClear();
+  }
+
+  void _showOverlay() {
+    if (_overlayEntry != null) {
+      _overlayEntry?.markNeedsBuild();
+      return;
+    }
+
+    final renderBox = context.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+    final width = renderBox.size.width;
+
+    _overlayEntry = OverlayEntry(
+      builder: (ctx) => CompositedTransformFollower(
+        link: _layerLink,
+        showWhenUnlinked: false,
+        offset: const Offset(0, 56),
+        child: Align(
+          alignment: Alignment.topLeft,
+          child: SizedBox(
+            width: width,
+            child: Material(
+              color: Theme.of(ctx).colorScheme.surface,
+              borderRadius: BorderRadius.circular(8),
+              elevation: 4,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 280),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (_isSearching)
+                        const Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Center(child: CircularProgressIndicator()),
+                        )
+                      else
+                        ..._suggestions.map((s) => _SuggestionTile(
+                              documentNumber: s['documentNumber'] as String,
+                              firstName: s['firstName'] as String,
+                              lastName: s['lastName'] as String,
+                              onTap: () => _selectSuggestion(s),
+                            )),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    Overlay.of(context).insert(_overlayEntry!);
+  }
+
+  void _hideOverlay() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+  }
+
+  @override
+  void dispose() {
+    _hideOverlay();
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final isActive = _focusNode.hasFocus;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        CompositedTransformTarget(
+          link: _layerLink,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            decoration: BoxDecoration(
+              color: colors.primaryContainer
+                  .withValues(alpha: isActive ? 0.3 : 0.1),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: TextField(
+              controller: _controller,
+              focusNode: _focusNode,
+              onChanged: _onChanged,
+              onSubmitted: _onSubmitted,
+              textInputAction: TextInputAction.search,
+              style: TextStyle(color: colors.onSurface),
+              cursorColor: colors.primary,
+              decoration: InputDecoration(
+                prefixIcon: Icon(Icons.contact_page_outlined,
+                    color: colors.primary),
+                suffixIcon: _isLoadingPassenger
+                    ? Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: colors.primary),
+                        ),
+                      )
+                    : _controller.text.isNotEmpty
+                        ? IconButton(
+                            icon: Icon(Icons.close, color: colors.primary),
+                            onPressed: _clear,
+                          )
+                        : null,
+                labelText: 'Search passenger by document number',
+                labelStyle: TextStyle(color: colors.onSurfaceVariant),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                fillColor: Colors.transparent,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 16,
+                ),
+              ),
+            ),
+          ),
+        ),
+
+        // Не знайдено
+        if (_notFound) ...[
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.only(left: 16),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, size: 14, color: colors.error),
+                const SizedBox(width: 6),
+                Text(
+                  'No passenger found with this document number',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colors.error,
+                      ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _SuggestionTile extends StatefulWidget {
+  final String documentNumber;
+  final String firstName;
+  final String lastName;
+  final VoidCallback onTap;
+
+  const _SuggestionTile({
+    required this.documentNumber,
+    required this.firstName,
+    required this.lastName,
+    required this.onTap,
+  });
+
+  @override
+  State<_SuggestionTile> createState() => _SuggestionTileState();
+}
+
+class _SuggestionTileState extends State<_SuggestionTile> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          decoration: BoxDecoration(
+            color: colors.primaryContainer
+                .withValues(alpha: _isHovered ? 0.3 : 0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: InkWell(
+            onTap: widget.onTap,
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: Row(
+                children: [
+                  Icon(Icons.contact_page_outlined,
+                      color: colors.primary, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Text(
+                          widget.documentNumber,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: colors.onSurface,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '— ${widget.firstName} ${widget.lastName}',
+                          style: TextStyle(
+                            color: colors.onSurfaceVariant,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
