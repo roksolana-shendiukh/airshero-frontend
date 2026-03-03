@@ -33,9 +33,7 @@ class _CustomSingleDatePickerState extends State<CustomSingleDatePicker> {
   }
 
   void _selectDate(DateTime date) {
-    setState(() {
-      _tempSelectedDate = date;
-    });
+    setState(() => _tempSelectedDate = date);
     widget.onDateSelected(date);
   }
 
@@ -52,25 +50,26 @@ class _CustomSingleDatePickerState extends State<CustomSingleDatePicker> {
           child: Text(
             DateFormat('MMMM yyyy').format(month),
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+                  fontWeight: FontWeight.bold,
+                ),
           ),
         ),
-        
         Table(
           children: [
             TableRow(
-              children: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) {
+              children:
+                  ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) {
                 return Center(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     child: Text(
                       day,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
                     ),
                   ),
                 );
@@ -78,65 +77,29 @@ class _CustomSingleDatePickerState extends State<CustomSingleDatePicker> {
             ),
           ],
         ),
-        
         Table(
           children: List.generate(6, (weekIndex) {
             return TableRow(
               children: List.generate(7, (dayIndex) {
-                final dayNumber = weekIndex * 7 + dayIndex - startWeekday + 1;
-                
+                final dayNumber =
+                    weekIndex * 7 + dayIndex - startWeekday + 1;
+
                 if (dayNumber < 1 || dayNumber > daysInMonth) {
                   return const SizedBox(height: 40);
                 }
 
-                final date = DateTime(month.year, month.month, dayNumber);
-                final isToday = DateUtils.isSameDay(date, DateTime.now());
-                final isSelected = DateUtils.isSameDay(date, _tempSelectedDate);
-                final isDisabled = date.isBefore(widget.firstDate) || date.isAfter(widget.lastDate);
+                final date =
+                    DateTime(month.year, month.month, dayNumber);
+                final isDisabled = date.isBefore(widget.firstDate) ||
+                    date.isAfter(widget.lastDate);
 
-                Color? bgColor;
-                Color? textColor;
-
-                if (isDisabled) {
-                  textColor = Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.4);
-                } else if (isSelected) {
-                  bgColor = Theme.of(context).colorScheme.primary;
-                  textColor = Theme.of(context).colorScheme.onPrimary;
-                } else if (isToday) {
-                  bgColor = Theme.of(context).colorScheme.surfaceContainerHighest;
-                  textColor = Theme.of(context).colorScheme.onSurface;
-                } else {
-                  textColor = Theme.of(context).colorScheme.onSurface;
-                }
-
-                return Padding(
-                  padding: const EdgeInsets.all(2),
-                  child: GestureDetector(
-                    onTap: isDisabled ? null : () => _selectDate(date),
-                    child: Container(
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: bgColor,
-                        borderRadius: BorderRadius.circular(8),
-                        border: isToday && !isSelected
-                            ? Border.all(
-                                color: Theme.of(context).colorScheme.primary,
-                                width: 2,
-                              )
-                            : null,
-                      ),
-                      child: Center(
-                        child: Text(
-                          '$dayNumber',
-                          style: TextStyle(
-                            color: textColor,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+                return _DayCell(
+                  date: date,
+                  isSelected:
+                      DateUtils.isSameDay(date, _tempSelectedDate),
+                  isToday: DateUtils.isSameDay(date, DateTime.now()),
+                  isDisabled: isDisabled,
+                  onTap: () => _selectDate(date),
                 );
               }),
             );
@@ -148,6 +111,7 @@ class _CustomSingleDatePickerState extends State<CustomSingleDatePicker> {
 
   @override
   Widget build(BuildContext context) {
+    // GestureDetector з opaque щоб тапи всередині не закривали overlay
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {},
@@ -172,24 +136,109 @@ class _CustomSingleDatePickerState extends State<CustomSingleDatePicker> {
               children: [
                 IconButton(
                   icon: const Icon(Icons.chevron_left),
-                  onPressed: () {
-                    setState(() {
-                      _focusedMonth = DateTime(_focusedMonth.year, _focusedMonth.month - 1);
-                    });
-                  },
+                  onPressed: () => setState(() {
+                    _focusedMonth = DateTime(
+                        _focusedMonth.year, _focusedMonth.month - 1);
+                  }),
                 ),
                 Expanded(child: _buildCalendar(_focusedMonth)),
                 IconButton(
                   icon: const Icon(Icons.chevron_right),
-                  onPressed: () {
-                    setState(() {
-                      _focusedMonth = DateTime(_focusedMonth.year, _focusedMonth.month + 1);
-                    });
-                  },
+                  onPressed: () => setState(() {
+                    _focusedMonth = DateTime(
+                        _focusedMonth.year, _focusedMonth.month + 1);
+                  }),
                 ),
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Окремий віджет для дня — має hover стан ─────────────────────────────────
+
+class _DayCell extends StatefulWidget {
+  final DateTime date;
+  final bool isSelected;
+  final bool isToday;
+  final bool isDisabled;
+  final VoidCallback onTap;
+
+  const _DayCell({
+    required this.date,
+    required this.isSelected,
+    required this.isToday,
+    required this.isDisabled,
+    required this.onTap,
+  });
+
+  @override
+  State<_DayCell> createState() => _DayCellState();
+}
+
+class _DayCellState extends State<_DayCell> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
+    Color? bgColor;
+    Color textColor;
+
+    if (widget.isDisabled) {
+      textColor = colors.onSurfaceVariant.withValues(alpha: 0.35);
+    } else if (widget.isSelected) {
+      bgColor = colors.primary;
+      textColor = colors.onPrimary;
+    } else if (_isHovered) {
+      bgColor = colors.primaryContainer.withValues(alpha: 0.5);
+      textColor = colors.onSurface;
+    } else if (widget.isToday) {
+      bgColor = colors.surfaceContainerHighest;
+      textColor = colors.onSurface;
+    } else {
+      textColor = colors.onSurface;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.all(2),
+      child: MouseRegion(
+        cursor: widget.isDisabled
+            ? SystemMouseCursors.forbidden
+            : SystemMouseCursors.click,
+        onEnter: (_) {
+          if (!widget.isDisabled) setState(() => _isHovered = true);
+        },
+        onExit: (_) => setState(() => _isHovered = false),
+        child: GestureDetector(
+          onTap: widget.isDisabled ? null : widget.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 100),
+            height: 40,
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(8),
+              border: widget.isToday && !widget.isSelected
+                  ? Border.all(color: colors.primary, width: 2)
+                  : null,
+            ),
+            child: Center(
+              child: Text(
+                '${widget.date.day}',
+                style: TextStyle(
+                  color: textColor,
+                  fontWeight: widget.isSelected
+                      ? FontWeight.bold
+                      : FontWeight.normal,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );

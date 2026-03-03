@@ -50,6 +50,7 @@ class _FlightRouteCardState extends State<FlightRouteCard> {
         assignedClass: choice,
         price: info?.price ?? a.price,
         flightPriceId: info?.flightPriceId ?? a.flightPriceId,
+        flightClassId: info?.flightClassId ?? a.flightClassId,
       );
     }).toList();
   }
@@ -66,6 +67,7 @@ class _FlightRouteCardState extends State<FlightRouteCard> {
         assignedClass: choice,
         price: info?.price ?? a.price,
         flightPriceId: info?.flightPriceId ?? a.flightPriceId,
+        flightClassId: info?.flightClassId ?? a.flightClassId,
       );
     }).toList();
   }
@@ -307,8 +309,7 @@ class _FlightRouteCardState extends State<FlightRouteCard> {
             .withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color:
-              Theme.of(context).colorScheme.error.withValues(alpha: 0.3),
+          color: Theme.of(context).colorScheme.error.withValues(alpha: 0.3),
         ),
       ),
       child: Column(
@@ -348,7 +349,6 @@ class _FlightRouteCardState extends State<FlightRouteCard> {
                     final isSelected = selected == e.key;
                     return ChoiceChip(
                       label: Text(
-                        // e.value тепер ClassPriceInfo — беремо .price
                         '${e.key} (\$${e.value.price.toStringAsFixed(0)})',
                         style: const TextStyle(fontSize: 12),
                       ),

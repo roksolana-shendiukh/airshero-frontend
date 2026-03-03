@@ -101,6 +101,10 @@ class _CustomDateRangePickerState extends State<CustomDateRangePicker> {
     if (_activeDates.isEmpty) return true;
     final formatted =
         '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+
+    if (date.day == 11 && date.month == 3) {
+      print('Checking 2026-03-11: formatted=$formatted, activeDates sample=${_activeDates.take(3).toList()}');
+    }
     return _activeDates.contains(formatted);
   }
 

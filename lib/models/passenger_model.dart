@@ -1,9 +1,9 @@
 class PassengerDocumentModel {
   final int documentId;
   final int citizenshipId;
-  final String? citizenshipName;
+  final String citizenshipName;
   final int documentTypeId;
-  final String? documentTypeName;
+  final String documentTypeName;
   final String documentNumber;
   final DateTime? documentDateOfIssue;
   final DateTime? documentDateOfExpire;
@@ -11,9 +11,9 @@ class PassengerDocumentModel {
   const PassengerDocumentModel({
     required this.documentId,
     required this.citizenshipId,
-    this.citizenshipName,
+    required this.citizenshipName,
     required this.documentTypeId,
-    this.documentTypeName,
+    required this.documentTypeName,
     required this.documentNumber,
     this.documentDateOfIssue,
     this.documentDateOfExpire,
@@ -21,38 +21,39 @@ class PassengerDocumentModel {
 
   factory PassengerDocumentModel.fromJson(Map<String, dynamic> json) {
     return PassengerDocumentModel(
-      documentId: json['documentId'] as int,
-      citizenshipId: json['citizenshipId'] as int,
-      citizenshipName: json['citizenshipName'] as String?,
-      documentTypeId: json['documentTypeId'] as int,
-      documentTypeName: json['documentTypeName'] as String?,
-      documentNumber: json['documentNumber'] as String,
-      documentDateOfIssue: json['documentDateOfIssue'] != null
-          ? DateTime.parse(json['documentDateOfIssue'] as String)
+      documentId: json['document_id'] as int,
+      citizenshipId: json['citizenship_id'] as int,
+      citizenshipName: json['citizenship_name'] as String? ?? '',
+      documentTypeId: json['document_type_id'] as int,
+      documentTypeName: json['document_type_name'] as String? ?? '',
+      documentNumber: json['document_number'] as String? ?? '',
+      documentDateOfIssue: json['document_date_of_issue'] != null
+          ? DateTime.tryParse(json['document_date_of_issue'] as String)
           : null,
-      documentDateOfExpire: json['documentDateOfExpire'] != null
-          ? DateTime.parse(json['documentDateOfExpire'] as String)
+      documentDateOfExpire: json['document_date_of_expire'] != null
+          ? DateTime.tryParse(json['document_date_of_expire'] as String)
           : null,
     );
   }
 }
 
-
 class PassengerModel {
-  final String id;
+  final int passengerId;
   final String firstName;
   final String lastName;
   final String sex;
+  final String? email;
   final DateTime? dateOfBirth;
-  final PassengerDocumentModel? document;
+  final List<PassengerDocumentModel> documents;
 
   const PassengerModel({
-    required this.id,
+    required this.passengerId,
     required this.firstName,
     required this.lastName,
     required this.sex,
+    this.email,
     this.dateOfBirth,
-    this.document,
+    this.documents = const [],
   });
 
   static String sexFromBool(bool? value) {
@@ -76,22 +77,33 @@ class PassengerModel {
       sex = rawSex as String? ?? 'Other';
     }
 
+    final rawDocs = json['documents'];
+    final List<PassengerDocumentModel> documents;
+    if (rawDocs is List) {
+      documents = rawDocs
+          .map((e) => PassengerDocumentModel.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } else {
+      documents = [];
+    }
+
     return PassengerModel(
-      id: json['passengerId'].toString(),
-      firstName: json['firstName'] as String,
-      lastName: json['lastName'] as String,
+      passengerId: json['passenger_id'] as int,
+      firstName: json['first_name'] as String? ?? '',
+      lastName: json['last_name'] as String? ?? '',
       sex: sex,
-      dateOfBirth: json['dateOfBirth'] != null
-          ? DateTime.parse(json['dateOfBirth'] as String)
+      email: json['email'] as String?,
+      dateOfBirth: json['date_of_birth'] != null
+          ? DateTime.tryParse(json['date_of_birth'] as String)
           : null,
-      document: json['document'] != null
-          ? PassengerDocumentModel.fromJson(json['document'] as Map<String, dynamic>)
-          : null,
+      documents: documents,
     );
   }
 
-  String get fullName => '$firstName $lastName';
+  PassengerDocumentModel? get document =>
+      documents.isNotEmpty ? documents.first : null;
 
+  String get fullName => '$firstName $lastName';
   String get citizenship => document?.citizenshipName ?? '';
   String get documentType => document?.documentTypeName ?? '';
   String get documentNumber => document?.documentNumber ?? '';

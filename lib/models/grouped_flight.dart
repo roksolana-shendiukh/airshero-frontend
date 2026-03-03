@@ -2,10 +2,12 @@ import 'flight_model.dart';
 
 class ClassPriceInfo {
   final int flightPriceId;
+  final int flightClassId;
   final double price;
 
   const ClassPriceInfo({
     required this.flightPriceId,
+    required this.flightClassId,
     required this.price,
   });
 }
@@ -49,6 +51,7 @@ class GroupedFlight {
       if (map.containsKey(f.flightNumber)) {
         map[f.flightNumber]!.classPrices[f.className] = ClassPriceInfo(
           flightPriceId: f.flightPriceId,
+          flightClassId: f.flightClassId,
           price: f.ticketPrice,
         );
       } else {
@@ -68,6 +71,7 @@ class GroupedFlight {
           classPrices: {
             f.className: ClassPriceInfo(
               flightPriceId: f.flightPriceId,
+              flightClassId: f.flightClassId,
               price: f.ticketPrice,
             ),
           },
@@ -97,4 +101,6 @@ class GroupedFlight {
   double? priceFor(String className) => classPrices[className]?.price;
 
   int? flightPriceIdFor(String className) => classPrices[className]?.flightPriceId;
+
+  int? flightClassIdFor(String className) => classPrices[className]?.flightClassId;
 }

@@ -34,7 +34,9 @@ class PassengerApiService {
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
-        return data.map((e) => PassengerModel.fromJson(e as Map<String, dynamic>)).toList();
+        return data
+            .map((e) => PassengerModel.fromJson(e as Map<String, dynamic>))
+            .toList();
       } else {
         debugPrint('Failed to fetch passengers: ${response.statusCode}');
         return [];
@@ -67,9 +69,11 @@ class PassengerApiService {
     }
   }
 
-  Future<PassengerModel?> searchPassengerByDocument(String documentNumber) async {
+  Future<PassengerModel?> searchPassengerByDocument(
+      String documentNumber) async {
     try {
-      final uri = Uri.parse('${AppConfig.baseUrl}/passengers/search').replace(
+      final uri =
+          Uri.parse('${AppConfig.baseUrl}/passengers/search').replace(
         queryParameters: {'document_number': documentNumber},
       );
 
@@ -80,7 +84,7 @@ class PassengerApiService {
           jsonDecode(response.body) as Map<String, dynamic>,
         );
       } else if (response.statusCode == 404) {
-        return null; 
+        return null;
       } else {
         debugPrint('Failed to search passenger: ${response.statusCode}');
         return null;
@@ -105,16 +109,21 @@ class PassengerApiService {
   }) async {
     try {
       final body = {
-        'firstName': firstName,
-        'lastName': lastName,
+        'first_name': firstName,
+        'last_name': lastName,
         'sex': PassengerModel.sexToBool(sex),
         if (email != null) 'email': email,
-        if (dateOfBirth != null) 'dateOfBirth': dateOfBirth.toIso8601String().split('T')[0],
-        if (citizenshipId != null) 'citizenshipId': citizenshipId,
-        if (documentTypeId != null) 'documentTypeId': documentTypeId,
-        if (documentNumber != null) 'documentNumber': documentNumber,
-        if (documentDateOfIssue != null) 'documentDateOfIssue': documentDateOfIssue.toIso8601String().split('T')[0],
-        if (documentDateOfExpire != null) 'documentDateOfExpire': documentDateOfExpire.toIso8601String().split('T')[0],
+        if (dateOfBirth != null)
+          'date_of_birth': dateOfBirth.toIso8601String().split('T')[0],
+        if (citizenshipId != null) 'citizenship_id': citizenshipId,
+        if (documentTypeId != null) 'document_type_id': documentTypeId,
+        if (documentNumber != null) 'document_number': documentNumber,
+        if (documentDateOfIssue != null)
+          'document_date_of_issue':
+              documentDateOfIssue.toIso8601String().split('T')[0],
+        if (documentDateOfExpire != null)
+          'document_date_of_expire':
+              documentDateOfExpire.toIso8601String().split('T')[0],
       };
 
       final response = await http.post(
@@ -129,7 +138,8 @@ class PassengerApiService {
           jsonDecode(response.body) as Map<String, dynamic>,
         );
       } else {
-        debugPrint('Failed to create passenger: ${response.statusCode} ${response.body}');
+        debugPrint(
+            'Failed to create passenger: ${response.statusCode} ${response.body}');
         return null;
       }
     } catch (e) {
@@ -153,16 +163,21 @@ class PassengerApiService {
   }) async {
     try {
       final body = {
-        if (firstName != null) 'firstName': firstName,
-        if (lastName != null) 'lastName': lastName,
-        if (sex != null) 'sex': sex,
+        if (firstName != null) 'first_name': firstName,
+        if (lastName != null) 'last_name': lastName,
+        if (sex != null) 'sex': PassengerModel.sexToBool(sex),
         if (email != null) 'email': email,
-        if (dateOfBirth != null) 'dateOfBirth': dateOfBirth.toIso8601String().split('T')[0],
-        if (citizenshipId != null) 'citizenshipId': citizenshipId,
-        if (documentTypeId != null) 'documentTypeId': documentTypeId,
-        if (documentNumber != null) 'documentNumber': documentNumber,
-        if (documentDateOfIssue != null) 'documentDateOfIssue': documentDateOfIssue.toIso8601String().split('T')[0],
-        if (documentDateOfExpire != null) 'documentDateOfExpire': documentDateOfExpire.toIso8601String().split('T')[0],
+        if (dateOfBirth != null)
+          'date_of_birth': dateOfBirth.toIso8601String().split('T')[0],
+        if (citizenshipId != null) 'citizenship_id': citizenshipId,
+        if (documentTypeId != null) 'document_type_id': documentTypeId,
+        if (documentNumber != null) 'document_number': documentNumber,
+        if (documentDateOfIssue != null)
+          'document_date_of_issue':
+              documentDateOfIssue.toIso8601String().split('T')[0],
+        if (documentDateOfExpire != null)
+          'document_date_of_expire':
+              documentDateOfExpire.toIso8601String().split('T')[0],
       };
 
       final response = await http.put(
@@ -179,7 +194,8 @@ class PassengerApiService {
         debugPrint('Passenger not found: $passengerId');
         return null;
       } else {
-        debugPrint('Failed to update passenger: ${response.statusCode} ${response.body}');
+        debugPrint(
+            'Failed to update passenger: ${response.statusCode} ${response.body}');
         return null;
       }
     } catch (e) {
@@ -211,22 +227,21 @@ class PassengerApiService {
     }
   }
 
-  Future<List<Map<String, dynamic>>> getDocumentSuggestions(String query) async {
-  try {
-    final uri = Uri.parse('${AppConfig.baseUrl}/passengers/search/suggestions')
-        .replace(queryParameters: {'q': query});
-    final response = await http.get(uri, headers: await _headers());
-    if (response.statusCode == 200) {
-      final List<dynamic> data = jsonDecode(response.body);
-      return data.cast<Map<String, dynamic>>();
+  Future<List<Map<String, dynamic>>> getDocumentSuggestions(
+      String query) async {
+    try {
+      final uri =
+          Uri.parse('${AppConfig.baseUrl}/passengers/search/suggestions')
+              .replace(queryParameters: {'q': query});
+      final response = await http.get(uri, headers: await _headers());
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.cast<Map<String, dynamic>>();
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Network error (getDocumentSuggestions): $e');
+      return [];
     }
-    return [];
-  } catch (e) {
-    debugPrint('Network error (getDocumentSuggestions): $e');
-    return [];
   }
 }
-
-}
-
-

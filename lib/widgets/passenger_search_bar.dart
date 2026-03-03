@@ -24,8 +24,10 @@ class _PassengerSearchBarState extends State<PassengerSearchBar> {
   final _focusNode = FocusNode();
   final _layerLink = LayerLink();
 
-  List<Map<String, dynamic>> _suggestions = [];
-  bool _isSearching = false;
+  final ValueNotifier<List<Map<String, dynamic>>> _suggestionsNotifier =
+      ValueNotifier([]);
+  final ValueNotifier<bool> _isSearchingNotifier = ValueNotifier(false);
+
   bool _isLoadingPassenger = false;
   bool _notFound = false;
   OverlayEntry? _overlayEntry;
@@ -33,12 +35,19 @@ class _PassengerSearchBarState extends State<PassengerSearchBar> {
   @override
   void initState() {
     super.initState();
-    _focusNode.addListener(() {
-      if (!_focusNode.hasFocus) {
-        Future.delayed(const Duration(milliseconds: 200), _hideOverlay);
+    _focusNode.addListener(_onFocusChanged);
+  }
+
+  void _onFocusChanged() {
+    setState(() {});
+    if (_focusNode.hasFocus) {
+      if (_suggestionsNotifier.value.isNotEmpty ||
+          _isSearchingNotifier.value) {
+        _showOverlay();
       }
-      setState(() {});
-    });
+    } else {
+      Future.delayed(const Duration(milliseconds: 200), _hideOverlay);
+    }
   }
 
   Future<void> _onChanged(String value) async {
@@ -46,32 +55,31 @@ class _PassengerSearchBarState extends State<PassengerSearchBar> {
     widget.onClear();
 
     if (value.trim().length < 2) {
-      setState(() => _suggestions = []);
+      _suggestionsNotifier.value = [];
+      _isSearchingNotifier.value = false;
       _hideOverlay();
       return;
     }
 
-    setState(() => _isSearching = true);
+    _isSearchingNotifier.value = true;
     _showOverlay();
 
     final api = PassengerApiService(widget.authService);
     final results = await api.getDocumentSuggestions(value.trim());
 
     if (!mounted) return;
-    setState(() {
-      _suggestions = results;
-      _isSearching = false;
-    });
 
-    if (results.isNotEmpty) {
-      _overlayEntry?.markNeedsBuild();
-    } else {
+    _suggestionsNotifier.value = results;
+    _isSearchingNotifier.value = false;
+
+    if (results.isEmpty) {
       _hideOverlay();
     }
   }
 
   Future<void> _selectSuggestion(Map<String, dynamic> suggestion) async {
-    final docNumber = suggestion['documentNumber'] as String;
+    final docNumber = (suggestion['document_number'] as String?) ?? '';
+    if (docNumber.isEmpty) return;
     _controller.text = docNumber;
     _hideOverlay();
     _focusNode.unfocus();
@@ -82,8 +90,8 @@ class _PassengerSearchBarState extends State<PassengerSearchBar> {
     final query = value.trim();
     if (query.isEmpty) return;
 
-    if (_suggestions.isNotEmpty) {
-      _selectSuggestion(_suggestions.first);
+    if (_suggestionsNotifier.value.isNotEmpty) {
+      _selectSuggestion(_suggestionsNotifier.value.first);
     } else {
       _hideOverlay();
       _focusNode.unfocus();
@@ -102,7 +110,6 @@ class _PassengerSearchBarState extends State<PassengerSearchBar> {
     final api = PassengerApiService(widget.authService);
     final passenger = await api.searchPassengerByDocument(docNumber);
 
-    debugPrint('passenger found: ${passenger?.firstName}');
     if (!mounted) return;
     setState(() {
       _isLoadingPassenger = false;
@@ -116,19 +123,15 @@ class _PassengerSearchBarState extends State<PassengerSearchBar> {
 
   void _clear() {
     _controller.clear();
-    setState(() {
-      _suggestions = [];
-      _notFound = false;
-    });
+    _suggestionsNotifier.value = [];
+    _isSearchingNotifier.value = false;
+    setState(() => _notFound = false);
     _hideOverlay();
     widget.onClear();
   }
 
   void _showOverlay() {
-    if (_overlayEntry != null) {
-      _overlayEntry?.markNeedsBuild();
-      return;
-    }
+    if (_overlayEntry != null) return;
 
     final renderBox = context.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
@@ -150,25 +153,44 @@ class _PassengerSearchBarState extends State<PassengerSearchBar> {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxHeight: 280),
                 child: SingleChildScrollView(
-                  // ↓ StatefulBuilder дозволяє overlay бачити актуальний стан
-                  child: StatefulBuilder(
-                    builder: (_, __) => Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (_isSearching)
-                          const Padding(
-                            padding: EdgeInsets.all(16),
-                            child: Center(child: CircularProgressIndicator()),
-                          )
-                        else
-                          ..._suggestions.map((s) => _SuggestionTile(
-                                documentNumber: s['documentNumber'] as String,
-                                firstName: s['firstName'] as String,
-                                lastName: s['lastName'] as String,
-                                onTap: () => _selectSuggestion(s),
-                              )),
-                      ],
-                    ),
+                  child: ValueListenableBuilder<bool>(
+                    valueListenable: _isSearchingNotifier,
+                    builder: (_, isSearching, __) {
+                      return ValueListenableBuilder<List<Map<String, dynamic>>>(
+                        valueListenable: _suggestionsNotifier,
+                        builder: (_, suggestions, __) {
+                          if (isSearching) {
+                            return const Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Center(child: CircularProgressIndicator()),
+                            );
+                          }
+
+                          final filtered = suggestions
+                              .where((s) =>
+                                  s['document_number'] != null &&
+                                  (s['document_number'] as String).isNotEmpty)
+                              .toList();
+
+                          if (filtered.isEmpty) return const SizedBox.shrink();
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: filtered
+                                .map((s) => _SuggestionTile(
+                                      documentNumber:
+                                          s['document_number'] as String,
+                                      firstName:
+                                          s['first_name'] as String? ?? '',
+                                      lastName:
+                                          s['last_name'] as String? ?? '',
+                                      onTap: () => _selectSuggestion(s),
+                                    ))
+                                .toList(),
+                          );
+                        },
+                      );
+                    },
                   ),
                 ),
               ),
@@ -188,7 +210,10 @@ class _PassengerSearchBarState extends State<PassengerSearchBar> {
 
   @override
   void dispose() {
+    _focusNode.removeListener(_onFocusChanged);
     _hideOverlay();
+    _suggestionsNotifier.dispose();
+    _isSearchingNotifier.dispose();
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();

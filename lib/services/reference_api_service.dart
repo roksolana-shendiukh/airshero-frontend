@@ -50,4 +50,21 @@ class ReferenceApiService {
       return [];
     }
   }
+
+  Future<List<Map<String, dynamic>>> getSexes() async {
+    try {
+      final response = await http.get(
+        Uri.parse('${AppConfig.baseUrl}/sexes'),
+        headers: await _headers(),
+      );
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.cast<Map<String, dynamic>>();
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Network error (getSexes): $e');
+      return [];
+    }
+  }
 }

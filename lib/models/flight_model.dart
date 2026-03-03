@@ -1,5 +1,6 @@
 class FlightModel {
   final int flightId;
+  final int flightClassId;
   final int flightPriceId;
   final String flightNumber;
   final String airlineName;
@@ -17,6 +18,7 @@ class FlightModel {
 
   const FlightModel({
     required this.flightId,
+    required this.flightClassId,
     required this.flightPriceId,
     required this.flightNumber,
     required this.airlineName,
@@ -35,14 +37,15 @@ class FlightModel {
 
   factory FlightModel.fromJson(Map<String, dynamic> json) {
     return FlightModel(
-      flightId: (json['flightId'] as num?)?.toInt() ?? 0,
+      flightId:      (json['flightId'] as num?)?.toInt() ?? 0,
+      flightClassId: (json['flightClassId'] as num?)?.toInt() ?? 0,
       flightPriceId: (json['flightPriceId'] as num?)?.toInt() ?? 0,
-      flightNumber: json['flightNumber'] as String? ?? 'N/A',
-      airlineName: json['airlineName'] as String? ?? 'Unknown',
+      flightNumber:  json['flightNumber'] as String? ?? 'N/A',
+      airlineName:   json['airlineName'] as String? ?? 'Unknown',
       airlineLogoUrl: json['airlineLogoUrl'] as String?,
-      departsCode: json['departsCode'] as String? ?? '',
+      departsCode:   json['departsCode'] as String? ?? '',
       departsAirport: json['departsAirport'] as String? ?? '',
-      arrivesCode: json['arrivesCode'] as String? ?? '',
+      arrivesCode:   json['arrivesCode'] as String? ?? '',
       arrivesAirport: json['arrivesAirport'] as String? ?? '',
       departsDatetime: json['departsDatetime'] != null
           ? DateTime.parse(json['departsDatetime'] as String)
@@ -51,9 +54,9 @@ class FlightModel {
           ? DateTime.parse(json['arrivesDatetime'] as String)
           : DateTime.now(),
       flightDuration: json['flightDuration'] as String? ?? '0:00',
-      className: json['className'] as String? ?? 'Economy',
-      ticketPrice: (json['ticketPrice'] as num?)?.toDouble() ?? 0.0,
-      flightStatus: json['flightStatus'] as String? ?? '',
+      className:     json['className'] as String? ?? 'Economy',
+      ticketPrice:   (json['ticketPrice'] as num?)?.toDouble() ?? 0.0,
+      flightStatus:  json['flightStatus'] as String? ?? '',
     );
   }
 

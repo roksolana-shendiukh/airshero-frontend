@@ -20,7 +20,8 @@ typedef SearchCallback = void Function({
 
 class FlightSearchForm extends StatefulWidget {
   final SearchCallback? onSearch;
-  final void Function(void Function(Offset position) closeOverlaysIfOutside)? onOverlayControllerReady;
+  final void Function(void Function(Offset position) closeOverlaysIfOutside)?
+      onOverlayControllerReady;
 
   const FlightSearchForm({
     super.key,
@@ -45,17 +46,16 @@ class FlightSearchFormState extends State<FlightSearchForm> {
   DateTime? returnDate;
   Map<String, int> passengers = {'adults': 1, 'children': 0, 'infants': 0};
 
-  List<String> _availableDates = [];
-  List<String> _returnAvailableDates = [];
+  // ValueNotifiers — overlay rebuilds automatically when dates load from API
+  final ValueNotifier<List<String>> _availableDatesNotifier = ValueNotifier([]);
+  final ValueNotifier<List<String>> _returnAvailableDatesNotifier = ValueNotifier([]);
 
   List<Map<String, String>> _recentSearches = [];
   List<String> _recentCities = [];
   final _recentSearchesService = RecentSearchesService();
 
-  // Calendar state owned here — no parent props
   bool _isCalendarOpen = false;
-  final ValueNotifier<bool> _isSelectingReturnNotifier =
-      ValueNotifier<bool>(false);
+  final ValueNotifier<bool> _isSelectingReturnNotifier = ValueNotifier<bool>(false);
   bool get _isSelectingReturn => _isSelectingReturnNotifier.value;
   set _isSelectingReturn(bool v) => _isSelectingReturnNotifier.value = v;
 
@@ -75,8 +75,6 @@ class FlightSearchFormState extends State<FlightSearchForm> {
     super.initState();
     _apiService = BookingApiService(AuthService());
     _loadRecentSearches();
-    // Give parent a function that closes overlays only if the tap
-    // is outside the overlay-owning fields (Depart, Return, Passengers).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       widget.onOverlayControllerReady?.call(_closeOverlaysIfOutsideFields);
     });
@@ -85,12 +83,12 @@ class FlightSearchFormState extends State<FlightSearchForm> {
   @override
   void dispose() {
     _isSelectingReturnNotifier.dispose();
+    _availableDatesNotifier.dispose();
+    _returnAvailableDatesNotifier.dispose();
     _calendarOverlay?.remove();
     _passengerOverlay?.remove();
     super.dispose();
   }
-
-  // ─── Data ──────────────────────────────────────────────────────────────────
 
   Future<void> _loadRecentSearches() async {
     final routes = await _recentSearchesService.loadRoutes();
@@ -106,11 +104,8 @@ class FlightSearchFormState extends State<FlightSearchForm> {
   void _fetchAvailableDates() async {
     if (_selectedFromCity == null || _selectedToCity == null) return;
 
-    setState(() {
-      _availableDates = [];
-      _returnAvailableDates = [];
-    });
-    _calendarOverlay?.markNeedsBuild();
+    _availableDatesNotifier.value = [];
+    _returnAvailableDatesNotifier.value = [];
 
     try {
       final results = await Future.wait([
@@ -125,11 +120,12 @@ class FlightSearchFormState extends State<FlightSearchForm> {
       ]);
 
       if (!mounted) return;
-      setState(() {
-        _availableDates = results[0];
-        _returnAvailableDates = results[1];
 
-        if (_availableDates.isEmpty) {
+      _availableDatesNotifier.value = results[0];
+      _returnAvailableDatesNotifier.value = results[1];
+
+      setState(() {
+        if (results[0].isEmpty) {
           _routeExists = false;
           _loadAlternatives();
         } else {
@@ -138,14 +134,13 @@ class FlightSearchFormState extends State<FlightSearchForm> {
           if (departDate != null) {
             final formatted =
                 '${departDate!.year}-${departDate!.month.toString().padLeft(2, '0')}-${departDate!.day.toString().padLeft(2, '0')}';
-            if (!_availableDates.contains(formatted)) {
-              departDate = DateTime.parse(_availableDates.first);
+            if (!results[0].contains(formatted)) {
+              departDate = DateTime.parse(results[0].first);
               returnDate = null;
             }
           }
         }
       });
-      _calendarOverlay?.markNeedsBuild();
     } catch (e) {
       debugPrint('Fetch dates error: $e');
       if (mounted) setState(() => _routeExists = false);
@@ -155,15 +150,12 @@ class FlightSearchFormState extends State<FlightSearchForm> {
 
   void _loadAlternatives() async {
     try {
-      final list =
-          await _apiService.getAlternatives(_selectedFromCity!.cityId);
+      final list = await _apiService.getAlternatives(_selectedFromCity!.cityId);
       if (mounted) setState(() => _alternatives = list);
     } catch (e) {
       debugPrint('Alternatives error: $e');
     }
   }
-
-  // ─── Format ────────────────────────────────────────────────────────────────
 
   String _formatDate(DateTime? date) {
     if (date == null) return 'Select date';
@@ -175,8 +167,6 @@ class FlightSearchFormState extends State<FlightSearchForm> {
     return '$total passenger${total > 1 ? 's' : ''}';
   }
 
-  // ─── Overlays ──────────────────────────────────────────────────────────────
-
   void _openCalendar() {
     if (_calendarOverlay != null) return;
     if (_departFieldKey.currentContext == null) return;
@@ -187,8 +177,8 @@ class FlightSearchFormState extends State<FlightSearchForm> {
         returnFieldKey: _returnFieldKey,
         departDate: departDate,
         returnDate: returnDate,
-        availableDates: _availableDates,
-        returnAvailableDates: _returnAvailableDates,
+        availableDatesNotifier: _availableDatesNotifier,
+        returnAvailableDatesNotifier: _returnAvailableDatesNotifier,
         isSelectingReturnNotifier: _isSelectingReturnNotifier,
         onDatesSelected: (depart, ret) {
           setState(() {
@@ -239,28 +229,23 @@ class FlightSearchFormState extends State<FlightSearchForm> {
     _closePassengerSelector();
   }
 
-  /// Called by parent Listener. Closes overlays only when the tap
-  /// position is outside all overlay-owning fields.
   void _closeOverlaysIfOutsideFields(Offset position) {
     if (!_isCalendarOpen && !_isPassengerSelectorOpen) return;
     for (final key in [_departFieldKey, _returnFieldKey, _passengerFieldKey]) {
       final box = key.currentContext?.findRenderObject() as RenderBox?;
       if (box != null && box.hasSize) {
         final rect = box.localToGlobal(Offset.zero) & box.size;
-        if (rect.contains(position)) return; // tap is on a field — don't close
+        if (rect.contains(position)) return;
       }
     }
     _closeAllOverlays();
   }
 
-  // ─── Search ────────────────────────────────────────────────────────────────
-
   void _handleSearch() {
     if (_selectedFromCity == null || _selectedToCity == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content:
-                Text('Please select both departure and destination cities')),
+            content: Text('Please select both departure and destination cities')),
       );
       return;
     }
@@ -281,8 +266,6 @@ class FlightSearchFormState extends State<FlightSearchForm> {
     );
   }
 
-  // ─── Build ─────────────────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -302,275 +285,259 @@ class FlightSearchFormState extends State<FlightSearchForm> {
           behavior: HitTestBehavior.translucent,
           onPointerDown: (event) {
             if (!_isCalendarOpen && !_isPassengerSelectorOpen) return;
-            // Only close when clicking outside the ENTIRE form widget.
-            // Clicks on fields (Depart/Return/Passengers) are handled by their onTap.
-            // Clicks on the overlay panels (calendar/passenger) are above the form in z-order.
             final formBox = context.findRenderObject() as RenderBox?;
             if (formBox != null && formBox.hasSize) {
               final formRect = formBox.localToGlobal(Offset.zero) & formBox.size;
-              if (formRect.contains(event.position)) return; // inside form — let fields handle
+              if (formRect.contains(event.position)) return;
             }
             _closeCalendar();
             _closePassengerSelector();
           },
           child: Container(
-          margin: const EdgeInsets.all(16),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Column(
-            children: [
-              // ── From / To ──────────────────────────────────────────────
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: CustomInputField(
-                      label: 'From',
-                      value: fromLocation,
-                      icon: Icons.location_on,
-                      searchAirports: true,
-                      isFromField: true,
-                      previousSearches: _recentSearches,
-                      recentCities: _recentCities,
-                      onChanged: (v) => setState(() => fromLocation = v),
-                      onCitySelected: (city) {
-                        setState(() {
-                          _selectedFromCity = city;
-                          fromLocation = city.cityName;
-                        });
-                        _fetchAvailableDates();
-                      },
-                      // onTap not needed — TapRegion in overlays handles outside-close
-                      onPairSelect: (from, to) => setState(() {
-                        fromLocation = from;
-                        toLocation = to;
-                      }),
+            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              children: [
+                // ── From / To ──────────────────────────────────────────────
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: CustomInputField(
+                        label: 'From',
+                        value: fromLocation,
+                        icon: Icons.location_on,
+                        searchAirports: true,
+                        isFromField: true,
+                        previousSearches: _recentSearches,
+                        recentCities: _recentCities,
+                        onChanged: (v) => setState(() => fromLocation = v),
+                        onCitySelected: (city) {
+                          setState(() {
+                            _selectedFromCity = city;
+                            fromLocation = city.cityName;
+                          });
+                          _fetchAvailableDates();
+                        },
+                        onPairSelect: (from, to) => setState(() {
+                          fromLocation = from;
+                          toLocation = to;
+                        }),
+                      ),
                     ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 8),
-                    child: IconButton(
-                      onPressed: () {
-                        setState(() {
-                          final tl = fromLocation;
-                          fromLocation = toLocation;
-                          toLocation = tl;
-                          final tc = _selectedFromCity;
-                          _selectedFromCity = _selectedToCity;
-                          _selectedToCity = tc;
-                          final td = _availableDates;
-                          _availableDates = _returnAvailableDates;
-                          _returnAvailableDates = td;
-                        });
-                      },
-                      icon: Icon(Icons.swap_horiz,
-                          color: Theme.of(context).colorScheme.primary),
-                      tooltip: 'Swap locations',
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                      child: IconButton(
+                        onPressed: () {
+                          setState(() {
+                            final tl = fromLocation;
+                            fromLocation = toLocation;
+                            toLocation = tl;
+                            final tc = _selectedFromCity;
+                            _selectedFromCity = _selectedToCity;
+                            _selectedToCity = tc;
+                            final td = _availableDatesNotifier.value;
+                            _availableDatesNotifier.value = _returnAvailableDatesNotifier.value;
+                            _returnAvailableDatesNotifier.value = td;
+                          });
+                        },
+                        icon: Icon(Icons.swap_horiz,
+                            color: Theme.of(context).colorScheme.primary),
+                        tooltip: 'Swap locations',
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        CustomInputField(
-                          label: 'To',
-                          value: toLocation,
-                          icon: Icons.location_on,
-                          searchAirports: true,
-                          isFromField: false,
-                          previousSearches: _recentSearches,
-                          recentCities: _recentCities,
-                          onChanged: (v) => setState(() => toLocation = v),
-                          onCitySelected: (city) {
-                            setState(() {
-                              _selectedToCity = city;
-                              toLocation = city.cityName;
-                            });
-                            _fetchAvailableDates();
-                          },
-                          // onTap not needed — TapRegion in overlays handles outside-close
-                          onPairSelect: (from, to) => setState(() {
-                            fromLocation = from;
-                            toLocation = to;
-                          }),
-                        ),
-                        if (!_routeExists)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 4, left: 4),
-                            child: Text(
-                              'Route does not exist',
-                              style: TextStyle(
-                                color: Theme.of(context).colorScheme.error,
-                                fontSize: 12,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          CustomInputField(
+                            label: 'To',
+                            value: toLocation,
+                            icon: Icons.location_on,
+                            searchAirports: true,
+                            isFromField: false,
+                            previousSearches: _recentSearches,
+                            recentCities: _recentCities,
+                            onChanged: (v) => setState(() => toLocation = v),
+                            onCitySelected: (city) {
+                              setState(() {
+                                _selectedToCity = city;
+                                toLocation = city.cityName;
+                              });
+                              _fetchAvailableDates();
+                            },
+                            onPairSelect: (from, to) => setState(() {
+                              fromLocation = from;
+                              toLocation = to;
+                            }),
+                          ),
+                          if (!_routeExists)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4, left: 4),
+                              child: Text(
+                                'Route does not exist',
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.error,
+                                  fontSize: 12,
+                                ),
                               ),
                             ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 12),
+
+                // ── Depart / Return ────────────────────────────────────────
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: CustomInputField(
+                            key: _departFieldKey,
+                            label: 'Depart',
+                            value: _formatDate(departDate),
+                            icon: Icons.calendar_today,
+                            readOnly: true,
+                            isSelected: _isCalendarOpen && !_isSelectingReturn,
+                            onTap: () {
+                              if (_selectedFromCity == null || _selectedToCity == null) {
+                                setState(() => _showCitiesRequired = true);
+                                return;
+                              }
+                              setState(() => _showCitiesRequired = false);
+                              _closePassengerSelector();
+                              if (!_isCalendarOpen) {
+                                _isSelectingReturn = false;
+                                _openCalendar();
+                              } else if (_isSelectingReturn) {
+                                _isSelectingReturn = false;
+                              } else {
+                                _closeCalendar();
+                              }
+                            },
                           ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: CustomInputField(
+                            key: _returnFieldKey,
+                            label: 'Return',
+                            value: _formatDate(returnDate),
+                            icon: Icons.calendar_today,
+                            readOnly: true,
+                            isSelected: _isCalendarOpen && _isSelectingReturn,
+                            onTap: () {
+                              if (_selectedFromCity == null || _selectedToCity == null) {
+                                setState(() => _showCitiesRequired = true);
+                                return;
+                              }
+                              setState(() => _showCitiesRequired = false);
+                              _closePassengerSelector();
+                              if (!_isCalendarOpen) {
+                                _isSelectingReturn = true;
+                                _openCalendar();
+                              } else if (!_isSelectingReturn) {
+                                _isSelectingReturn = true;
+                              } else {
+                                _closeCalendar();
+                              }
+                            },
+                          ),
+                        ),
                       ],
                     ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 12),
-
-              // ── Depart / Return ────────────────────────────────────────
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      // DEPART
-                      Expanded(
-                        child: CustomInputField(
-                          key: _departFieldKey,
-                          label: 'Depart',
-                          value: _formatDate(departDate),
-                          icon: Icons.calendar_today,
-                          readOnly: true,
-                          isSelected:
-                              _isCalendarOpen && !_isSelectingReturn,
-                          onTap: () {
-                            if (_selectedFromCity == null ||
-                                _selectedToCity == null) {
-                              setState(() => _showCitiesRequired = true);
-                              return;
-                            }
-                            setState(() => _showCitiesRequired = false);
-                            _closePassengerSelector();
-
-                            if (!_isCalendarOpen) {
-                              _isSelectingReturn = false;
-                              _openCalendar();
-                            } else if (_isSelectingReturn) {
-                              // Switch mode, keep overlay open
-                              _isSelectingReturn = false;
-                            } else {
-                              _closeCalendar();
-                            }
-                          },
+                    if (_showCitiesRequired)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4, left: 4),
+                        child: Text(
+                          'Please select departure and destination cities first',
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      // RETURN
-                      Expanded(
-                        child: CustomInputField(
-                          key: _returnFieldKey,
-                          label: 'Return',
-                          value: _formatDate(returnDate),
-                          icon: Icons.calendar_today,
-                          readOnly: true,
-                          isSelected:
-                              _isCalendarOpen && _isSelectingReturn,
-                          onTap: () {
-                            if (_selectedFromCity == null ||
-                                _selectedToCity == null) {
-                              setState(() => _showCitiesRequired = true);
-                              return;
-                            }
-                            setState(() => _showCitiesRequired = false);
-                            _closePassengerSelector();
-
-                            if (!_isCalendarOpen) {
-                              _isSelectingReturn = true;
-                              _openCalendar();
-                            } else if (!_isSelectingReturn) {
-                              // Switch mode, keep overlay open
-                              _isSelectingReturn = true;
-                            } else {
-                              _closeCalendar();
-                            }
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (_showCitiesRequired)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4, left: 4),
-                      child: Text(
-                        'Please select departure and destination cities first',
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-
-              const SizedBox(height: 12),
-
-              // ── Passengers / Search ────────────────────────────────────
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    flex: 2,
-                    child: CustomInputField(
-                      key: _passengerFieldKey,
-                      label: 'Passengers',
-                      value: _formatPassengers(),
-                      icon: Icons.person,
-                      readOnly: true,
-                      isSelected: _isPassengerSelectorOpen,
-                      onTap: () {
-                        if (_isPassengerSelectorOpen) {
-                          _closePassengerSelector();
-                        } else {
-                          _closeCalendar();
-                          _openPassengerSelector();
-                        }
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: CustomButton(
-                      label: 'Search',
-                      onPressed: _routeExists ? _handleSearch : null,
-                    ),
-                  ),
-                ],
-              ),
-
-              // ── Alternatives ───────────────────────────────────────────
-              if (!_routeExists && _alternatives.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                const Divider(),
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8),
-                  child: Text(
-                    'Available destinations from this city:',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
+                  ],
                 ),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _alternatives
-                      .map(
-                        (city) => ActionChip(
-                          label: Text(city.cityName),
-                          onPressed: () {
-                            setState(() {
-                              _selectedToCity = city;
-                              toLocation = city.cityName;
-                              _routeExists = true;
-                              _alternatives = [];
-                            });
-                            _fetchAvailableDates();
-                          },
-                        ),
-                      )
-                      .toList(),
+
+                const SizedBox(height: 12),
+
+                // ── Passengers / Search ────────────────────────────────────
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: CustomInputField(
+                        key: _passengerFieldKey,
+                        label: 'Passengers',
+                        value: _formatPassengers(),
+                        icon: Icons.person,
+                        readOnly: true,
+                        isSelected: _isPassengerSelectorOpen,
+                        onTap: () {
+                          if (_isPassengerSelectorOpen) {
+                            _closePassengerSelector();
+                          } else {
+                            _closeCalendar();
+                            _openPassengerSelector();
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: CustomButton(
+                        label: 'Search',
+                        onPressed: _routeExists ? _handleSearch : null,
+                      ),
+                    ),
+                  ],
                 ),
+
+                // ── Alternatives ───────────────────────────────────────────
+                if (!_routeExists && _alternatives.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  const Divider(),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Text(
+                      'Available destinations from this city:',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _alternatives
+                        .map(
+                          (city) => ActionChip(
+                            label: Text(city.cityName),
+                            onPressed: () {
+                              setState(() {
+                                _selectedToCity = city;
+                                toLocation = city.cityName;
+                                _routeExists = true;
+                                _alternatives = [];
+                              });
+                              _fetchAvailableDates();
+                            },
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ],
               ],
-            ],
-          ),
+            ),
           ),
         );
       },
@@ -578,17 +545,13 @@ class FlightSearchFormState extends State<FlightSearchForm> {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// Calendar Overlay
-// ═══════════════════════════════════════════════════════════════════════════════
-
 class _CalendarOverlay extends StatelessWidget {
   final GlobalKey departFieldKey;
   final GlobalKey returnFieldKey;
   final DateTime? departDate;
   final DateTime? returnDate;
-  final List<String> availableDates;
-  final List<String> returnAvailableDates;
+  final ValueNotifier<List<String>> availableDatesNotifier;
+  final ValueNotifier<List<String>> returnAvailableDatesNotifier;
   final ValueNotifier<bool> isSelectingReturnNotifier;
   final Function(DateTime?, DateTime?) onDatesSelected;
   final VoidCallback onClose;
@@ -598,8 +561,8 @@ class _CalendarOverlay extends StatelessWidget {
     required this.returnFieldKey,
     required this.departDate,
     required this.returnDate,
-    required this.availableDates,
-    required this.returnAvailableDates,
+    required this.availableDatesNotifier,
+    required this.returnAvailableDatesNotifier,
     required this.isSelectingReturnNotifier,
     required this.onDatesSelected,
     required this.onClose,
@@ -624,29 +587,39 @@ class _CalendarOverlay extends StatelessWidget {
         final pos = _pos(key);
         final top = pos.dy + _h(key) + 8;
 
-        return Stack(
-          children: [
-            Positioned(
-              left: pos.dx,
-              top: top,
-              width: 400,
-              child: Material(
-                elevation: 8,
-                borderRadius: BorderRadius.circular(12),
-                child: CustomDateRangePicker(
-                  key: ValueKey(
-                      '$isSelectingReturn-${availableDates.length}-${returnAvailableDates.length}'),
-                  departDate: departDate,
-                  returnDate: returnDate,
-                  availableDates: availableDates,
-                  returnAvailableDates: returnAvailableDates,
-                  isSelectingReturn: isSelectingReturn,
-                  onDatesSelected: onDatesSelected,
-                  onClose: onClose,
-                ),
-              ),
-            ),
-          ],
+        return ValueListenableBuilder<List<String>>(
+          valueListenable: availableDatesNotifier,
+          builder: (context, availableDates, _) {
+            return ValueListenableBuilder<List<String>>(
+              valueListenable: returnAvailableDatesNotifier,
+              builder: (context, returnAvailableDates, _) {
+                return Stack(
+                  children: [
+                    Positioned(
+                      left: pos.dx,
+                      top: top,
+                      width: 400,
+                      child: Material(
+                        elevation: 8,
+                        borderRadius: BorderRadius.circular(12),
+                        child: CustomDateRangePicker(
+                          key: ValueKey(
+                              '$isSelectingReturn-${availableDates.length}-${returnAvailableDates.length}'),
+                          departDate: departDate,
+                          returnDate: returnDate,
+                          availableDates: availableDates,
+                          returnAvailableDates: returnAvailableDates,
+                          isSelectingReturn: isSelectingReturn,
+                          onDatesSelected: onDatesSelected,
+                          onClose: onClose,
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
         );
       },
     );

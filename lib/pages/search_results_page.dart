@@ -168,9 +168,15 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
                 'assignedClass': a.assignedClass,
                 'price': a.price,
                 'flightPriceId': a.flightPriceId,
+                'flightClassId': a.flightClassId,
               })
           .toList();
     }
+
+    // Беремо flightClassId першого пасажира outbound (всі летять одним рейсом)
+    final outboundFlightClassId = resolvedCombo.outboundAssignments.isNotEmpty
+        ? resolvedCombo.outboundAssignments.first.flightClassId
+        : 0;
 
     final args = BaggageSelectionArguments(
       fromCity: widget.fromCity,
@@ -190,6 +196,8 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
       isRoundTrip: _isRoundTrip,
       outboundAssignments: serializeAssignments(resolvedCombo.outboundAssignments),
       returnAssignments: serializeAssignments(resolvedCombo.returnAssignments),
+      outboundFlightId: resolvedCombo.outbound.flightId,
+      outboundFlightClassId: outboundFlightClassId,
     );
 
     debugPrint('Saving baggage args...');
@@ -222,11 +230,9 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
           children: [
             const Icon(Icons.error_outline, size: 48, color: Colors.red),
             const SizedBox(height: 16),
-            Text(_error!,
-                style: Theme.of(context).textTheme.titleMedium),
+            Text(_error!, style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
-            TextButton(
-                onPressed: _loadFlights, child: const Text('Try again')),
+            TextButton(onPressed: _loadFlights, child: const Text('Try again')),
           ],
         ),
       );
@@ -236,9 +242,7 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              _allCombos.isEmpty
-                  ? Icons.airplane_ticket
-                  : Icons.filter_alt_off,
+              _allCombos.isEmpty ? Icons.airplane_ticket : Icons.filter_alt_off,
               size: 48,
               color: Colors.grey,
             ),
@@ -256,8 +260,7 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
                   FlightFilterState.fromCombos(
                     combos: _allCombos,
                     passengerClasses: {
-                      for (final e in _passengerClasses.entries)
-                        e.key: Class.any
+                      for (final e in _passengerClasses.entries) e.key: Class.any
                     },
                   ),
                 ),
@@ -334,11 +337,9 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
               ),
             ),
             child: InkWell(
-              onTap: () =>
-                  setState(() => _filtersExpanded = !_filtersExpanded),
+              onTap: () => setState(() => _filtersExpanded = !_filtersExpanded),
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Row(
                   children: [
                     const Icon(Icons.tune, size: 20),

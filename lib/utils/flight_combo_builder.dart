@@ -131,6 +131,7 @@ class FlightComboBuilder {
                   assignedClass: cls,
                   price: info.price * multiplier,
                   flightPriceId: info.flightPriceId,
+                  flightClassId: info.flightClassId,
                 ),
               ));
             }
@@ -144,6 +145,7 @@ class FlightComboBuilder {
                   assignedClass: entry.key,
                   price: entry.value.price * multiplier,
                   flightPriceId: entry.value.flightPriceId,
+                  flightClassId: entry.value.flightClassId,
                 ),
               ));
             }
@@ -160,6 +162,7 @@ class FlightComboBuilder {
                 assignedClass: requestedClass.label,
                 price: info.price * multiplier,
                 flightPriceId: info.flightPriceId,
+                flightClassId: info.flightClassId,
               ),
             ));
           }
@@ -176,6 +179,7 @@ class FlightComboBuilder {
                 assignedClass: '',
                 price: 0,
                 flightPriceId: 0,
+                flightClassId: 0,
               ),
             ));
           }

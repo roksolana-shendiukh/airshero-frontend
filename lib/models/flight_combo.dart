@@ -17,12 +17,14 @@ class PassengerClassAssignment {
   final String assignedClass;
   final double price;
   final int flightPriceId;
+  final int flightClassId;
 
   const PassengerClassAssignment({
     required this.passengerLabel,
     required this.assignedClass,
     required this.price,
     required this.flightPriceId,
+    required this.flightClassId,
   });
 }
 

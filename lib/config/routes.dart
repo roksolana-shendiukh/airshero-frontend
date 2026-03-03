@@ -50,6 +50,8 @@ class BaggageSelectionArguments {
   final bool isRoundTrip;
   final List<Map<String, dynamic>> outboundAssignments;
   final List<Map<String, dynamic>> returnAssignments;
+  final int outboundFlightId;
+  final int outboundFlightClassId;
 
   BaggageSelectionArguments({
     required this.fromCity,
@@ -69,6 +71,8 @@ class BaggageSelectionArguments {
     required this.isRoundTrip,
     required this.outboundAssignments,
     this.returnAssignments = const [],
+    required this.outboundFlightId,
+    required this.outboundFlightClassId,
   });
 
   Map<String, dynamic> toMap() => {
@@ -89,6 +93,8 @@ class BaggageSelectionArguments {
         'isRoundTrip': isRoundTrip,
         'outboundAssignments': outboundAssignments,
         'returnAssignments': returnAssignments,
+        'outboundFlightId': outboundFlightId,
+        'outboundFlightClassId': outboundFlightClassId,
       };
 
   static BaggageSelectionArguments? fromMap(Map<String, dynamic>? map) {
@@ -124,6 +130,8 @@ class BaggageSelectionArguments {
         isRoundTrip: map['isRoundTrip'] as bool,
         outboundAssignments: parseAssignments(map['outboundAssignments']),
         returnAssignments: parseAssignments(map['returnAssignments']),
+        outboundFlightId: (map['outboundFlightId'] as num).toInt(),
+        outboundFlightClassId: (map['outboundFlightClassId'] as num).toInt(),
       );
     } catch (e) {
       debugPrint('BaggageSelectionArguments.fromMap error: $e');
@@ -131,6 +139,7 @@ class BaggageSelectionArguments {
     }
   }
 }
+
 class PaymentArguments {
   final String fromCity;
   final String toCity;
@@ -385,6 +394,7 @@ class AppRouter {
       isRoundTrip: args.isRoundTrip,
       outboundAssignments: args.outboundAssignments,
       returnAssignments: args.returnAssignments,
+      outboundFlightClassId: args.outboundFlightClassId, 
     );
   }
 }
