@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../widgets/responsive_layout.dart';
 import '../widgets/baggage_option_card.dart';
-import '/widgets/passenger_form_card.dart';
+import '../widgets/passenger_form_card/passenger_form_card.dart';
 import '/widgets/custom/custom_button.dart';
 import '../models/baggage_models.dart';
 import '../widgets/booking_progress_header.dart';
@@ -168,18 +168,31 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
   double get _grandTotal => widget.basePrice + _totalBaggagePrice;
 
   bool _isFormValid() {
+    if (!_hasAdultPassenger()) return false;
+
     for (int i = 0; i < _totalPassengers; i++) {
       final data = _passengerData[i];
+
       if (data == null || data.isEmpty) return false;
-      if (data['firstName'] == null || data['firstName'].toString().isEmpty) return false;
-      if (data['lastName'] == null || data['lastName'].toString().isEmpty) return false;
-      if (data['dateOfBirth'] == null) return false;
-      if (data['documentNumber'] == null || data['documentNumber'].toString().isEmpty) return false;
-      if (data['documentExpire'] == null) return false;
-      if (data['citizenshipId'] == null) return false;
-      if (data['documentTypeId'] == null) return false;
+
+      final requiredFields = [
+        'firstName',
+        'lastName',
+        'dateOfBirth',
+        'documentNumber',
+        'documentExpire',
+        'citizenshipId',
+        'documentTypeId',
+      ];
+
+      for (var field in requiredFields) {
+        if (data[field] == null || data[field].toString().trim().isEmpty) {
+          return false; 
+        }
+      }
     }
-    return true;
+
+    return true; 
   }
 
   String _getPassengerDisplayName(int index) {
@@ -239,6 +252,26 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
     });
   }
 
+  bool _hasAdultPassenger() {
+    for (int i = 0; i < _totalPassengers; i++) {
+      final data = _passengerData[i];
+      if (data == null || data['dateOfBirth'] == null) continue;
+
+      final DateTime birthDate = data['dateOfBirth'];
+      final DateTime referenceDate = widget.departDate;
+
+      int age = referenceDate.year - birthDate.year;
+      if (referenceDate.month < birthDate.month ||
+          (referenceDate.month == birthDate.month && referenceDate.day < birthDate.day)) {
+        age--;
+      }
+
+      if (age >= 18) return true;
+    }
+    return false;
+  }
+  
+  
   @override
   Widget build(BuildContext context) {
     final authService = context.read<AuthService>();
@@ -317,12 +350,29 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Align(
               alignment: Alignment.centerRight,
-              child: SizedBox(
-                width: 220,
-                child: CustomButton(
-                  label: 'Proceed to Payment',
-                  onPressed: _navigateToPayment,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  SizedBox(
+                    width: 220,
+                    child: CustomButton(
+                      label: 'Proceed to Payment',
+                      onPressed: _isFormValid() ? _navigateToPayment : null,
+                    ),
+                  ),
+                  if (!_isFormValid() && _passengerData.values.any((d) => d.isNotEmpty))
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        'At least one passenger must be 18 or older and all fields must be filled.',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                          fontSize: 12,
+                        ),
+                        textAlign: TextAlign.right,
+                      ),
+                    ),
+                ],
               ),
             ),
           ),
@@ -529,11 +579,8 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
     final List<PassengerPriceItem> passengerPrices = [];
 
     for (int i = 0; i < _totalPassengers; i++) {
-      final passengerType = _getPassengerType(i);
       final passengerLabel = _getPassengerDisplayName(i);
       double passengerFlightPrice = widget.basePrice / _totalPassengers;
-      if (passengerType == 'Child') passengerFlightPrice *= 0.75;
-      if (passengerType == 'Infant') passengerFlightPrice *= 0.1;
 
       double passengerBaggagePrice = 0;
       final baggageMap = _passengerBaggageSelections[i] ?? {};

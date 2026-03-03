@@ -21,17 +21,12 @@ class BookingApiService {
 
   Future<List<CityModel>> searchCities(String query) async {
     if (query.trim().isEmpty) return [];
-
     final uri = Uri.parse('${AppConfig.baseUrl}/cities/search')
         .replace(queryParameters: {'q': query});
-
     final response = await http.get(uri, headers: await _headers());
-
     if (response.statusCode == 200) {
       final List<dynamic> data = jsonDecode(response.body);
-      return data
-          .map((e) => CityModel.fromJson(e as Map<String, dynamic>))
-          .toList();
+      return data.map((e) => CityModel.fromJson(e as Map<String, dynamic>)).toList();
     }
     throw Exception('Failed to search cities: ${response.statusCode}');
   }
@@ -43,7 +38,6 @@ class BookingApiService {
   }) async {
     try {
       final dateStr = departDate.toIso8601String().split('T')[0];
-
       final uri = Uri.parse('${AppConfig.baseUrl}/flights/search').replace(
         queryParameters: {
           'from_city': fromCityId.toString(),
@@ -51,17 +45,12 @@ class BookingApiService {
           'depart_date': dateStr,
         },
       );
-
       final response = await http.get(uri, headers: await _headers());
-
       if (response.statusCode == 200) {
-        debugPrint('RESPONSE DATA: ${response.body}');
         final List<dynamic> data = jsonDecode(response.body);
         return data.map((json) => FlightModel.fromJson(json)).toList();
-      } else {
-        debugPrint('Search error: ${response.statusCode}');
-        return [];
       }
+      return [];
     } catch (e) {
       debugPrint('Network error (searchFlights): $e');
       return [];
@@ -71,7 +60,6 @@ class BookingApiService {
   Future<List<CityModel>> getAlternativeDestinations(int fromCityId) async {
     final uri = Uri.parse('${AppConfig.baseUrl}/flights/alternatives/$fromCityId');
     final response = await http.get(uri, headers: await _headers());
-
     if (response.statusCode == 200) {
       final List<dynamic> data = jsonDecode(response.body);
       return data.map((e) => CityModel.fromJson(e)).toList();
@@ -82,7 +70,6 @@ class BookingApiService {
   Future<List<CityModel>> getAlternatives(int fromCityId) async {
     final uri = Uri.parse('${AppConfig.baseUrl}/cities/alternatives/$fromCityId');
     final response = await http.get(uri, headers: await _headers());
-
     if (response.statusCode == 200) {
       final List<dynamic> data = jsonDecode(response.body);
       return data.map((e) => CityModel.fromJson(e)).toList();
@@ -92,35 +79,27 @@ class BookingApiService {
 
   Future<List<String>> getAvailableDates(int fromCityId, int toCityId) async {
     try {
-      final uri =
-          Uri.parse('${AppConfig.baseUrl}/cities/available-dates').replace(
+      final uri = Uri.parse('${AppConfig.baseUrl}/cities/available-dates').replace(
         queryParameters: {
           'from_city': fromCityId.toString(),
           'to_city': toCityId.toString(),
         },
       );
-
       final response = await http.get(uri, headers: await _headers());
-
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         return data.map((date) => date.toString()).toList();
-      } else {
-        debugPrint('Помилка сервера при отриманні дат: ${response.statusCode}');
-        return [];
       }
+      return [];
     } catch (e) {
-      debugPrint('Помилка мережі (getAvailableDates): $e');
+      debugPrint('Network error (getAvailableDates): $e');
       return [];
     }
   }
 
-  // --- Booking ---
-
   Future<List<Map<String, dynamic>>> getPaymentMethods() async {
     final uri = Uri.parse('${AppConfig.baseUrl}/bookings/payment-methods');
     final response = await http.get(uri, headers: await _headers());
-
     if (response.statusCode == 200) {
       final List<dynamic> data = jsonDecode(response.body);
       return data.map((e) => Map<String, dynamic>.from(e as Map)).toList();
@@ -128,23 +107,14 @@ class BookingApiService {
     throw Exception('Failed to load payment methods: ${response.statusCode}');
   }
 
-  Future<Map<String, dynamic>> createBooking(
-      Map<String, dynamic> body) async {
+  Future<Map<String, dynamic>> createBooking(Map<String, dynamic> body) async {
     final uri = Uri.parse('${AppConfig.baseUrl}/bookings');
-    final response = await http.post(
-      uri,
-      headers: await _headers(),
-      body: jsonEncode(body),
-    );
-
+    final response = await http.post(uri, headers: await _headers(), body: jsonEncode(body));
     if (response.statusCode == 201) {
       return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
     }
-
-    // Повертаємо помилку від бекенду (422 validation, 409 conflict, etc.)
     final error = jsonDecode(response.body);
-    final detail = error['detail'] ?? 'Failed to create booking';
-    throw Exception(detail.toString());
+    throw Exception((error['detail'] ?? 'Failed to create booking').toString());
   }
 
   Future<void> processPayment({
@@ -152,9 +122,9 @@ class BookingApiService {
     required int paymentMethodId,
     required String status,
     required double amount,
+    String? email,
   }) async {
-    final uri =
-        Uri.parse('${AppConfig.baseUrl}/bookings/$bookingId/payment');
+    final uri = Uri.parse('${AppConfig.baseUrl}/bookings/$bookingId/payment');
     final response = await http.post(
       uri,
       headers: await _headers(),
@@ -162,13 +132,33 @@ class BookingApiService {
         'paymentMethodId': paymentMethodId,
         'status': status,
         'amount': amount,
+        if (email != null) 'email': email,
       }),
     );
-
     if (response.statusCode != 200) {
       final error = jsonDecode(response.body);
-      final detail = error['detail'] ?? 'Failed to process payment';
-      throw Exception(detail.toString());
+      throw Exception((error['detail'] ?? 'Failed to process payment').toString());
     }
   }
+
+  Future<String?> getPassengerEmail(int passengerId) async {
+    final token = await _authService.getToken();
+    final uri = Uri.parse('${AppConfig.baseUrl}/passengers/$passengerId'); 
+    final response = await http.get(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data['email'] as String?;
+    } else {
+      debugPrint('Failed to fetch email for passenger $passengerId: ${response.statusCode}');
+      return null;
+    }
+  }
+
 }

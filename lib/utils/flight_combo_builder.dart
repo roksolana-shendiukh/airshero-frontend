@@ -203,21 +203,8 @@ class FlightComboBuilder {
     return labels;
   }
 
-  static List<double> _buildMultipliers(
-      Map<String, int> passengers, int total) {
-    final multipliers = <double>[];
-    final adults = passengers['adults'] ?? 0;
-    final children = passengers['children'] ?? 0;
-    for (int i = 0; i < total; i++) {
-      if (i < adults) {
-        multipliers.add(1.0);
-      } else if (i < adults + children) {
-        multipliers.add(0.75);
-      } else {
-        multipliers.add(0.1);
-      }
-    }
-    return multipliers;
+  static List<double> _buildMultipliers(Map<String, int> passengers, int total) {
+    return List.filled(total, 1.0);
   }
 }
 
