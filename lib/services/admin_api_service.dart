@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'auth_service.dart';
 import '../config/app_config.dart';
+import 'package:flutter/foundation.dart';
 
 class ApiValidationException implements Exception {
   final Map<String, String> fieldErrors;
@@ -20,7 +21,6 @@ Map<String, String> _parsePydanticErrors(List detail) {
 }
 
 class AdminApiService {
-
   final AuthService _authService;
 
   AdminApiService(this._authService);
@@ -35,7 +35,7 @@ class AdminApiService {
 
   Future<List<Map<String, dynamic>>> getUsers() async {
     final response = await http.get(
-      Uri.parse('$AppConfig.baseUrl/admin/users'),
+      Uri.parse('${AppConfig.baseUrl}/admin/users'),
       headers: await _headers(),
     );
     if (response.statusCode == 200) {
@@ -45,15 +45,28 @@ class AdminApiService {
     throw Exception('Failed to load users: ${response.statusCode}');
   }
 
+  Future<List<Map<String, dynamic>>> getCheckinAgents() async {
+    final response = await http.get(
+      Uri.parse('${AppConfig.baseUrl}/admin/checkin-agents'),
+      headers: await _headers(),
+    );
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.cast<Map<String, dynamic>>();
+    }
+    throw Exception('Failed to load check-in agents: ${response.statusCode}');
+  }
+
   Future<Map<String, dynamic>> createUser({
     required String email,
     required String firstName,
     required String lastName,
     required String airlineName,
     required int roleId,
+    int? agentId,
   }) async {
     final response = await http.post(
-      Uri.parse('$AppConfig.baseUrl/admin/users'),
+      Uri.parse('${AppConfig.baseUrl}/admin/users'),
       headers: await _headers(),
       body: jsonEncode({
         'email': email,
@@ -61,6 +74,7 @@ class AdminApiService {
         'lastName': lastName,
         'airlineName': airlineName,
         'roleId': roleId,
+        if (agentId != null) 'agentId': agentId,
       }),
     );
 
@@ -82,7 +96,7 @@ class AdminApiService {
 
   Future<void> changePassword(String password) async {
     final response = await http.post(
-      Uri.parse('$AppConfig.baseUrl/change-password'),
+      Uri.parse('${AppConfig.baseUrl}/change-password'),
       headers: await _headers(),
       body: jsonEncode({'password': password}),
     );
@@ -98,7 +112,7 @@ class AdminApiService {
 
   Future<void> setRole(String uid, int roleId) async {
     final response = await http.patch(
-      Uri.parse('$AppConfig.baseUrl/admin/users/$uid/role'),
+      Uri.parse('${AppConfig.baseUrl}/admin/users/$uid/role'),
       headers: await _headers(),
       body: jsonEncode({'roleId': roleId}),
     );
@@ -109,7 +123,7 @@ class AdminApiService {
 
   Future<void> setStatus(String uid, String status) async {
     final response = await http.patch(
-      Uri.parse('$AppConfig.baseUrl/admin/users/$uid/status'),
+      Uri.parse('${AppConfig.baseUrl}/admin/users/$uid/status'),
       headers: await _headers(),
       body: jsonEncode({'status': status}),
     );
@@ -118,3 +132,5 @@ class AdminApiService {
     }
   }
 }
+
+

@@ -24,10 +24,14 @@ class _CreateUserDialogState extends State<CreateUserDialog> {
   String _email = '';
   String? _selectedAirline;
   UserRole? _selectedRole;
+  int? _selectedAgentId;
 
   bool _isLoading = false;
+  bool _isLoadingAgents = false;
   String? _errorMessage;
   Map<String, String> _fieldErrors = {};
+
+  List<Map<String, dynamic>> _checkinAgents = [];
 
   late final AdminApiService _adminApi;
 
@@ -45,29 +49,51 @@ class _CreateUserDialogState extends State<CreateUserDialog> {
       .where((r) => r != UserRole.systemAdmin)
       .toList();
 
+  bool get _isCheckInAgent => _selectedRole == UserRole.checkInAgent;
+
   @override
   void initState() {
     super.initState();
     _adminApi = AdminApiService(context.read<AuthService>());
   }
 
+  Future<void> _loadCheckinAgents() async {
+    setState(() => _isLoadingAgents = true);
+    try {
+      final agents = await _adminApi.getCheckinAgents();
+      if (mounted) setState(() => _checkinAgents = agents);
+    } catch (e) {
+      debugPrint('Error loading agents: $e');
+      if (mounted) setState(() => _errorMessage = 'Failed to load check-in agents');
+    } finally {
+      if (mounted) setState(() => _isLoadingAgents = false);
+    }
+  }
+
+  void _onRoleChanged(String? displayName) {
+    if (displayName == null) return;
+    final role = _selectableRoles.firstWhere((r) => r.displayName == displayName);
+    setState(() {
+      _selectedRole = role;
+      _selectedAgentId = null;
+      _fieldErrors.remove('role');
+      _fieldErrors.remove('agent');
+    });
+    if (role == UserRole.checkInAgent && _checkinAgents.isEmpty) {
+      _loadCheckinAgents();
+    }
+  }
+
   Future<void> _submit() async {
     final errors = <String, String>{};
-    
-    if (_firstName.trim().isEmpty) {
-      errors['firstName'] = 'First name is required';
-    }
-    if (_lastName.trim().isEmpty) {
-      errors['lastName'] = 'Last name is required';
-    }
-    if (_email.trim().isEmpty) {
-      errors['email'] = 'Email is required';
-    }
-    if (_selectedAirline == null) {
-      errors['airline'] = 'Please select an airline';
-    }
-    if (_selectedRole == null) {
-      errors['role'] = 'Please select a role';
+
+    if (_firstName.trim().isEmpty) errors['firstName'] = 'First name is required';
+    if (_lastName.trim().isEmpty) errors['lastName'] = 'Last name is required';
+    if (_email.trim().isEmpty) errors['email'] = 'Email is required';
+    if (_selectedAirline == null) errors['airline'] = 'Please select an airline';
+    if (_selectedRole == null) errors['role'] = 'Please select a role';
+    if (_isCheckInAgent && _selectedAgentId == null) {
+      errors['agent'] = 'Please select a check-in agent';
     }
 
     if (errors.isNotEmpty) {
@@ -91,6 +117,7 @@ class _CreateUserDialogState extends State<CreateUserDialog> {
         lastName: _lastName.trim(),
         airlineName: _selectedAirline!,
         roleId: _selectedRole!.id,
+        agentId: _isCheckInAgent ? _selectedAgentId : null,
       );
 
       if (mounted) {
@@ -193,10 +220,10 @@ class _CreateUserDialogState extends State<CreateUserDialog> {
                   errorText: _fieldErrors['airline'],
                   onChanged: (v) {
                     if (v != null) setState(() {
-                        _selectedAirline = v;
-                        _fieldErrors.remove('airline');
-                      });
-                    },
+                      _selectedAirline = v;
+                      _fieldErrors.remove('airline');
+                    });
+                  },
                 ),
                 const SizedBox(height: 12),
 
@@ -206,15 +233,39 @@ class _CreateUserDialogState extends State<CreateUserDialog> {
                   icon: Icons.badge_outlined,
                   items: _selectableRoles.map((r) => r.displayName).toList(),
                   errorText: _fieldErrors['role'],
-                  onChanged: (v) {
-                    if (v != null) {
-                      setState(() {
-                        _selectedRole = _selectableRoles.firstWhere((r) => r.displayName == v);
-                        _fieldErrors.remove('role');
-                      });
-                    }
-                  },
+                  onChanged: _onRoleChanged,
                 ),
+
+                if (_isCheckInAgent) ...[
+                  const SizedBox(height: 12),
+                  if (_isLoadingAgents)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else
+                    CustomSelectField(
+                      label: 'Check-In Agent',
+                      value: _selectedAgentId != null
+                          ? _agentDisplayName(_selectedAgentId!)
+                          : 'Select Agent',
+                      icon: Icons.badge_outlined,
+                      items: _checkinAgents
+                          .map((a) => _agentDisplayName(a['agentId'] as int))
+                          .toList(),
+                      errorText: _fieldErrors['agent'],
+                      onChanged: (v) {
+                        if (v == null) return;
+                        final agent = _checkinAgents.firstWhere(
+                          (a) => _agentDisplayName(a['agentId'] as int) == v,
+                        );
+                        setState(() {
+                          _selectedAgentId = agent['agentId'] as int;
+                          _fieldErrors.remove('agent');
+                        });
+                      },
+                    ),
+                ],
 
                 if (_errorMessage != null) ...[
                   const SizedBox(height: 16),
@@ -241,6 +292,7 @@ class _CreateUserDialogState extends State<CreateUserDialog> {
 
                 const SizedBox(height: 24),
 
+                // ── Кнопки ─────────────────────────────────────────────────
                 Row(
                   children: [
                     Expanded(
@@ -275,4 +327,15 @@ class _CreateUserDialogState extends State<CreateUserDialog> {
       ),
     );
   }
+
+  String _agentDisplayName(int agentId) {
+    final agent = _checkinAgents.firstWhere(
+      (a) => a['agentId'] == agentId,
+      orElse: () => {},
+    );
+    if (agent.isEmpty) return 'Agent #$agentId';
+    final airport = agent['airportCode'] ?? '';
+    return '${agent['firstName']} ${agent['lastName']}${airport.isNotEmpty ? ' · $airport' : ''}';
+  }
+
 }

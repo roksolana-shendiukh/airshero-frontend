@@ -46,7 +46,13 @@ class ResponsiveLayout extends StatelessWidget {
                           onPressed: () => Scaffold.of(context).openDrawer(),
                         ),
                       ),
-                title: Text(_getAppBarTitle(currentUser?.role)),
+                title: GestureDetector(
+                  onTap: () => context.go('/sales/bookings'),
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: Text(_getAppBarTitle(currentUser?.role)),
+                  ),
+                ),
                 actions: [
                   IconButton(
                     icon: Icon(
@@ -165,8 +171,6 @@ class ResponsiveLayout extends StatelessWidget {
     return Container(
       width: 280,
       color: Theme.of(context).colorScheme.surfaceContainerHigh,
-      // SingleChildScrollView з NeverScrollableScrollPhysics —
-      // sidebar не перехоплює scroll events
       child: SingleChildScrollView(
         physics: const NeverScrollableScrollPhysics(),
         child: _buildMenuContent(context, currentUser),
@@ -182,7 +186,6 @@ class ResponsiveLayout extends StatelessWidget {
     final currentPath = GoRouterState.of(context).uri.path;
     final menuItems = currentUser.role.menuItems;
 
-    // Column замість ListView — не є Scrollable, не перехоплює events
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 16),
       child: Column(

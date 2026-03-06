@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:intl/intl.dart';
 
 class CustomSingleDatePicker extends StatefulWidget {
@@ -18,107 +19,116 @@ class CustomSingleDatePicker extends StatefulWidget {
   });
 
   @override
-  State<CustomSingleDatePicker> createState() => _CustomSingleDatePickerState();
+  State<CustomSingleDatePicker> createState() =>
+      _CustomSingleDatePickerState();
 }
 
 class _CustomSingleDatePickerState extends State<CustomSingleDatePicker> {
-  DateTime? _tempSelectedDate;
-  late DateTime _focusedMonth;
+  late int _selectedYear;
+  late int _selectedMonth;
+  late int _selectedDay;
+
+  late List<int> _years;
+  late FixedExtentScrollController _yearController;
+  late FixedExtentScrollController _monthController;
+  late FixedExtentScrollController _dayController;
+  
 
   @override
   void initState() {
     super.initState();
-    _tempSelectedDate = widget.selectedDate;
-    _focusedMonth = widget.selectedDate ?? DateTime.now();
-  }
+    final initial = widget.selectedDate ?? DateTime.now(); 
+    _selectedYear  = initial.year;
+    _selectedMonth = initial.month;
+    _selectedDay   = initial.day;
 
-  void _selectDate(DateTime date) {
-    setState(() => _tempSelectedDate = date);
-    widget.onDateSelected(date);
-  }
+    _years = List.generate(
+      widget.lastDate.year - widget.firstDate.year + 1,
+      (i) => widget.firstDate.year + i,
+    );
 
-  Widget _buildCalendar(DateTime month) {
-    final firstDay = DateTime(month.year, month.month, 1);
-    final lastDay = DateTime(month.year, month.month + 1, 0);
-    final daysInMonth = lastDay.day;
-    final startWeekday = firstDay.weekday % 7;
-
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Text(
-            DateFormat('MMMM yyyy').format(month),
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-          ),
-        ),
-        Table(
-          children: [
-            TableRow(
-              children:
-                  ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) {
-                return Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Text(
-                      day,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color:
-                                Theme.of(context).colorScheme.onSurfaceVariant,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                          ),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ],
-        ),
-        Table(
-          children: List.generate(6, (weekIndex) {
-            return TableRow(
-              children: List.generate(7, (dayIndex) {
-                final dayNumber =
-                    weekIndex * 7 + dayIndex - startWeekday + 1;
-
-                if (dayNumber < 1 || dayNumber > daysInMonth) {
-                  return const SizedBox(height: 40);
-                }
-
-                final date =
-                    DateTime(month.year, month.month, dayNumber);
-                final isDisabled = date.isBefore(widget.firstDate) ||
-                    date.isAfter(widget.lastDate);
-
-                return _DayCell(
-                  date: date,
-                  isSelected:
-                      DateUtils.isSameDay(date, _tempSelectedDate),
-                  isToday: DateUtils.isSameDay(date, DateTime.now()),
-                  isDisabled: isDisabled,
-                  onTap: () => _selectDate(date),
-                );
-              }),
-            );
-          }),
-        ),
-      ],
+    _yearController = FixedExtentScrollController(
+      initialItem: _years.indexOf(_selectedYear).clamp(0, _years.length - 1),
+    );
+    _monthController = FixedExtentScrollController(
+      initialItem: _selectedMonth - 1,
+    );
+    _dayController = FixedExtentScrollController(
+      initialItem: _selectedDay - 1,
     );
   }
 
   @override
+  void dispose() {
+    _yearController.dispose();
+    _monthController.dispose();
+    _dayController.dispose();
+    super.dispose();
+  }
+
+  int get _daysInMonth =>
+      DateTime(_selectedYear, _selectedMonth + 1, 0).day;
+
+  void _notify() {
+    final day = _selectedDay.clamp(1, _daysInMonth);
+    widget.onDateSelected(DateTime(_selectedYear, _selectedMonth, day));
+  }
+
+  void _onYearChanged(int index) {
+    setState(() {
+      _selectedYear = _years[index];
+      _selectedDay  = _selectedDay.clamp(1, _daysInMonth);
+    });
+    _notify();
+  }
+
+  void _onMonthChanged(int index) {
+    setState(() {
+      _selectedMonth = index + 1;
+      _selectedDay   = _selectedDay.clamp(1, _daysInMonth);
+    });
+    _notify();
+  }
+
+  void _onDayChanged(int index) {
+    setState(() => _selectedDay = index + 1);
+    _notify();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // GestureDetector з opaque щоб тапи всередині не закривали overlay
-    return GestureDetector(
+    final colors = Theme.of(context).colorScheme;
+    final months = List.generate(
+        12, (i) => DateFormat('MMMM').format(DateTime(2000, i + 1)));
+    final days = List.generate(_daysInMonth, (i) => '${i + 1}');
+
+    return RawGestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () {},
+      gestures: {
+        TapGestureRecognizer:
+            GestureRecognizerFactoryWithHandlers<TapGestureRecognizer>(
+          () => TapGestureRecognizer(),
+          (instance) => instance.onTapDown = (details) {
+            print('[DatePicker] onTapDown INSIDE picker — should NOT close');
+          },
+        ),
+        PanGestureRecognizer:
+            GestureRecognizerFactoryWithHandlers<PanGestureRecognizer>(
+          () => PanGestureRecognizer(),
+          (instance) {
+            instance.onDown = (details) {
+              print('[DatePicker] onPanDown INSIDE picker');
+            };
+            instance.onStart = (details) {
+              print('[DatePicker] onPanStart INSIDE picker — scroll started');
+            };
+          },
+        ),
+      },
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
+          color: colors.surface,
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
@@ -131,25 +141,80 @@ class _CustomSingleDatePickerState extends State<CustomSingleDatePicker> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Column headers
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                IconButton(
-                  icon: const Icon(Icons.chevron_left),
-                  onPressed: () => setState(() {
-                    _focusedMonth = DateTime(
-                        _focusedMonth.year, _focusedMonth.month - 1);
-                  }),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    'Month',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
                 ),
-                Expanded(child: _buildCalendar(_focusedMonth)),
-                IconButton(
-                  icon: const Icon(Icons.chevron_right),
-                  onPressed: () => setState(() {
-                    _focusedMonth = DateTime(
-                        _focusedMonth.year, _focusedMonth.month + 1);
-                  }),
+                Expanded(
+                  child: Text(
+                    'Day',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    'Year',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
                 ),
               ],
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 200,
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: _ScrollColumn(
+                      controller: _monthController,
+                      items: months,
+                      selectedIndex: _selectedMonth - 1,
+                      onChanged: _onMonthChanged,
+                      colors: colors,
+                    ),
+                  ),
+                  Expanded(
+                    child: _ScrollColumn(
+                      controller: _dayController,
+                      items: days,
+                      selectedIndex:
+                          (_selectedDay - 1).clamp(0, days.length - 1),
+                      onChanged: _onDayChanged,
+                      colors: colors,
+                    ),
+                  ),
+                  Expanded(
+                    child: _ScrollColumn(
+                      controller: _yearController,
+                      items: _years.map((y) => '$y').toList(),
+                      selectedIndex: _years
+                          .indexOf(_selectedYear)
+                          .clamp(0, _years.length - 1),
+                      onChanged: _onYearChanged,
+                      colors: colors,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -158,84 +223,121 @@ class _CustomSingleDatePickerState extends State<CustomSingleDatePicker> {
   }
 }
 
-// ─── Окремий віджет для дня — має hover стан ─────────────────────────────────
+class _ScrollColumn extends StatelessWidget {
+  final FixedExtentScrollController controller;
+  final List<String> items;
+  final int selectedIndex;
+  final ValueChanged<int> onChanged;
+  final ColorScheme colors;
 
-class _DayCell extends StatefulWidget {
-  final DateTime date;
+  const _ScrollColumn({
+    required this.controller,
+    required this.items,
+    required this.selectedIndex,
+    required this.onChanged,
+    required this.colors,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Container(
+          height: 40,
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          decoration: BoxDecoration(
+            color: colors.primaryContainer.withValues(alpha: 0.4),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: colors.primary.withValues(alpha: 0.3),
+            ),
+          ),
+        ),
+        ListWheelScrollView.useDelegate(
+          controller: controller,
+          itemExtent: 40,
+          diameterRatio: 2.5,
+          physics: const FixedExtentScrollPhysics(),
+          onSelectedItemChanged: onChanged,
+          childDelegate: ListWheelChildBuilderDelegate(
+            childCount: items.length,
+            builder: (context, index) {
+              final isSelected = index == selectedIndex;
+              return _ScrollItem(
+                label: items[index],
+                isSelected: isSelected,
+                colors: colors,
+                onTap: () {
+                  controller.animateToItem(
+                    index,
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                  );
+                  onChanged(index);
+                },
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Scroll item ──────────────────────────────────────────────────────────────
+
+class _ScrollItem extends StatefulWidget {
+  final String label;
   final bool isSelected;
-  final bool isToday;
-  final bool isDisabled;
+  final ColorScheme colors;
   final VoidCallback onTap;
 
-  const _DayCell({
-    required this.date,
+  const _ScrollItem({
+    required this.label,
     required this.isSelected,
-    required this.isToday,
-    required this.isDisabled,
+    required this.colors,
     required this.onTap,
   });
 
   @override
-  State<_DayCell> createState() => _DayCellState();
+  State<_ScrollItem> createState() => _ScrollItemState();
 }
 
-class _DayCellState extends State<_DayCell> {
+class _ScrollItemState extends State<_ScrollItem> {
   bool _isHovered = false;
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-
-    Color? bgColor;
-    Color textColor;
-
-    if (widget.isDisabled) {
-      textColor = colors.onSurfaceVariant.withValues(alpha: 0.35);
-    } else if (widget.isSelected) {
-      bgColor = colors.primary;
-      textColor = colors.onPrimary;
-    } else if (_isHovered) {
-      bgColor = colors.primaryContainer.withValues(alpha: 0.5);
-      textColor = colors.onSurface;
-    } else if (widget.isToday) {
-      bgColor = colors.surfaceContainerHighest;
-      textColor = colors.onSurface;
-    } else {
-      textColor = colors.onSurface;
-    }
-
-    return Padding(
-      padding: const EdgeInsets.all(2),
-      child: MouseRegion(
-        cursor: widget.isDisabled
-            ? SystemMouseCursors.forbidden
-            : SystemMouseCursors.click,
-        onEnter: (_) {
-          if (!widget.isDisabled) setState(() => _isHovered = true);
-        },
-        onExit: (_) => setState(() => _isHovered = false),
-        child: GestureDetector(
-          onTap: widget.isDisabled ? null : widget.onTap,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 100),
-            height: 40,
-            decoration: BoxDecoration(
-              color: bgColor,
-              borderRadius: BorderRadius.circular(8),
-              border: widget.isToday && !widget.isSelected
-                  ? Border.all(color: colors.primary, width: 2)
-                  : null,
-            ),
-            child: Center(
-              child: Text(
-                '${widget.date.day}',
-                style: TextStyle(
-                  color: textColor,
-                  fontWeight: widget.isSelected
-                      ? FontWeight.bold
-                      : FontWeight.normal,
-                  fontSize: 14,
-                ),
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 100),
+          margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          decoration: BoxDecoration(
+            color: _isHovered && !widget.isSelected
+                ? widget.colors.primaryContainer.withValues(alpha: 0.3)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Center(
+            child: Text(
+              widget.label,
+              style: TextStyle(
+                fontSize: widget.isSelected ? 15 : 13,
+                fontWeight: widget.isSelected
+                    ? FontWeight.bold
+                    : FontWeight.normal,
+                color: widget.isSelected
+                    ? widget.colors.onSurface
+                    : _isHovered
+                        ? widget.colors.primary
+                        : widget.colors.onSurfaceVariant
+                            .withValues(alpha: 0.5),
               ),
             ),
           ),

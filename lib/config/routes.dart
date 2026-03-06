@@ -7,6 +7,7 @@ import '../pages/payment/payment_page.dart';
 import '../pages/admin/admin_users_page.dart';
 import '../pages/login_page.dart';
 import '../pages/change_password_page.dart';
+import '../pages/checkin_page.dart';
 import '../services/auth_service.dart';
 import '../services/navigation_storage_service.dart';
 import '../models/user_model.dart';
@@ -371,6 +372,11 @@ class AppRouter {
       GoRoute(
         path: '/login',
         builder: (context, state) => const LoginPage(),
+      ),
+    
+      GoRoute(
+        path: '/checkin',
+        builder: (context, state) => const CheckInPage(),
       ),
     ],
   );
