@@ -9,9 +9,13 @@ extension PassengerFormBuild on _PassengerFormCardState {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         PassengerSearchBar(
+          key: ValueKey('search_${widget.passengerIndex}'),
           authService: widget.authService,
+          initialDocumentNumber: widget.searchDocumentNumber,
+          usedDocumentNumbers: widget.usedDocumentNumbers,
           onPassengerFound: _fillFromPassenger,
           onClear: _clearFoundPassenger,
+          onTextChanged: widget.onSearchDocumentChanged,
         ),
 
         const SizedBox(height: 16),
@@ -80,6 +84,15 @@ extension PassengerFormBuild on _PassengerFormCardState {
                                 ),
                           ),
                           const SizedBox(width: 8),
+                        ],
+                        if (_foundPassengerId != null && !_isAddingNewDocument) ...[
+                          TextButton.icon(
+                            onPressed: _startNewDocument,
+                            icon: const Icon(Icons.add_card_outlined, size: 16),
+                            label: const Text('New Document',
+                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                          ),
+                          const SizedBox(width: 4),
                         ],
                         TextButton(
                           onPressed: _clearForm,
@@ -223,13 +236,22 @@ extension PassengerFormBuild on _PassengerFormCardState {
                                 icon: Icons.calendar_today_outlined,
                                 keyboardType: TextInputType.number,
                                 inputFormatters: [DateInputFormatter()],
+                                readOnly: _foundPassengerId != null,  
                                 onChanged: (v) => _dateOfBirthController.text = v,
                                 onIconTap: () => _showDatePicker(
                                     _dateOfBirthLayerLink, _DatePickerType.dateOfBirth),
                               ),
                             ),
                           ),
-                          if (_dateOfBirthFocusNode.hasFocus ||
+                          if (_foundPassengerId != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              'Date of birth cannot be changed for existing passenger',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: colors.onSurfaceVariant,
+                                  ),
+                            ),
+                          ] else if  (_dateOfBirthFocusNode.hasFocus ||
                               ageMismatch != null ||
                               _dateOfBirthInvalid ||
                               (_dateOfBirthTouched && _dateOfBirth == null)) ...[
@@ -247,7 +269,7 @@ extension PassengerFormBuild on _PassengerFormCardState {
                                         : colors.onSurfaceVariant,
                                   ),
                             ),
-                          ],
+                          ],                          
                         ],
                       ),
                     ),
@@ -267,10 +289,14 @@ extension PassengerFormBuild on _PassengerFormCardState {
                         errorText: (_citizenshipTouched && _selectedCitizenshipId == null)
                             ? 'Required field'
                             : null,
-                        onChanged: (value) {
-                          setState(() => _selectedCitizenshipId = int.tryParse(value ?? ''));
-                          _notifyParent();
-                        },
+                        onChanged: _foundPassengerId != null && !_isAddingNewDocument
+                          ? (_) {}  
+                          : (value) {
+                              _clearDocumentFields();
+                              setState(() => _selectedCitizenshipId = int.tryParse(value ?? ''));
+                              _checkDocumentChanged();
+                              _notifyParent();
+                            },
                       ),
                 const SizedBox(height: 16),
 
@@ -289,14 +315,14 @@ extension PassengerFormBuild on _PassengerFormCardState {
                               errorText: (_documentTypeTouched && _selectedDocumentTypeId == null)
                                   ? 'Required field'
                                   : null,
-                              onChanged: (value) {
-                                setState(() {
-                                  _selectedDocumentTypeId = int.tryParse(value ?? '');
-                                  _documentNumberController.clear();
-                                  _documentNumberInvalid = false;
-                                });
-                                _notifyParent();
-                              },
+                              onChanged: _foundPassengerId != null && !_isAddingNewDocument
+                                ? (_) {}
+                                : (value) {
+                                    _clearDocumentFields();
+                                    setState(() => _selectedDocumentTypeId = int.tryParse(value ?? ''));
+                                    _checkDocumentChanged();
+                                    _notifyParent();
+                                  },
                             ),
                     ),
                     const SizedBox(width: 12),
@@ -311,17 +337,20 @@ extension PassengerFormBuild on _PassengerFormCardState {
                               value: _documentNumberController.text,
                               icon: Icons.contact_page_outlined,
                               inputFormatters: _documentNumberFormatters,
-                              onChanged: (v) {
-                                _documentNumberController.text = v;
-                                setState(() {
-                                  _documentNumberExistsError = false;
-                                  if (v.isEmpty) {
-                                    _documentNumberInvalid = false;
-                                  } else {
-                                    _documentNumberInvalid = !_isDocumentNumberPartiallyValid(v);
-                                  }
-                                });
-                              },
+                              readOnly: _foundPassengerId != null && !_isAddingNewDocument, 
+                              onChanged: _foundPassengerId != null && !_isAddingNewDocument
+                                ? (_) {}
+                                : (v) {
+                                    _documentNumberController.text = v;
+                                    setState(() {
+                                      _documentNumberExistsError = false;
+                                      if (v.isEmpty) {
+                                        _documentNumberInvalid = false;
+                                      } else {
+                                        _documentNumberInvalid = !_isDocumentNumberPartiallyValid(v);
+                                      }
+                                    });
+                                  },
                             ),
                           ),
                           if (_documentNumberFocusNode.hasFocus ||
@@ -356,35 +385,59 @@ extension PassengerFormBuild on _PassengerFormCardState {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          CompositedTransformTarget(
-                            link: _documentIssueLayerLink,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        CompositedTransformTarget(
+                          link: _documentIssueLayerLink,
+                          child: Focus(
+                            focusNode: _documentIssueFocusNode, 
+                            onFocusChange: (hasFocus) {
+                              if (!hasFocus) setState(() => _documentIssueTouched = true);
+                            },
                             child: CustomInputField(
                               label: 'Document Issue *',
                               value: _documentIssueController.text,
                               icon: Icons.calendar_today_outlined,
                               keyboardType: TextInputType.number,
                               inputFormatters: [DateInputFormatter()],
-                              focusHint: _documentIssueFocusHint,
-                              onChanged: (v) => _documentIssueController.text = v,
-                              onIconTap: () => _showDatePicker(
-                                  _documentIssueLayerLink, _DatePickerType.documentIssue),
+                              readOnly: _foundPassengerId != null && !_isAddingNewDocument,
+                              onChanged: _foundPassengerId != null && !_isAddingNewDocument
+                                  ? (_) {}
+                                  : (v) {
+                                      _documentIssueController.text = v;
+                                      setState(() {});
+                                    },
+                              onIconTap: _foundPassengerId != null && !_isAddingNewDocument
+                                  ? null
+                                  : () => _showDatePicker(_documentIssueLayerLink, _DatePickerType.documentIssue),
                             ),
                           ),
-                          if (_documentIssueTouched && _documentIssue == null) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              'Required field',
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: colors.error,
-                                  ),
-                            ),
-                          ],
+                        ),
+                        if (_documentIssueFocusNode.hasFocus ||
+                            _documentIssueInvalid ||
+                            (_documentIssueTouched && _documentIssue == null)) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            _documentIssueInvalid
+                                ? 'Issue date cannot be in the future'
+                                : (_documentIssueTouched && _documentIssue == null)
+                                    ? 'Required field'
+                                    : (_documentIssueFocusHint ?? 'DD.MM.YYYY'), 
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: (_documentIssueInvalid ||
+                                          (!_documentIssueFocusNode.hasFocus &&
+                                              _documentIssueTouched &&
+                                              _documentIssue == null))
+                                      ? colors.error 
+                                      : colors.onSurfaceVariant, 
+                                ),
+                          ),
                         ],
-                      ),
+                      ],
                     ),
+                  ),
+                    
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -392,30 +445,53 @@ extension PassengerFormBuild on _PassengerFormCardState {
                         children: [
                           CompositedTransformTarget(
                             link: _documentExpireLayerLink,
-                            child: CustomInputField(
-                              label: 'Document Expire *',
-                              value: _documentExpireController.text,
-                              icon: Icons.calendar_today_outlined,
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [DateInputFormatter()],
-                              focusHint: _documentExpireFocusHint,
-                              onChanged: (v) => _documentExpireController.text = v,
-                              onIconTap: () => _showDatePicker(
-                                  _documentExpireLayerLink, _DatePickerType.documentExpire),
+                            child: Focus(
+                              focusNode: _documentExpireFocusNode, 
+                              onFocusChange: (hasFocus) {
+                                if (!hasFocus) setState(() => _documentExpireTouched = true);
+                              },
+                              child: CustomInputField(
+                                label: 'Document Expire *',
+                                value: _documentExpireController.text,
+                                icon: Icons.calendar_today_outlined,
+                                keyboardType: TextInputType.number,
+                                inputFormatters: [DateInputFormatter()],
+                                readOnly: _foundPassengerId != null && !_isAddingNewDocument,
+                                onChanged: _foundPassengerId != null && !_isAddingNewDocument
+                                    ? (_) {}
+                                    : (v) {
+                                        _documentExpireController.text = v;
+                                        setState(() {});
+                                      },
+                                onIconTap: _foundPassengerId != null && !_isAddingNewDocument
+                                    ? null
+                                    : () => _showDatePicker(_documentExpireLayerLink, _DatePickerType.documentExpire),
+                              ),
                             ),
                           ),
-                          if (_documentExpireTouched && _documentExpire == null) ...[
+                          if (_documentExpireFocusNode.hasFocus ||
+                              (_documentDatesMismatchMessage != null && (_documentExpireTouched || _documentIssueTouched)) ||
+                              (_documentExpireTouched && _documentExpire == null)) ...[
                             const SizedBox(height: 4),
                             Text(
-                              'Required field',
+                              (_documentDatesMismatchMessage != null && (_documentExpireTouched || _documentIssueTouched))
+                                  ? _documentDatesMismatchMessage!
+                                  : (_documentExpireTouched && _documentExpire == null)
+                                      ? 'Required field'
+                                      : (_documentExpireFocusHint ?? 'DD.MM.YYYY'), 
                               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: colors.error,
+                                    color: ((_documentDatesMismatchMessage != null && (_documentExpireTouched || _documentIssueTouched)) ||
+                                            (!_documentExpireFocusNode.hasFocus &&
+                                                _documentExpireTouched &&
+                                                _documentExpire == null))
+                                        ? colors.error // Червоний для помилок
+                                        : colors.onSurfaceVariant, // Сірий для підказки при фокусі
                                   ),
                             ),
                           ],
                         ],
                       ),
-                    ),
+                    ),                  
                   ],
                 ),
                 const SizedBox(height: 24),

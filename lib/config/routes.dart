@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../pages/bookings_page.dart';
 import '../pages/search_results_page.dart';
 import '../pages/baggage_selection_page.dart';
-import '../pages/payment_page.dart';
+import '../pages/payment/payment_page.dart';
 import '../pages/admin/admin_users_page.dart';
 import '../pages/login_page.dart';
 import '../pages/change_password_page.dart';

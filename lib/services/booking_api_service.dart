@@ -38,6 +38,8 @@ class BookingApiService {
   }) async {
     try {
       final dateStr = departDate.toIso8601String().split('T')[0];
+      debugPrint('searchFlights called with: fromCityId=$fromCityId, toCityId=$toCityId, departDate=$dateStr');
+
       final uri = Uri.parse('${AppConfig.baseUrl}/flights/search').replace(
         queryParameters: {
           'from_city': fromCityId.toString(),
@@ -46,6 +48,7 @@ class BookingApiService {
         },
       );
       final response = await http.get(uri, headers: await _headers());
+      debugPrint('Response body (raw): ${response.body}');
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         return data.map((json) => FlightModel.fromJson(json)).toList();
@@ -161,4 +164,34 @@ class BookingApiService {
     }
   }
 
+  Future<Map<String, dynamic>> confirmPayment({
+    required int bookingId,
+    required Map<String, dynamic> data,
+  }) async {
+    final uri = Uri.parse('${AppConfig.baseUrl}/bookings/$bookingId/payment');
+    
+    final response = await http.post(
+      uri,
+      headers: await _headers(),
+      body: jsonEncode(data), 
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception((error['detail'] ?? 'Failed to process payment').toString());
+    }
+  }
+
+
+  Future<List<Map<String, dynamic>>> getAdultPassengers(int bookingId) async {
+    final uri = Uri.parse('${AppConfig.baseUrl}/bookings/$bookingId/adult-passengers');
+    final response = await http.get(uri, headers: await _headers());
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    }
+    throw Exception('Failed to load adult passengers: ${response.statusCode}');
+  }
 }

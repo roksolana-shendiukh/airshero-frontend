@@ -227,21 +227,21 @@ class PassengerApiService {
     }
   }
 
-  Future<List<Map<String, dynamic>>> getDocumentSuggestions(
-      String query) async {
-    try {
-      final uri =
-          Uri.parse('${AppConfig.baseUrl}/passengers/search/suggestions')
-              .replace(queryParameters: {'q': query});
-      final response = await http.get(uri, headers: await _headers());
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.cast<Map<String, dynamic>>();
-      }
-      return [];
-    } catch (e) {
-      debugPrint('Network error (getDocumentSuggestions): $e');
-      return [];
+  Future<List<Map<String, dynamic>>> getDocumentSuggestions(String query) async {
+  try {
+    final uri = Uri.parse('${AppConfig.baseUrl}/passengers/search/suggestions')
+        .replace(queryParameters: {'q': query});
+    final response = await http.get(uri, headers: await _headers());
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      debugPrint('Suggestions response: ${response.body}'); 
+      return data.cast<Map<String, dynamic>>();
     }
+    return [];
+  } catch (e) {
+    debugPrint('Network error (getDocumentSuggestions): $e');
+    return [];
   }
+}
 }

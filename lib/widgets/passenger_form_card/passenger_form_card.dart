@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
@@ -38,6 +37,11 @@ class PassengerFormCard extends StatefulWidget {
   final Map<String, dynamic>? initialData;
   final AuthService authService;
   final String sessionId;
+  final Set<String> usedDocumentNumbers;
+  final String searchDocumentNumber;
+  final ValueChanged<String> onSearchDocumentChanged;
+  final DateTime departDate;
+
 
   const PassengerFormCard({
     super.key,
@@ -47,6 +51,10 @@ class PassengerFormCard extends StatefulWidget {
     required this.authService,
     required this.sessionId,
     this.initialData,
+    this.usedDocumentNumbers = const {},
+    required this.searchDocumentNumber,
+    required this.onSearchDocumentChanged,
+    required this.departDate,
   });
 
   @override
@@ -79,6 +87,7 @@ class _PassengerFormCardState extends State<PassengerFormCard> {
   bool _documentTypeTouched      = false;
   bool _documentNumberTouched    = false;
   bool _sexTouched               = false;
+  bool _documentIssueInvalid = false;  
 
   String?   _selectedSexId;
   DateTime? _dateOfBirth;
@@ -99,6 +108,9 @@ class _PassengerFormCardState extends State<PassengerFormCard> {
   String? _originalDocumentNumber;
   String? _originalDocumentExpire;
   bool    _documentChanged = false;
+  bool _isAddingNewDocument = false;
+  int?    _originalCitizenshipId;
+  int?    _originalDocumentTypeId;    
 
   final LayerLink _dateOfBirthLayerLink    = LayerLink();
   final LayerLink _documentIssueLayerLink  = LayerLink();
@@ -107,6 +119,8 @@ class _PassengerFormCardState extends State<PassengerFormCard> {
   final FocusNode _documentNumberFocusNode = FocusNode();
   final FocusNode _firstNameFocusNode      = FocusNode();
   final FocusNode _lastNameFocusNode       = FocusNode();
+  final FocusNode _documentIssueFocusNode       = FocusNode();
+  final FocusNode _documentExpireFocusNode       = FocusNode();
 
   OverlayEntry? _datePickerOverlay;
   OverlayEntry? _datePickerBarrier;
@@ -358,6 +372,7 @@ class _PassengerFormCardState extends State<PassengerFormCard> {
         _citizenshipTouched     = false;
         _documentTypeTouched    = false;
         _documentNumberTouched  = false;
+        _documentIssueInvalid = false;
 
         if (_selectedSexId == null && _sexes.isNotEmpty) {
           _selectedSexId = _sexes.first['id'].toString();

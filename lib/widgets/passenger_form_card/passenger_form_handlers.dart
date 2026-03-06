@@ -24,32 +24,39 @@ extension PassengerFormHandlers on _PassengerFormCardState {
     if (_foundPassengerId == null) return;
     final numberChanged = _documentNumberController.text != _originalDocumentNumber;
     final expireChanged = _documentExpire?.toIso8601String().split('T')[0] != _originalDocumentExpire;
-    setState(() => _documentChanged = numberChanged || expireChanged);
+    final citizenshipChanged = _selectedCitizenshipId != _originalCitizenshipId;
+    final docTypeChanged = _selectedDocumentTypeId != _originalDocumentTypeId;
+    final issueChanged = _documentIssue != null &&
+        _originalDocumentNumber != null &&
+        _documentIssue.toString() != _originalDocumentExpire; 
+
+    final changed = numberChanged || expireChanged || citizenshipChanged || docTypeChanged;
+    setState(() => _documentChanged = changed);
   }
 
-void _notifyParent() {
-  Future.microtask(() {
-    if (!mounted) return;
+  void _notifyParent() {
+    Future.microtask(() {
+      if (!mounted) return;
 
-    final data = {
-      'firstName':        _firstNameController.text,
-      'lastName':         _lastNameController.text,
-      'sexId':            _selectedSexId,
-      'sex':              _sexIdToName(_selectedSexId),
-      'dateOfBirth':      _dateOfBirth,
-      'citizenshipId':    _selectedCitizenshipId,
-      'documentTypeId':   _selectedDocumentTypeId,
-      'documentNumber':   _documentNumberController.text,
-      'documentIssue':    _documentIssue,
-      'documentExpire':   _documentExpire,
-      'isSaved':          _isSaved,
-      'foundPassengerId': _foundPassengerId,
-      'documentChanged':  _documentChanged,
-    };
+      final data = {
+        'firstName':        _firstNameController.text,
+        'lastName':         _lastNameController.text,
+        'sexId':            _selectedSexId,
+        'sex':              _sexIdToName(_selectedSexId),
+        'dateOfBirth':      _dateOfBirth,
+        'citizenshipId':    _selectedCitizenshipId,
+        'documentTypeId':   _selectedDocumentTypeId,
+        'documentNumber':   _documentNumberController.text,
+        'documentIssue':    _documentIssue,
+        'documentExpire':   _documentExpire,
+        'isSaved':          _isSaved,
+        'foundPassengerId': _foundPassengerId,
+        'documentChanged':  _documentChanged,
+      };
 
-    widget.onDataChanged(data);
-  });
-}
+      widget.onDataChanged(data);
+    });
+  }
 
   void _handleDateOfBirthInput() {
     final text = _dateOfBirthController.text;
@@ -89,24 +96,46 @@ void _notifyParent() {
   }
 
   void _handleDocumentIssueInput() {
+    if (_foundPassengerId != null && !_isAddingNewDocument) return;
     final text = _documentIssueController.text;
     if (text.isEmpty) {
-      setState(() => _documentIssue = null);
+      setState(() {
+        _documentIssue = null;
+        _documentIssueInvalid = false;
+      });
       _notifyParent();
       return;
     }
-    if (text.length != 10) return;
+    if (text.length != 10) {
+      setState(() => _documentIssueInvalid = false);
+      return;
+    }
     try {
       final parts = text.split('.');
       final date = DateTime(int.parse(parts[2]), int.parse(parts[1]), int.parse(parts[0]));
-      if (date.isAfter(DateTime.now())) return;
-      setState(() => _documentIssue = date);
+      if (date.isAfter(DateTime.now())) {
+        setState(() {
+          _documentIssue = null;
+          _documentIssueInvalid = true;
+        });
+        return;
+      }
+      setState(() {
+        _documentIssue = date;
+        _documentIssueInvalid = false;
+      });
       _checkDocumentChanged();
       _notifyParent();
-    } catch (_) {}
+    } catch (_) {
+      setState(() {
+        _documentIssue = null;
+        _documentIssueInvalid = true;
+      });
+    }
   }
 
   void _handleDocumentExpireInput() {
+    if (_foundPassengerId != null && !_isAddingNewDocument) return;
     final text = _documentExpireController.text;
     if (text.isEmpty) {
       setState(() => _documentExpire = null);
@@ -192,6 +221,8 @@ void _notifyParent() {
         _documentNumberController.text = doc.documentNumber ?? '';
         _originalDocumentNumber        = doc.documentNumber;
         _originalDocumentExpire        = doc.documentDateOfExpire?.toString();
+        _originalCitizenshipId     = _selectedCitizenshipId;  
+        _originalDocumentTypeId    = _selectedDocumentTypeId;
 
         if (doc.documentDateOfIssue != null) {
           _documentIssue = doc.documentDateOfIssue is DateTime
@@ -252,6 +283,7 @@ void _notifyParent() {
       _firstNameEdited           = false;
       _lastNameEdited            = false;
       _documentNumberExistsError = false;
+      _isAddingNewDocument = false;
     });
 
     _notifyParent();
@@ -265,6 +297,22 @@ void _notifyParent() {
       _documentChanged        = false;
     });
     _notifyParent();
+  }
+
+  void _clearDocumentFields() {
+    setState(() {
+      _documentNumberController.clear();
+      _documentIssueController.clear();
+      _documentExpireController.clear();
+      _documentIssue              = null;
+      _documentExpire             = null;
+      _documentNumberInvalid      = false;
+      _documentIssueInvalid       = false;
+      _documentIssueTouched       = false;
+      _documentExpireTouched      = false;
+      _documentNumberTouched      = false;
+      _documentNumberExistsError  = false;
+    });
   }
 
   void _clearForm() {
@@ -304,6 +352,8 @@ void _notifyParent() {
       _citizenshipTouched        = false;
       _documentTypeTouched       = false;
       _documentNumberTouched     = false;
+      _documentIssueInvalid = false;
+      _isAddingNewDocument = false;
     });
     _notifyParent();
   }
@@ -400,5 +450,30 @@ void _notifyParent() {
         ],
       ),
     );
+  }
+
+  void _startNewDocument() {
+    setState(() {
+      _documentNumberController.clear();
+      _documentIssueController.clear();
+      _documentExpireController.clear();
+      _documentIssue              = null;
+      _documentExpire             = null;
+      _selectedCitizenshipId      = _citizenships.isNotEmpty ? _citizenships.first['citizenshipId'] as int : null;
+      _selectedDocumentTypeId     = _documentTypes.isNotEmpty ? _documentTypes.first['documentTypeId'] as int : null;
+      _documentNumberInvalid      = false;
+      _documentIssueInvalid       = false;
+      _documentIssueTouched       = false;
+      _documentExpireTouched      = false;
+      _documentNumberTouched      = false;
+      _documentNumberExistsError  = false;
+      _originalDocumentNumber     = null;
+      _originalDocumentExpire     = null;
+      _originalCitizenshipId      = null;
+      _originalDocumentTypeId     = null;
+      _documentChanged            = false;
+      _isAddingNewDocument        = true;  
+    });
+    _notifyParent();
   }
 }

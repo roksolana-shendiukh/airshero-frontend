@@ -31,8 +31,6 @@ class _CustomSelectFieldState extends State<CustomSelectField> {
   final FocusNode _focusNode = FocusNode();
   late TextEditingController _controller;
   OverlayEntry? _overlayEntry;
-  // Окремий entry для прозорого бар'єру — він закривається тапом,
-  // але НЕ блокує решту UI
   OverlayEntry? _barrierEntry;
 
   bool _isOpen = false;
@@ -57,12 +55,9 @@ class _CustomSelectFieldState extends State<CustomSelectField> {
       if (mounted) setState(() {});
     });
 
-    // Постійно слідкуємо за виділенням — одразу скидаємо його
-    // зберігаючи позицію курсора там де клікнули
     _controller.addListener(() {
       final sel = _controller.selection;
       if (sel.start != sel.end && sel.isValid) {
-        // Є виділення — скидаємо до позиції де клікнули (baseOffset)
         final offset = sel.baseOffset.clamp(0, _controller.text.length);
         _controller.selection = TextSelection.collapsed(offset: offset);
       }
@@ -127,15 +122,10 @@ class _CustomSelectFieldState extends State<CustomSelectField> {
     if (renderBox == null) return;
     final width = renderBox.size.width;
 
-    // Бар'єр: прозорий, перехоплює тап поза дропдауном для закриття,
-    // але НЕ блокує решту сторінки — використовуємо IgnorePointer + Stack хитрість:
-    // просто окремий entry поверх усього, але під дропдауном
     _barrierEntry = OverlayEntry(
       builder: (_) => GestureDetector(
         behavior: HitTestBehavior.translucent,
         onTap: _closeOverlay,
-        // Прозорий контейнер на весь екран, але він translucent —
-        // події що не попали в нього проходять далі
         child: const SizedBox.expand(),
       ),
     );
@@ -231,7 +221,10 @@ class _CustomSelectFieldState extends State<CustomSelectField> {
 
   @override
   void dispose() {
-    _closeOverlay();
+    _barrierEntry?.remove();
+    _barrierEntry = null;
+    _overlayEntry?.remove();
+    _overlayEntry = null;
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -342,8 +335,8 @@ class _CustomSelectFieldState extends State<CustomSelectField> {
                   ),
                 ],
               ),
-            ), // AnimatedContainer
-            ), // GestureDetector
+            ), 
+            ), 
           ),
         ),
 

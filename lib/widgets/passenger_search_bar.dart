@@ -7,12 +7,18 @@ class PassengerSearchBar extends StatefulWidget {
   final AuthService authService;
   final void Function(PassengerModel passenger) onPassengerFound;
   final void Function() onClear;
+  final String? initialDocumentNumber;
+  final Set<String> usedDocumentNumbers;
+  final ValueChanged<String>? onTextChanged;
 
   const PassengerSearchBar({
     super.key,
     required this.authService,
     required this.onPassengerFound,
     required this.onClear,
+    this.initialDocumentNumber,
+    this.usedDocumentNumbers = const {},
+    this.onTextChanged,
   });
 
   @override
@@ -20,7 +26,7 @@ class PassengerSearchBar extends StatefulWidget {
 }
 
 class _PassengerSearchBarState extends State<PassengerSearchBar> {
-  final _controller = TextEditingController();
+  late TextEditingController _controller;
   final _focusNode = FocusNode();
   final _layerLink = LayerLink();
 
@@ -30,19 +36,20 @@ class _PassengerSearchBarState extends State<PassengerSearchBar> {
 
   bool _isLoadingPassenger = false;
   bool _notFound = false;
+  bool _duplicateError = false;
   OverlayEntry? _overlayEntry;
 
   @override
   void initState() {
     super.initState();
+    _controller = TextEditingController(text: widget.initialDocumentNumber ?? '');
     _focusNode.addListener(_onFocusChanged);
   }
 
   void _onFocusChanged() {
     setState(() {});
     if (_focusNode.hasFocus) {
-      if (_suggestionsNotifier.value.isNotEmpty ||
-          _isSearchingNotifier.value) {
+      if (_suggestionsNotifier.value.isNotEmpty || _isSearchingNotifier.value) {
         _showOverlay();
       }
     } else {
@@ -51,7 +58,11 @@ class _PassengerSearchBarState extends State<PassengerSearchBar> {
   }
 
   Future<void> _onChanged(String value) async {
-    setState(() => _notFound = false);
+    widget.onTextChanged?.call(value); 
+    setState(() {
+      _notFound = false;
+      _duplicateError = false;
+    });
     widget.onClear();
 
     if (value.trim().length < 2) {
@@ -72,9 +83,7 @@ class _PassengerSearchBarState extends State<PassengerSearchBar> {
     _suggestionsNotifier.value = results;
     _isSearchingNotifier.value = false;
 
-    if (results.isEmpty) {
-      _hideOverlay();
-    }
+    if (results.isEmpty) _hideOverlay();
   }
 
   Future<void> _selectSuggestion(Map<String, dynamic> suggestion) async {
@@ -100,9 +109,20 @@ class _PassengerSearchBarState extends State<PassengerSearchBar> {
   }
 
   Future<void> _fetchPassenger(String docNumber) async {
+    if (widget.usedDocumentNumbers.contains(docNumber)) {
+      setState(() {
+        _isLoadingPassenger = false;
+        _notFound = false;
+        _duplicateError = true;
+      });
+      widget.onClear();
+      return;
+    }
+
     setState(() {
       _isLoadingPassenger = true;
       _notFound = false;
+      _duplicateError = false;
     });
 
     widget.onClear();
@@ -123,9 +143,13 @@ class _PassengerSearchBarState extends State<PassengerSearchBar> {
 
   void _clear() {
     _controller.clear();
+    widget.onTextChanged?.call('');
     _suggestionsNotifier.value = [];
     _isSearchingNotifier.value = false;
-    setState(() => _notFound = false);
+    setState(() {
+      _notFound = false;
+      _duplicateError = false;
+    });
     _hideOverlay();
     widget.onClear();
   }
@@ -180,10 +204,8 @@ class _PassengerSearchBarState extends State<PassengerSearchBar> {
                                 .map((s) => _SuggestionTile(
                                       documentNumber:
                                           s['document_number'] as String,
-                                      firstName:
-                                          s['first_name'] as String? ?? '',
-                                      lastName:
-                                          s['last_name'] as String? ?? '',
+                                      firstName: s['first_name'] as String? ?? '',
+                                      lastName: s['last_name'] as String? ?? '',
                                       onTap: () => _selectSuggestion(s),
                                     ))
                                 .toList(),
@@ -245,8 +267,7 @@ class _PassengerSearchBarState extends State<PassengerSearchBar> {
               style: TextStyle(color: colors.onSurface),
               cursorColor: colors.primary,
               decoration: InputDecoration(
-                prefixIcon: Icon(Icons.contact_page_outlined,
-                    color: colors.primary),
+                prefixIcon: Icon(Icons.contact_page_outlined, color: colors.primary),
                 suffixIcon: _isLoadingPassenger
                     ? Padding(
                         padding: const EdgeInsets.all(12),
@@ -297,6 +318,25 @@ class _PassengerSearchBarState extends State<PassengerSearchBar> {
             ),
           ),
         ],
+
+        if (_duplicateError) ...[
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.only(left: 16),
+            child: Row(
+              children: [
+                Icon(Icons.warning_outlined, size: 14, color: colors.error),
+                const SizedBox(width: 6),
+                Text(
+                  'This document is already used by another passenger',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colors.error,
+                      ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -332,7 +372,7 @@ class _SuggestionTileState extends State<_SuggestionTile> {
         onEnter: (_) => setState(() => _isHovered = true),
         onExit: (_) => setState(() => _isHovered = false),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
+          duration: const Duration(milliseconds: 120),
           decoration: BoxDecoration(
             color: colors.primaryContainer
                 .withValues(alpha: _isHovered ? 0.3 : 0.1),
@@ -342,8 +382,7 @@ class _SuggestionTileState extends State<_SuggestionTile> {
             onTap: widget.onTap,
             borderRadius: BorderRadius.circular(8),
             child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               child: Row(
                 children: [
                   Icon(Icons.contact_page_outlined,
@@ -361,7 +400,7 @@ class _SuggestionTileState extends State<_SuggestionTile> {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          '— ${widget.firstName} ${widget.lastName}',
+                          '- ${widget.firstName} ${widget.lastName}',
                           style: TextStyle(
                             color: colors.onSurfaceVariant,
                             fontSize: 13,

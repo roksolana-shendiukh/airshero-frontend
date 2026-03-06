@@ -9,6 +9,8 @@ extension PassengerFormDatePicker on _PassengerFormCardState {
   }
 
   void _showDatePicker(LayerLink layerLink, _DatePickerType type) {
+    if (type == _DatePickerType.dateOfBirth && _foundPassengerId != null) return;
+  
     if (_datePickerOverlay != null) return;
     _removeDatePicker();
 

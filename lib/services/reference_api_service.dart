@@ -34,21 +34,20 @@ class ReferenceApiService {
     }
   }
 
-  Future<List<Map<String, dynamic>>> getDocumentTypes() async {
-    try {
-      final response = await http.get(
-        Uri.parse('${AppConfig.baseUrl}/document-types'),
-        headers: await _headers(),
-      );
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.cast<Map<String, dynamic>>();
-      }
-      return [];
-    } catch (e) {
-      debugPrint('Network error (getDocumentTypes): $e');
-      return [];
+  Future<List<Map<String, dynamic>>> getDocumentTypes({
+    int? flightId,
+  }) async {
+    final uri = Uri.parse('${AppConfig.baseUrl}/document-types').replace(
+      queryParameters: flightId != null
+          ? {'flight_id': flightId.toString()}
+          : null,
+    );
+    final response = await http.get(uri, headers: await _headers());
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body) as List;
+      return data.cast<Map<String, dynamic>>();
     }
+    return [];
   }
 
   Future<List<Map<String, dynamic>>> getSexes() async {
