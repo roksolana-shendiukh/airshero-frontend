@@ -12,6 +12,7 @@ import '../services/auth_service.dart';
 import '../services/navigation_storage_service.dart';
 import '../models/user_model.dart';
 import 'package:provider/provider.dart';
+import '../pages/flight_operation_page.dart';
 
 class SearchResultsArguments {
   final int fromCityId;
@@ -355,6 +356,8 @@ class AppRouter {
                 extra['outboundAssignments'] as List<Map<String, dynamic>>,
             returnAssignments:
                 (extra['returnAssignments'] as List<Map<String, dynamic>>?) ?? [],
+            removedPassengerIndices: List<int>.from(
+                (extra['removedPassengerIndices'] as List?)?.map((e) => e as int) ?? []),
           );
         },
       ),
@@ -377,6 +380,11 @@ class AppRouter {
       GoRoute(
         path: '/checkin',
         builder: (context, state) => const CheckInPage(),
+      ),
+
+      GoRoute(
+        path: '/flight-operations',
+        builder: (context, state) => const FlightOperationPage(),
       ),
     ],
   );

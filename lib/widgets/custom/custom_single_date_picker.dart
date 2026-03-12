@@ -32,13 +32,12 @@ class _CustomSingleDatePickerState extends State<CustomSingleDatePicker> {
   late FixedExtentScrollController _yearController;
   late FixedExtentScrollController _monthController;
   late FixedExtentScrollController _dayController;
-  
 
   @override
   void initState() {
     super.initState();
-    final initial = widget.selectedDate ?? DateTime.now(); 
-    _selectedYear  = initial.year;
+    final initial = widget.selectedDate ?? DateTime.now();
+    _selectedYear  = initial.year.clamp(widget.firstDate.year, widget.lastDate.year);
     _selectedMonth = initial.month;
     _selectedDay   = initial.day;
 
@@ -108,25 +107,19 @@ class _CustomSingleDatePickerState extends State<CustomSingleDatePicker> {
         TapGestureRecognizer:
             GestureRecognizerFactoryWithHandlers<TapGestureRecognizer>(
           () => TapGestureRecognizer(),
-          (instance) => instance.onTapDown = (details) {
-            print('[DatePicker] onTapDown INSIDE picker — should NOT close');
-          },
+          (instance) => instance.onTapDown = (_) {},
         ),
         PanGestureRecognizer:
             GestureRecognizerFactoryWithHandlers<PanGestureRecognizer>(
           () => PanGestureRecognizer(),
           (instance) {
-            instance.onDown = (details) {
-              print('[DatePicker] onPanDown INSIDE picker');
-            };
-            instance.onStart = (details) {
-              print('[DatePicker] onPanStart INSIDE picker — scroll started');
-            };
+            instance.onDown  = (_) {};
+            instance.onStart = (_) {};
           },
         ),
       },
       child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
         decoration: BoxDecoration(
           color: colors.surface,
           borderRadius: BorderRadius.circular(12),
@@ -141,45 +134,41 @@ class _CustomSingleDatePickerState extends State<CustomSingleDatePicker> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Column headers
             Row(
               children: [
                 Expanded(
                   flex: 2,
-                  child: Text(
-                    'Month',
+                  child: Text('Month',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colors.onSurfaceVariant,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      color: colors.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
                 Expanded(
-                  child: Text(
-                    'Day',
+                  child: Text('Day',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colors.onSurfaceVariant,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      color: colors.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
                 Expanded(
-                  child: Text(
-                    'Year',
+                  child: Text('Year',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colors.onSurfaceVariant,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      color: colors.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 8),
             SizedBox(
-              height: 200,
+              height: 160,
               child: Row(
                 children: [
                   Expanded(
@@ -196,8 +185,7 @@ class _CustomSingleDatePickerState extends State<CustomSingleDatePicker> {
                     child: _ScrollColumn(
                       controller: _dayController,
                       items: days,
-                      selectedIndex:
-                          (_selectedDay - 1).clamp(0, days.length - 1),
+                      selectedIndex: (_selectedDay - 1).clamp(0, days.length - 1),
                       onChanged: _onDayChanged,
                       colors: colors,
                     ),
@@ -206,15 +194,25 @@ class _CustomSingleDatePickerState extends State<CustomSingleDatePicker> {
                     child: _ScrollColumn(
                       controller: _yearController,
                       items: _years.map((y) => '$y').toList(),
-                      selectedIndex: _years
-                          .indexOf(_selectedYear)
-                          .clamp(0, _years.length - 1),
+                      selectedIndex: _years.indexOf(_selectedYear).clamp(0, _years.length - 1),
                       onChanged: _onYearChanged,
                       colors: colors,
                     ),
                   ),
                 ],
               ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: widget.onClose,
+                  child: Text('Cancel',
+                    style: TextStyle(color: colors.onSurfaceVariant),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -249,9 +247,7 @@ class _ScrollColumn extends StatelessWidget {
           decoration: BoxDecoration(
             color: colors.primaryContainer.withValues(alpha: 0.4),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: colors.primary.withValues(alpha: 0.3),
-            ),
+            border: Border.all(color: colors.primary.withValues(alpha: 0.3)),
           ),
         ),
         ListWheelScrollView.useDelegate(
@@ -284,8 +280,6 @@ class _ScrollColumn extends StatelessWidget {
     );
   }
 }
-
-// ─── Scroll item ──────────────────────────────────────────────────────────────
 
 class _ScrollItem extends StatefulWidget {
   final String label;
@@ -329,15 +323,12 @@ class _ScrollItemState extends State<_ScrollItem> {
               widget.label,
               style: TextStyle(
                 fontSize: widget.isSelected ? 15 : 13,
-                fontWeight: widget.isSelected
-                    ? FontWeight.bold
-                    : FontWeight.normal,
+                fontWeight: widget.isSelected ? FontWeight.bold : FontWeight.normal,
                 color: widget.isSelected
                     ? widget.colors.onSurface
                     : _isHovered
                         ? widget.colors.primary
-                        : widget.colors.onSurfaceVariant
-                            .withValues(alpha: 0.5),
+                        : widget.colors.onSurfaceVariant.withValues(alpha: 0.5),
               ),
             ),
           ),

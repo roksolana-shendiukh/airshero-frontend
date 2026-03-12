@@ -22,28 +22,20 @@ class _CreateUserDialogState extends State<CreateUserDialog> {
   String _firstName = '';
   String _lastName = '';
   String _email = '';
-  String? _selectedAirline;
+  int? _selectedAirlineId;
   UserRole? _selectedRole;
   int? _selectedAgentId;
 
   bool _isLoading = false;
   bool _isLoadingAgents = false;
+  bool _isLoadingAirlines = false;
   String? _errorMessage;
   Map<String, String> _fieldErrors = {};
 
   List<Map<String, dynamic>> _checkinAgents = [];
+  List<Map<String, dynamic>> _airlines = [];
 
   late final AdminApiService _adminApi;
-
-  static const List<String> _airlines = [
-    'Ukraine International Airlines',
-    'Wizz Air',
-    'SkyUp Airlines',
-    'Ryanair',
-    'Bees Airline',
-    'Motor Sich Airlines',
-    'AirShero System',
-  ];
 
   static final List<UserRole> _selectableRoles = UserRole.values
       .where((r) => r != UserRole.systemAdmin)
@@ -55,6 +47,20 @@ class _CreateUserDialogState extends State<CreateUserDialog> {
   void initState() {
     super.initState();
     _adminApi = AdminApiService(context.read<AuthService>());
+    _loadAirlines();
+  }
+
+  Future<void> _loadAirlines() async {
+    setState(() => _isLoadingAirlines = true);
+    try {
+      final airlines = await _adminApi.getAirlines();
+      if (mounted) setState(() => _airlines = airlines);
+    } catch (e) {
+      debugPrint('Error loading airlines: $e');
+      if (mounted) setState(() => _errorMessage = 'Failed to load airlines');
+    } finally {
+      if (mounted) setState(() => _isLoadingAirlines = false);
+    }
   }
 
   Future<void> _loadCheckinAgents() async {
@@ -84,13 +90,21 @@ class _CreateUserDialogState extends State<CreateUserDialog> {
     }
   }
 
+  String _airlineName(int id) {
+    final a = _airlines.firstWhere(
+      (a) => a['airlineId'] == id,
+      orElse: () => {},
+    );
+    return a.isEmpty ? 'Airline #$id' : a['airlineName'] as String;
+  }
+
   Future<void> _submit() async {
     final errors = <String, String>{};
 
     if (_firstName.trim().isEmpty) errors['firstName'] = 'First name is required';
     if (_lastName.trim().isEmpty) errors['lastName'] = 'Last name is required';
     if (_email.trim().isEmpty) errors['email'] = 'Email is required';
-    if (_selectedAirline == null) errors['airline'] = 'Please select an airline';
+    if (_selectedAirlineId == null) errors['airline'] = 'Please select an airline';
     if (_selectedRole == null) errors['role'] = 'Please select a role';
     if (_isCheckInAgent && _selectedAgentId == null) {
       errors['agent'] = 'Please select a check-in agent';
@@ -115,9 +129,10 @@ class _CreateUserDialogState extends State<CreateUserDialog> {
         email: _email.trim(),
         firstName: _firstName.trim(),
         lastName: _lastName.trim(),
-        airlineName: _selectedAirline!,
+        airlineName: _airlineName(_selectedAirlineId!),
         roleId: _selectedRole!.id,
         agentId: _isCheckInAgent ? _selectedAgentId : null,
+        airlineId: _selectedAirlineId,
       );
 
       if (mounted) {
@@ -212,19 +227,33 @@ class _CreateUserDialogState extends State<CreateUserDialog> {
                 ),
                 const SizedBox(height: 12),
 
-                CustomSelectField(
-                  label: 'Airline',
-                  value: _selectedAirline ?? 'Select Airline',
-                  icon: Icons.flight_outlined,
-                  items: _airlines,
-                  errorText: _fieldErrors['airline'],
-                  onChanged: (v) {
-                    if (v != null) setState(() {
-                      _selectedAirline = v;
-                      _fieldErrors.remove('airline');
-                    });
-                  },
-                ),
+                // Airline dropdown
+                _isLoadingAirlines
+                    ? const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8),
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    : CustomSelectField(
+                        label: 'Airline',
+                        value: _selectedAirlineId != null
+                            ? _airlineName(_selectedAirlineId!)
+                            : 'Select Airline',
+                        icon: Icons.flight_outlined,
+                        items: _airlines
+                            .map((a) => a['airlineName'] as String)
+                            .toList(),
+                        errorText: _fieldErrors['airline'],
+                        onChanged: (v) {
+                          if (v == null) return;
+                          final airline = _airlines.firstWhere(
+                            (a) => a['airlineName'] == v,
+                          );
+                          setState(() {
+                            _selectedAirlineId = airline['airlineId'] as int;
+                            _fieldErrors.remove('airline');
+                          });
+                        },
+                      ),
                 const SizedBox(height: 12),
 
                 CustomSelectField(
@@ -292,7 +321,6 @@ class _CreateUserDialogState extends State<CreateUserDialog> {
 
                 const SizedBox(height: 24),
 
-                // ── Кнопки ─────────────────────────────────────────────────
                 Row(
                   children: [
                     Expanded(
@@ -337,5 +365,4 @@ class _CreateUserDialogState extends State<CreateUserDialog> {
     final airport = agent['airportCode'] ?? '';
     return '${agent['firstName']} ${agent['lastName']}${airport.isNotEmpty ? ' · $airport' : ''}';
   }
-
 }

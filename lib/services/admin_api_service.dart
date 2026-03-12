@@ -57,6 +57,18 @@ class AdminApiService {
     throw Exception('Failed to load check-in agents: ${response.statusCode}');
   }
 
+  Future<List<Map<String, dynamic>>> getAirlines() async {
+    final response = await http.get(
+      Uri.parse('${AppConfig.baseUrl}/admin/airlines'),
+      headers: await _headers(),
+    );
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.cast<Map<String, dynamic>>();
+    }
+    throw Exception('Failed to load airlines: ${response.statusCode}');
+  }
+
   Future<Map<String, dynamic>> createUser({
     required String email,
     required String firstName,
@@ -64,6 +76,7 @@ class AdminApiService {
     required String airlineName,
     required int roleId,
     int? agentId,
+    int? airlineId,
   }) async {
     final response = await http.post(
       Uri.parse('${AppConfig.baseUrl}/admin/users'),
@@ -75,6 +88,7 @@ class AdminApiService {
         'airlineName': airlineName,
         'roleId': roleId,
         if (agentId != null) 'agentId': agentId,
+        if (airlineId != null) 'airlineId': airlineId,
       }),
     );
 
@@ -132,5 +146,3 @@ class AdminApiService {
     }
   }
 }
-
-

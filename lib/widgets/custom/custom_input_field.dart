@@ -27,6 +27,7 @@ class CustomInputField extends StatefulWidget {
   final bool isFromField;
   final Function(String from, String to)? onPairSelect;
   final Function(CityModel)? onCitySelected;
+  final VoidCallback? onEditingComplete;
 
   const CustomInputField({
     super.key,
@@ -50,6 +51,7 @@ class CustomInputField extends StatefulWidget {
     this.isFromField = true,
     this.onPairSelect,
     this.onCitySelected,
+    this.onEditingComplete,
   });
 
   @override
@@ -65,6 +67,7 @@ class _CustomInputFieldState extends State<CustomInputField> {
 
   List<CityModel> _searchResults = [];
   bool _isSearching = false;
+  
 
   @override
   void initState() {
@@ -82,7 +85,8 @@ class _CustomInputFieldState extends State<CustomInputField> {
   @override
   void didUpdateWidget(covariant CustomInputField oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.value != oldWidget.value &&
+    if (!_focusNode.hasFocus &&
+        widget.value != oldWidget.value &&
         _controller.text != widget.value) {
       _controller.value = TextEditingValue(
         text: widget.value,
@@ -236,6 +240,10 @@ class _CustomInputFieldState extends State<CustomInputField> {
                   keyboardType: widget.keyboardType,
                   inputFormatters: widget.inputFormatters,
                   onChanged: _onTextChanged,
+                  onEditingComplete: () {
+                    widget.onEditingComplete?.call();
+                    _focusNode.unfocus();
+                  },
                   onTap: () {
                     widget.onTap?.call();
                     if (!widget.readOnly && widget.onIconTap == null) {

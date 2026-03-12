@@ -15,6 +15,7 @@ import '../services/auth_service.dart';
 import '../services/recent_searches_service.dart';
 import '../config/routes.dart';
 import '../services/navigation_storage_service.dart';
+import '../models/flight_model.dart';
 
 class SearchResultsPage extends StatefulWidget {
   final int fromCityId;
@@ -44,7 +45,13 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
   List<FlightCombo> _allCombos = [];
   List<FlightCombo> _filteredCombos = [];
   bool _isLoading = true;
+  bool _isFiltering = false;
   String? _error;
+
+  List<int> _outboundFlightIds = [];
+  List<int> _returnFlightIds = [];
+  List<GroupedFlight> _outboundGrouped = [];
+  List<GroupedFlight> _returnGrouped = [];
 
   late Map<int, Class> _passengerClasses;
   late Map<int, Class> _returnPassengerClasses;
@@ -64,9 +71,7 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
 
   void _initPassengerClasses() {
     final total = widget.passengers.values.reduce((a, b) => a + b);
-    _passengerClasses = {
-      for (int i = 0; i < total; i++) i: Class.any,
-    };
+    _passengerClasses = {for (int i = 0; i < total; i++) i: Class.any};
     _returnPassengerClasses = Map.from(_passengerClasses);
   }
 
@@ -96,10 +101,19 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
 
       final results = await Future.wait(futures);
 
+      _outboundFlightIds = results[0].map((f) => f.flightId).toSet().toList();
+      debugPrint('outboundFlightIds: $_outboundFlightIds');
+      if (_isRoundTrip && results.length > 1) {
+        _returnFlightIds = results[1].map((f) => f.flightId).toSet().toList();
+      }
+
       final outboundGrouped = GroupedFlight.fromFlightList(results[0]);
-      final returnGrouped = _isRoundTrip
+      final returnGrouped = _isRoundTrip && results.length > 1
           ? GroupedFlight.fromFlightList(results[1])
           : <GroupedFlight>[];
+
+      _outboundGrouped = outboundGrouped;
+      _returnGrouped = returnGrouped;
 
       _rebuildCombos(outboundGrouped, returnGrouped);
     } catch (e) {
@@ -135,15 +149,109 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
     });
   }
 
-  void _onFilterChanged(FlightFilterState newState) {
+  Future<void> _onFilterChanged(FlightFilterState newState) async {
     setState(() {
       _filterState = newState;
       _passengerClasses = newState.passengerClasses;
       _returnPassengerClasses = newState.returnPassengerClasses;
-      _filteredCombos = newState.apply(_allCombos);
+      _isFiltering = true;
     });
-  }
 
+    try {
+      final authService = context.read<AuthService>();
+      final service = BookingApiService(authService);
+
+      final hasAnyClass = newState.passengerClasses.values.any((c) => c == Class.any);
+      final classNames = hasAnyClass
+          ? null
+          : newState.passengerClasses.values
+              .map((c) => c.label)
+              .toSet()
+              .toList();
+
+      final airlineNames = newState.selectedAirlines.isNotEmpty
+          ? newState.selectedAirlines.toList()
+          : null;
+
+      final departureSlots = newState.departureSlots.isNotEmpty
+          ? newState.departureSlots.map((s) => s.name).toList()
+          : null;
+
+      final outboundFiltered = await service.filterFlights(
+        flightIds: _outboundFlightIds,
+        classNames: classNames,
+        minPrice: newState.selectedMinPrice != newState.minPrice
+            ? newState.selectedMinPrice
+            : null,
+        maxPrice: newState.selectedMaxPrice != newState.maxPrice
+            ? newState.selectedMaxPrice
+            : null,
+        airlineNames: airlineNames,
+        sortBy: newState.sortOrder == SortOrder.priceAsc ? 'price_asc' : 'price_desc',
+        departureSlots: departureSlots,
+      );
+
+      List<FlightModel> returnFiltered = [];
+      if (_isRoundTrip && _returnFlightIds.isNotEmpty) {
+        final hasAnyReturnClass = newState.returnPassengerClasses.values.any((c) => c == Class.any);
+        final returnClassNames = hasAnyReturnClass
+            ? null
+            : newState.returnPassengerClasses.values
+                .map((c) => c.label)
+                .toSet()
+                .toList();
+
+        final returnSlots = newState.returnSlots.isNotEmpty
+            ? newState.returnSlots.map((s) => s.name).toList()
+            : null;
+
+        returnFiltered = await service.filterFlights(
+          flightIds: _returnFlightIds,
+          classNames: returnClassNames,
+          minPrice: newState.selectedMinPrice != newState.minPrice
+              ? newState.selectedMinPrice
+              : null,
+          maxPrice: newState.selectedMaxPrice != newState.maxPrice
+              ? newState.selectedMaxPrice
+              : null,
+          airlineNames: airlineNames,
+          sortBy: newState.sortOrder == SortOrder.priceAsc ? 'price_asc' : 'price_desc',
+          departureSlots: returnSlots,
+        );
+      }
+
+      final outboundGrouped = GroupedFlight.fromFlightList(outboundFiltered);
+      final returnGrouped = GroupedFlight.fromFlightList(returnFiltered);
+
+      final combos = FlightComboBuilder.build(
+        outboundFlights: outboundGrouped,
+        returnFlights: returnGrouped,
+        passengerClasses: newState.passengerClasses,
+        returnPassengerClasses: newState.returnPassengerClasses,
+        passengers: widget.passengers,
+      );
+
+      combos.sort((a, b) {
+        switch (newState.sortOrder) {
+          case SortOrder.priceAsc:
+            return a.totalPrice.compareTo(b.totalPrice);
+          case SortOrder.priceDesc:
+            return b.totalPrice.compareTo(a.totalPrice);
+        }
+      });
+
+      if (mounted) {
+        setState(() {
+          _filteredCombos = combos;
+          _isFiltering = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Filter error: $e');
+      if (mounted) setState(() => _isFiltering = false);
+    }
+  }
+  
   Map<String, String> _buildClassLabels(FlightCombo combo) {
     final Map<String, String> result = {};
     for (final a in combo.outboundAssignments) {
@@ -173,7 +281,6 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
           .toList();
     }
 
-    // Беремо flightClassId першого пасажира outbound (всі летять одним рейсом)
     final outboundFlightClassId = resolvedCombo.outboundAssignments.isNotEmpty
         ? resolvedCombo.outboundAssignments.first.flightClassId
         : 0;
@@ -215,8 +322,7 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final totalPassengers =
-        widget.passengers.values.reduce((a, b) => a + b);
+    final totalPassengers = widget.passengers.values.reduce((a, b) => a + b);
     final isLargeScreen = MediaQuery.of(context).size.width >= 1024;
 
     Widget flightsList;
@@ -305,7 +411,14 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
       body = Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(child: flightsList),
+          Expanded(
+            child: Column(
+              children: [
+                if (_isFiltering) const LinearProgressIndicator(),
+                Expanded(child: flightsList),
+              ],
+            ),
+          ),
           Container(
             width: 300,
             decoration: BoxDecoration(
@@ -327,6 +440,7 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
 
       body = Column(
         children: [
+          if (_isFiltering) const LinearProgressIndicator(),
           Container(
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surfaceContainerHigh,
@@ -419,3 +533,4 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
     );
   }
 }
+

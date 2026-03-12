@@ -10,9 +10,7 @@ extension PassengerFormDatePicker on _PassengerFormCardState {
 
   void _showDatePicker(LayerLink layerLink, _DatePickerType type) {
     if (type == _DatePickerType.dateOfBirth && _foundPassengerId != null) return;
-  
     if (_datePickerOverlay != null) return;
-    _removeDatePicker();
 
     DateTime? selectedDate;
     DateTime firstDate;
@@ -21,7 +19,7 @@ extension PassengerFormDatePicker on _PassengerFormCardState {
     switch (type) {
       case _DatePickerType.dateOfBirth:
         selectedDate = _dateOfBirth;
-        firstDate    = DateTime(1920);
+        firstDate    = DateTime(1950);
         lastDate     = DateTime.now();
         break;
       case _DatePickerType.documentIssue:
@@ -41,84 +39,84 @@ extension PassengerFormDatePicker on _PassengerFormCardState {
     }
 
     _datePickerOverlay = OverlayEntry(
-  builder: (context) => Stack(
-    children: [
-      Positioned.fill(
-        child: GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onTapDown: (details) {
-            print('[DatePicker] onTapDown on barrier: ${details.globalPosition}');
-            _removeDatePicker();
-          },
-        ),
-      ),
-      CompositedTransformFollower(
-        link: layerLink,
-        showWhenUnlinked: false,
-        offset: const Offset(0, 60),
-        child: Align(
-          alignment: Alignment.topLeft,
-          child: KeyboardListener(
-            focusNode: FocusNode()..requestFocus(),
-            onKeyEvent: (event) {
-              if (event is KeyDownEvent &&
-                  event.logicalKey == LogicalKeyboardKey.enter) {
-                _removeDatePicker();
-              }
-            },
-            child: Material(
-  elevation: 8,
-  borderRadius: BorderRadius.circular(12),
-  child: SizedBox(
-    width: 350,
-    height: 280,
-    child: CustomSingleDatePicker(
-      selectedDate: selectedDate,
-      firstDate: firstDate,
-      lastDate: lastDate,
-      onDateSelected: (date) {
-        setState(() {
-          switch (type) {
-            case _DatePickerType.dateOfBirth:
-              selectedDate = _dateOfBirth;
-              firstDate    = DateTime(1950);
-              lastDate     = DateTime.now();
-              break;
-            case _DatePickerType.documentIssue:
-              selectedDate = _documentIssue;
-              firstDate    = DateTime(2010);
-              lastDate     = DateTime.now();
-              break;
-            case _DatePickerType.documentExpire:
-              selectedDate = _documentExpire;
-              firstDate    = DateTime(2010);
-              lastDate     = DateTime(2035);
-              break;
-          }
-        });
-
-        _datePickerDebounce?.cancel();
-        _datePickerDebounce = Timer(
-          const Duration(milliseconds: 300),
-          _notifyParent,
-        );
-      },
-      onClose: _removeDatePicker,
-    ),
-  ),
-),
-          
+      builder: (context) => Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: () => _removeDatePicker(),
+            ),
           ),
-        ),
+          CompositedTransformFollower(
+            link: layerLink,
+            showWhenUnlinked: false,
+            offset: const Offset(0, 60),
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: KeyboardListener(
+                focusNode: FocusNode()..requestFocus(),
+                onKeyEvent: (event) {
+                  if (event is KeyDownEvent &&
+                      event.logicalKey == LogicalKeyboardKey.escape) {
+                    _removeDatePicker();
+                  }
+                },
+                child: Material(
+                  elevation: 8,
+                  borderRadius: BorderRadius.circular(12),
+                  child: SizedBox(
+                    width: 350,
+                    height: 260,
+                    child: CustomSingleDatePicker(
+                      selectedDate: selectedDate,
+                      firstDate: firstDate,
+                      lastDate: lastDate,
+                      onDateSelected: (date) {
+                        setState(() {
+                          switch (type) {
+                            case _DatePickerType.dateOfBirth:
+                              _dateOfBirth = date;
+                              if (_documentIssue != null &&
+                                  _documentIssue!.isBefore(DateTime(_dateOfBirth!.year + 1))) {
+                                _documentIssue = null;
+                                _documentExpire = null;
+                              }
+                              break;
+                            case _DatePickerType.documentIssue:
+                              _documentIssue = date;
+                              if (_documentExpire != null &&
+                                  !_documentExpire!.isAfter(_documentIssue!)) {
+                                _documentExpire = null;
+                              }
+                              break;
+                            case _DatePickerType.documentExpire:
+                              _documentExpire = date;
+                              break;
+                          }
+                        });
+
+                        _datePickerDebounce?.cancel();
+                        _datePickerDebounce = Timer(
+                          const Duration(milliseconds: 300),
+                          _notifyParent,
+                        );
+                      },
+                      onClose: _removeDatePicker,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
-    ],
-  ),
-);
-final overlay = Overlay.of(context);
-WidgetsBinding.instance.addPostFrameCallback((_) {
-  if (_datePickerOverlay != null) {
-    overlay.insert(_datePickerOverlay!);
-  }
-});
+    );
+
+    final overlay = Overlay.of(context);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_datePickerOverlay != null) {
+        overlay.insert(_datePickerOverlay!);
+      }
+    });
   }
 }

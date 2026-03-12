@@ -37,8 +37,7 @@ extension PassengerFormHandlers on _PassengerFormCardState {
   void _notifyParent() {
     Future.microtask(() {
       if (!mounted) return;
-      print('[_notifyParent] called, isSaved=$_isSaved');
-
+      
       final data = {
         'firstName':        _firstNameController.text,
         'lastName':         _lastNameController.text,

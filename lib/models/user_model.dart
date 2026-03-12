@@ -125,7 +125,7 @@ enum UserRole {
         ];
       case UserRole.flightOperator:
         return [
-          const MenuItem(icon: Icons.flight_outlined, title: 'Flights', route: '/operator/flights'),
+          const MenuItem(icon: Icons.flight_outlined, title: 'Flight Operations', route: '/flight-operations'),
         ];
       case UserRole.planningManager:
         return [

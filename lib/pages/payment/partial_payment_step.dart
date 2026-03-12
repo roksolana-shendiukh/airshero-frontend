@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import '../../widgets/custom/custom_input_field.dart';
 import 'payment_method_selector.dart';
 
-class PartialPaymentStep extends StatelessWidget {
+class PartialPaymentStep extends StatefulWidget {
   final int index;
   final double maxAllowed;
   final double totalPrice;
@@ -28,17 +28,78 @@ class PartialPaymentStep extends StatelessWidget {
   });
 
   @override
+  State<PartialPaymentStep> createState() => _PartialPaymentStepState();
+}
+
+class _PartialPaymentStepState extends State<PartialPaymentStep> {
+  late final TextEditingController _controller;
+  String? _amountError;
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.currentAmount != null && widget.currentAmount! > 0
+        ? widget.currentAmount!.toStringAsFixed(2)
+        : '';
+    _controller = TextEditingController(text: initial);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onAmountChanged(String val) {
+    if (val.isEmpty) {
+      setState(() => _amountError = null);
+      widget.onAmountChanged(0);
+      return;
+    }
+
+    final parsed = double.tryParse(val);
+    if (parsed == null) {
+      setState(() => _amountError = 'Invalid number');
+      return;
+    }
+
+    if (parsed > widget.maxAllowed) {
+      setState(() => _amountError =
+          'Amount exceeds remaining \$${widget.maxAllowed.toStringAsFixed(2)}');
+      widget.onAmountChanged(0);
+      return;
+    }
+
+    setState(() => _amountError = null);
+    widget.onAmountChanged(parsed);
+  }
+
+  void _onEditingComplete() {
+    final val = _controller.text;
+    if (val.isEmpty) return;
+    final parsed = double.tryParse(val);
+    if (parsed == null || parsed > widget.maxAllowed) return;
+    final formatted = parsed.toStringAsFixed(2);
+    _controller.value = TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+    widget.onAmountChanged(parsed);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final bool isFullPayment = currentAmount != null &&
-        (currentAmount! - maxAllowed).abs() < 0.01 &&
-        maxAllowed == totalPrice;
+    final remaining = widget.maxAllowed;
+    final isLastStep = widget.currentAmount != null &&
+        (widget.currentAmount! - remaining).abs() < 0.01 &&
+        remaining < widget.totalPrice;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDisabled ? colors.surfaceContainerLowest : colors.surface,
+        color: widget.isDisabled ? colors.surfaceContainerLowest : colors.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: colors.outlineVariant),
       ),
@@ -46,58 +107,46 @@ class PartialPaymentStep extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Payment Part #${index + 1}',
+            'Payment Part #${widget.index + 1}',
             style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Remaining to pay: \$${remaining.toStringAsFixed(2)}',
+            style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant),
           ),
           const SizedBox(height: 12),
 
           Opacity(
-            opacity: isDisabled ? 0.5 : 1.0,
+            opacity: widget.isDisabled ? 0.5 : 1.0,
             child: IgnorePointer(
-              ignoring: isDisabled,
+              ignoring: widget.isDisabled,
               child: CustomInputField(
-                label: 'Amount (Max \$${maxAllowed.toStringAsFixed(2)})',
-                value: currentAmount != null && currentAmount! > 0
-                    ? currentAmount!.toStringAsFixed(2)
-                    : '',
+                label: 'Amount (max \$${remaining.toStringAsFixed(2)})',
+                value: _controller.text, // не змінюється ззовні
                 icon: Icons.attach_money,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
                 ],
-                onChanged: (val) {
-                  double parsed = double.tryParse(val) ?? 0;
-                  onAmountChanged(parsed > maxAllowed ? maxAllowed : parsed);
-                },
+                errorText: _amountError,
+                onChanged: _onAmountChanged,
+                onEditingComplete: _onEditingComplete,
               ),
             ),
           ),
 
-          if (isFullPayment)
-            Container(
-              width: double.infinity,
-              margin: const EdgeInsets.only(top: 8),
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.yellow.shade100,
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: Colors.orange.shade300),
-              ),
-              child: Text(
-                'This is a full payment. Further parts are disabled.',
-                style: TextStyle(color: Colors.orange.shade900, fontSize: 12),
-              ),
-            ),
-
+          
           const SizedBox(height: 16),
-          const Text('Method for this part:', style: TextStyle(fontSize: 12)),
+          Text('Method for this part:',
+              style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant)),
           const SizedBox(height: 8),
           IgnorePointer(
-            ignoring: isDisabled,
+            ignoring: widget.isDisabled,
             child: PaymentMethodSelector(
-              methods: paymentMethods,
-              selectedId: selectedMethodId,
-              onSelected: onMethodSelected,
+              methods: widget.paymentMethods,
+              selectedId: widget.selectedMethodId,
+              onSelected: widget.onMethodSelected,
             ),
           ),
         ],
@@ -105,3 +154,8 @@ class PartialPaymentStep extends StatelessWidget {
     );
   }
 }
+
+
+
+
+

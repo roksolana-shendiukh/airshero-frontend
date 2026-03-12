@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'dart:convert';
 
 import '../../widgets/responsive_layout.dart';
 import '../../widgets/booking_progress_header.dart';
@@ -37,6 +38,7 @@ class PaymentPage extends StatefulWidget {
   final String sessionId;
   final List<Map<String, dynamic>> outboundAssignments;
   final List<Map<String, dynamic>> returnAssignments;
+  final List<int> removedPassengerIndices;
 
   const PaymentPage({
     super.key,
@@ -61,6 +63,7 @@ class PaymentPage extends StatefulWidget {
     required this.sessionId,
     required this.outboundAssignments,
     this.returnAssignments = const [],
+    this.removedPassengerIndices = const [],
   });
 
   @override
@@ -75,7 +78,7 @@ class _PaymentPageState extends State<PaymentPage> {
   DateTime? _expiresAt;
 
   Timer? _timer;
-  Duration _timeLeft = const Duration(minutes: 11);
+  Duration _timeLeft = const Duration(minutes: 10);
   bool _isExpired = false;
 
   List<Map<String, dynamic>> _paymentMethods = [];
@@ -87,6 +90,7 @@ class _PaymentPageState extends State<PaymentPage> {
   List<Map<String, dynamic>> _partialPayments = [
     {'amount': 0.0, 'methodId': null}
   ];
+  
 
   List<Map<String, dynamic>> _adultPassengers = [];
 
@@ -133,8 +137,10 @@ class _PaymentPageState extends State<PaymentPage> {
   Future<void> _loadPaymentMethods(BookingApiService api) async {
     try {
       final methods = await api.getPaymentMethods();
+      print('PAYMENT METHODS: $methods');
       if (mounted) setState(() { _paymentMethods = methods; _isLoadingMethods = false; });
     } catch (e) {
+      print('PAYMENT METHODS ERROR: $e'); 
       if (mounted) setState(() => _isLoadingMethods = false);
     }
   }
@@ -717,13 +723,21 @@ class _PaymentPageState extends State<PaymentPage> {
       );
     }
 
-    bool canConfirm = !_isProcessingPayment;
+    String? disabledReason;
     if (_isPartialPayment) {
-      canConfirm = canConfirm && _partialPayments.every((p) => 
-        (p['amount'] as double) > 0 && p['methodId'] != null);
+      final hasZeroAmount = _partialPayments.any((p) => (p['amount'] as double) <= 0);
+      final hasNoMethod = _partialPayments.any((p) => p['methodId'] == null);
+      final totalPaid = _partialPayments.fold<double>(0, (s, p) => s + (p['amount'] as double));
+      final notCovered = (totalPaid - widget.totalPrice).abs() > 0.01 && totalPaid < widget.totalPrice;
+
+      if (hasZeroAmount) disabledReason = 'Enter amount for each payment part';
+      else if (hasNoMethod) disabledReason = 'Select payment method for each part';
+      else if (notCovered) disabledReason = 'Total amount does not cover \$${widget.totalPrice.toStringAsFixed(2)}';
     } else {
-      canConfirm = canConfirm && _singlePaymentMethodId != null;
+      if (_singlePaymentMethodId == null) disabledReason = 'Select a payment method';
     }
+
+    final canConfirm = !_isProcessingPayment && disabledReason == null;
 
     return Column(
       children: [
@@ -732,21 +746,24 @@ class _PaymentPageState extends State<PaymentPage> {
             padding: EdgeInsets.only(bottom: 16),
             child: CircularProgressIndicator(),
           ),
-        SizedBox(
-          width: double.infinity,
-          child: CustomButton(
-            label: _isPartialPayment ? 'Confirm Partial Payment' : 'Confirm Payment',
-            icon: Icons.check_circle_outline,
-            isIconAfterLabel: true,
-            onPressed: canConfirm ? () => _processPayment('paid') : null,
-            borderRadius: 12,
-            verticalPadding: 16,
+        Tooltip(
+          message: disabledReason ?? '',
+          child: SizedBox(
+            width: double.infinity,
+            child: CustomButton(
+              label: _isPartialPayment ? 'Confirm Partial Payment' : 'Confirm Payment',
+              icon: Icons.check_circle_outline,
+              isIconAfterLabel: true,
+              onPressed: canConfirm ? () => _processPayment('paid') : null,
+              borderRadius: 12,
+              verticalPadding: 16,
+            ),
           ),
         ),
       ],
     );
   }
-  
+
   Widget _buildErrorState(ColorScheme colors) {
     return Scaffold(body: Center(child: Text(_bookingError ?? 'Unknown Error')));
   }
@@ -755,6 +772,7 @@ class _PaymentPageState extends State<PaymentPage> {
     final List<Map<String, dynamic>> passengers = [];
 
     for (int i = 0; i < _totalPassengers; i++) {
+      if (widget.removedPassengerIndices.contains(i)) continue;
       final data = widget.passengerData[i] ?? {};
 
       final outboundAssignment = i < widget.outboundAssignments.length
@@ -796,10 +814,15 @@ class _PaymentPageState extends State<PaymentPage> {
       });
     }
 
-    return {
+   final body = {
       'passengers':   passengers,
       'total_amount': widget.totalPrice,
     };
+    
+    print('=== BOOKING BODY ===');
+    print(jsonEncode(body));
+    
+    return body;
   }
  
   @override

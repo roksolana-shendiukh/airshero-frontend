@@ -50,7 +50,7 @@ enum SortOrder {
   IconData get icon {
     switch (this) {
       case SortOrder.priceAsc:  return Icons.arrow_upward;
-      case SortOrder.priceDesc: return Icons.arrow_downward;
+      case SortOrder.priceDesc: return Icons.arrow_upward;
     }
   }
 }

@@ -96,12 +96,17 @@ extension PassengerFormValidators on _PassengerFormCardState {
 
     if (_documentExpire != null && _documentIssue != null) {
       final code = _selectedDocTypeCode;
-      final minYears = const {
-        'PAS': 4,
-        'ID':  4,
-        'INT': 5,
-        'OFF': 1,
-      }[code];
+      int? minYears;
+      if (code == 'OFF') {
+        minYears = 5;
+      } else if (code == 'PAS' || code == 'INT' || code == 'ID') {
+        if (_dateOfBirth != null) {
+          final ageAtIssue = _documentIssue!.year - _dateOfBirth!.year;
+          minYears = ageAtIssue < 16 ? 4 : 10;
+        } else {
+          minYears = 10;
+        }
+      }
 
       if (minYears != null) {
         final minExpireFromIssue = DateTime(
@@ -116,7 +121,13 @@ extension PassengerFormValidators on _PassengerFormCardState {
             'INT': 'International Passport',
             'OFF': 'Service Passport',
           }[code] ?? 'Document';
-          return '$label must be valid for at least $minYears year${minYears > 1 ? 's' : ''} from issue date';
+          final isChild = _dateOfBirth != null && _documentIssue!.year - _dateOfBirth!.year < 16;
+          final termLabel = code == 'OFF'
+              ? '5 years'
+              : isChild
+                  ? '4 years (under 16)'
+                  : '10 years (adult)';
+          return '$label must be valid for at least $termLabel from issue date';
         }
       }
     }

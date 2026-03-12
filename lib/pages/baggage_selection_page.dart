@@ -61,7 +61,6 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
   final Map<int, Map<int, int>> _passengerBaggageSelections = {};
   final Map<int, Map<String, dynamic>> _passengerData = {};
   final Set<int> _removedPassengerIndices = {};
-
   int _currentPassengerIndex = 0;
   int? _hoveredPassengerIndex;
   bool _hasVisitedPayment = false;
@@ -266,6 +265,8 @@ int _getFirstActiveIndex() {
 
       if (data == null || data.isEmpty) return false;
 
+      if (data['isSaved'] != true) return false;
+
       final requiredFields = [
         'firstName',
         'lastName',
@@ -278,12 +279,12 @@ int _getFirstActiveIndex() {
 
       for (var field in requiredFields) {
         if (data[field] == null || data[field].toString().trim().isEmpty) {
-          return false; 
+          return false;
         }
       }
     }
 
-    return true; 
+    return true;
   }
 
   String _getPassengerDisplayName(int index) {
@@ -340,6 +341,7 @@ int _getFirstActiveIndex() {
       'sessionId': _sessionId,
       'outboundAssignments': widget.outboundAssignments,
       'returnAssignments': widget.returnAssignments,
+      'removedPassengerIndices': _removedPassengerIndices.toList(),
     });
   }
 
@@ -471,7 +473,7 @@ int _getFirstActiveIndex() {
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
                       child: Text(
-                        'At least one passenger must be 18 or older and all fields must be filled.',
+                        'Please save all passenger forms before proceeding to payment.',
                         style: TextStyle(
                           color: Theme.of(context).colorScheme.error,
                           fontSize: 12,
@@ -608,7 +610,7 @@ int _getFirstActiveIndex() {
                     onTap: () => setState(() => _currentPassengerIndex = index),
                     borderRadius: BorderRadius.circular(12),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                       constraints: const BoxConstraints(maxHeight: 84),
                       decoration: BoxDecoration(
                         color: isSelected
@@ -720,6 +722,7 @@ int _getFirstActiveIndex() {
     final List<PassengerPriceItem> passengerPrices = [];
 
     for (int i = 0; i < _totalPassengers; i++) {
+      if (_removedPassengerIndices.contains(i)) continue;
       final passengerLabel = _getPassengerDisplayName(i);
       double passengerFlightPrice = widget.basePrice / _totalPassengers;
 

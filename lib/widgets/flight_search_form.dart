@@ -104,6 +104,11 @@ class FlightSearchFormState extends State<FlightSearchForm> {
   void _fetchAvailableDates() async {
     if (_selectedFromCity == null || _selectedToCity == null) return;
 
+    setState(() {
+      departDate = null;
+      returnDate = null;
+    });
+
     _availableDatesNotifier.value = [];
     _returnAvailableDatesNotifier.value = [];
 
@@ -249,6 +254,13 @@ class FlightSearchFormState extends State<FlightSearchForm> {
       );
       return;
     }
+
+    if (departDate == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please select a departure date')),
+    );
+    return;
+  }
 
     if (fromLocation.isNotEmpty && toLocation.isNotEmpty) {
       _recentSearchesService.add(fromLocation, toLocation);
@@ -496,15 +508,21 @@ class FlightSearchFormState extends State<FlightSearchForm> {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: CustomButton(
-                        label: 'Search',
-                        onPressed: _routeExists ? _handleSearch : null,
+                      child: Tooltip(
+                        message: _selectedFromCity == null || _selectedToCity == null
+                            ? 'Please select departure and destination cities'
+                            : departDate == null
+                                ? 'Please select a departure date'
+                                : '',
+                        child: CustomButton(
+                          label: 'Search',
+                          onPressed: _routeExists && departDate != null ? _handleSearch : null,
+                        ),
                       ),
                     ),
                   ],
                 ),
 
-                // ── Alternatives ───────────────────────────────────────────
                 if (!_routeExists && _alternatives.isNotEmpty) ...[
                   const SizedBox(height: 16),
                   const Divider(),
@@ -625,10 +643,6 @@ class _CalendarOverlay extends StatelessWidget {
     );
   }
 }
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// Passenger Selector Overlay
-// ═══════════════════════════════════════════════════════════════════════════════
 
 class _PassengerSelectorOverlay extends StatelessWidget {
   final GlobalKey fieldKey;

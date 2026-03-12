@@ -101,7 +101,7 @@ class BookingApiService {
   }
 
   Future<List<Map<String, dynamic>>> getPaymentMethods() async {
-    final uri = Uri.parse('${AppConfig.baseUrl}/bookings/payment-methods');
+    final uri = Uri.parse('${AppConfig.baseUrl}/payment-methods');
     final response = await http.get(uri, headers: await _headers());
     if (response.statusCode == 200) {
       final List<dynamic> data = jsonDecode(response.body);
@@ -169,21 +169,28 @@ class BookingApiService {
     required Map<String, dynamic> data,
   }) async {
     final uri = Uri.parse('${AppConfig.baseUrl}/bookings/$bookingId/payment');
-    
     final response = await http.post(
       uri,
       headers: await _headers(),
-      body: jsonEncode(data), 
+      body: jsonEncode(data),
     );
 
     if (response.statusCode == 200) {
       return jsonDecode(response.body) as Map<String, dynamic>;
-    } else {
-      final error = jsonDecode(response.body);
-      throw Exception((error['detail'] ?? 'Failed to process payment').toString());
+    }
+
+    final error = jsonDecode(response.body);
+    final detail = error['detail'] ?? 'payment_error';
+
+    switch (detail) {
+      case 'booking_expired':
+        throw Exception('Your booking has expired. Please start a new search.');
+      case 'booking_not_found':
+        throw Exception('Booking not found. Please contact support.');
+      default:
+        throw Exception('Payment could not be processed. Please try again.');
     }
   }
-
 
   Future<List<Map<String, dynamic>>> getAdultPassengers(int bookingId) async {
     final uri = Uri.parse('${AppConfig.baseUrl}/bookings/$bookingId/adult-passengers');
@@ -194,4 +201,48 @@ class BookingApiService {
     }
     throw Exception('Failed to load adult passengers: ${response.statusCode}');
   }
+
+  Future<List<FlightModel>> filterFlights({
+  required List<int> flightIds,
+  List<String>? classNames,
+  double? minPrice,
+  double? maxPrice,
+  List<String>? airlineNames,
+  String sortBy = 'price_asc',
+  List<String>? departureSlots,
+}) async {
+  try {
+    final uri = Uri.parse('${AppConfig.baseUrl}/flights/filter');
+    
+    // Збираємо тільки non-null значення
+    final Map<String, dynamic> body = {
+      'flightIds': flightIds,
+      'sortBy': sortBy,
+    };
+    if (classNames != null && classNames.isNotEmpty) body['classNames'] = classNames;
+    if (minPrice != null) body['minPrice'] = minPrice;
+    if (maxPrice != null) body['maxPrice'] = maxPrice;
+    if (airlineNames != null && airlineNames.isNotEmpty) body['airlineNames'] = airlineNames;
+    if (departureSlots != null && departureSlots.isNotEmpty) body['departureSlots'] = departureSlots;
+
+    debugPrint('filterFlights body: ${jsonEncode(body)}');
+
+    final response = await http.post(
+      uri,
+      headers: await _headers(),
+      body: jsonEncode(body),
+    );
+
+    debugPrint('filterFlights response: ${response.statusCode} ${response.body}');
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.map((json) => FlightModel.fromJson(json as Map<String, dynamic>)).toList();
+    }
+    return [];
+  } catch (e) {
+    debugPrint('Network error (filterFlights): $e');
+    return [];
+  }
+}
 }
