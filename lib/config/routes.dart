@@ -379,7 +379,9 @@ class AppRouter {
     
       GoRoute(
         path: '/checkin',
-        builder: (context, state) => const CheckInPage(),
+        builder: (context, state) => CheckInPage(
+          authService: context.read<AuthService>(),
+        ),
       ),
 
       GoRoute(
