@@ -3,6 +3,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
+import '../../models/airport_model.dart';
 import '../../models/route_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/flight_operation_api_service.dart';

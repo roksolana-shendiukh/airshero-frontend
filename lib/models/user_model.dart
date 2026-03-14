@@ -12,6 +12,7 @@ class UserModel {
   final String? airlineName;
   final String? airlineLogoUrl;
   final String? avatarUrl;
+  final int? operationId;
 
   const UserModel({
     required this.id,
@@ -25,6 +26,7 @@ class UserModel {
     this.airlineName,
     this.airlineLogoUrl,
     this.avatarUrl,
+    this.operationId,
   });
 
   String get fullName => '$firstName $lastName';
@@ -42,6 +44,7 @@ class UserModel {
       'airlineName': airlineName,
       'airlineLogoUrl': airlineLogoUrl,
       'avatarUrl': avatarUrl,
+      'operationId': operationId,
     };
   }
 
@@ -63,6 +66,7 @@ class UserModel {
       airlineName: json['airlineName'] as String?,
       airlineLogoUrl: json['airlineLogoUrl'] as String?,
       avatarUrl: json['avatarUrl'] as String?,
+      operationId: (json['operationId'] as num?)?.toInt(),
     );
   }
 }
@@ -149,4 +153,3 @@ enum UserStatus {
   final String displayName;
   const UserStatus(this.displayName);
 }
-

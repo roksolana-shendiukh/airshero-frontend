@@ -47,6 +47,9 @@ class AuthService extends ChangeNotifier {
         lastName: claims['lastName'] ?? '',
         role: _parseRole(claims['role']),
         status: _parseStatus(claims['status']),
+        operationId: claims['operationId'] != null
+          ? int.tryParse(claims['operationId'].toString())
+          : null,
         createdAt: DateTime.now(),
       );
 
@@ -82,6 +85,9 @@ class AuthService extends ChangeNotifier {
       lastName: claims['lastName'] ?? '',
       role: _parseRole(claims['role']),
       status: _parseStatus(claims['status']),
+      operationId: claims['operationId'] != null
+        ? int.tryParse(claims['operationId'].toString())
+        : null,
       createdAt: DateTime.now(),
     );
 
@@ -118,6 +124,9 @@ class AuthService extends ChangeNotifier {
         lastName: claims['lastName'] ?? '',
         role: _parseRole(claims['role']),
         status: _parseStatus(claims['status']),
+        operationId: claims['operationId'] != null
+          ? int.tryParse(claims['operationId'].toString())
+          : null,
         createdAt: DateTime.now(),
       );
     } catch (_) {
