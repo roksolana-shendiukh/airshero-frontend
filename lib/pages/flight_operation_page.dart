@@ -7,6 +7,7 @@ import '../widgets/responsive_layout.dart';
 import '../widgets/flight_operation/flight_map.dart';
 import '../widgets/flight_operation/create_flight_operation_form.dart';
 import '../widgets/flight_operation/crew_panel.dart';
+import '../widgets/custom/custom_button.dart';
 
 class FlightOperationPage extends StatefulWidget {
   const FlightOperationPage({super.key});
@@ -70,10 +71,8 @@ class _FlightOperationPageState extends State<FlightOperationPage> {
     return ResponsiveLayout(
       body: Stack(
         children: [
-          // ── Карта ─────────────────────────────────────────────────────────
           Positioned.fill(child: FlightMap()),
 
-          // ── Топ-бар ───────────────────────────────────────────────────────
           Positioned(
             top: 0, left: 0, right: 0,
             child: _isLoading
@@ -81,15 +80,14 @@ class _FlightOperationPageState extends State<FlightOperationPage> {
                 : _operation == null
                     ? _noOperationBar(context)
                     : _OperationInfoBar(
-                        op:          _operation!,
-                        onRefresh:   _loadOperation,
-                        crewVisible: _crewVisible,
+                        op:           _operation!,
+                        onRefresh:    _loadOperation,
+                        crewVisible:  _crewVisible,
                         onCrewToggle: () =>
                             setState(() => _crewVisible = !_crewVisible),
                       ),
           ),
 
-          // ── Slide-in crew panel ───────────────────────────────────────────
           if (_crewVisible && _operation != null)
             Positioned(
               top: 0, right: 0, bottom: 0,
@@ -128,7 +126,7 @@ class _FlightOperationPageState extends State<FlightOperationPage> {
     final colors = Theme.of(context).colorScheme;
     return Container(
       color: colors.surface.withValues(alpha: 0.95),
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
       child: Row(
         children: [
           Icon(Icons.flight_outlined,
@@ -141,15 +139,13 @@ class _FlightOperationPageState extends State<FlightOperationPage> {
                   color: colors.onSurfaceVariant, fontSize: 13),
             ),
           ),
-          FilledButton.icon(
+          CustomButton(
+            label: 'New Operation',
+            icon: Icons.add,
+            isIconAfterLabel: false,
+            verticalPadding: 10,
+            horizontalPadding: 14,
             onPressed: _openCreateForm,
-            icon: const Icon(Icons.add, size: 16),
-            label: const Text('New Operation'),
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 12, vertical: 8),
-              visualDensity: VisualDensity.compact,
-            ),
           ),
         ],
       ),
@@ -158,7 +154,8 @@ class _FlightOperationPageState extends State<FlightOperationPage> {
 }
 
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Operation Info Bar ─────────────────────────────────────────────────────────
+
 class _OperationInfoBar extends StatefulWidget {
   final FlightOperationModel op;
   final VoidCallback         onRefresh;
@@ -181,12 +178,25 @@ class _OperationInfoBarState extends State<_OperationInfoBar> {
 
   Color _statusColor(String? status, ColorScheme colors) {
     switch (status) {
+      case 'Waiting':   return colors.onSurfaceVariant;
       case 'Boarding':  return Colors.blue;
       case 'Departed':  return Colors.orange;
       case 'Arrived':   return Colors.green;
       case 'Completed': return colors.primary;
       case 'Cancelled': return colors.error;
       default:          return colors.onSurfaceVariant;
+    }
+  }
+
+  IconData _statusIcon(String? status) {
+    switch (status) {
+      case 'Waiting':   return Icons.schedule_outlined;
+      case 'Boarding':  return Icons.door_sliding_outlined;
+      case 'Departed':  return Icons.flight_takeoff_outlined;
+      case 'Arrived':   return Icons.flight_land_outlined;
+      case 'Completed': return Icons.check_circle_outline;
+      case 'Cancelled': return Icons.cancel_outlined;
+      default:          return Icons.info_outline;
     }
   }
 
@@ -211,74 +221,78 @@ class _OperationInfoBarState extends State<_OperationInfoBar> {
             offset: const Offset(0, 2),
           ),
         ],
+        border: Border(
+          bottom: BorderSide(
+            color: sColor.withValues(alpha: 0.4),
+            width: 2,
+          ),
+        ),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // ── Головний рядок ───────────────────────────────────────────────
+          // ── Головний рядок ─────────────────────────────────────────────
           InkWell(
             onTap: () => setState(() => _expanded = !_expanded),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+              padding: const EdgeInsets.fromLTRB(16, 10, 12, 10),
               child: Row(
                 children: [
+                  // Статус бейдж
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: sColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                          color: sColor.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(_statusIcon(op.statusName),
+                            size: 13, color: sColor),
+                        const SizedBox(width: 5),
+                        Text(op.statusName ?? '—',
+                            style: TextStyle(
+                                color: sColor,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+
+                  // Номер рейсу
                   Text(op.flightNumber ?? '—',
                       style: Theme.of(context)
                           .textTheme
                           .titleMedium
                           ?.copyWith(fontWeight: FontWeight.w700)),
-                  const SizedBox(width: 12),
-                  Icon(Icons.flight_takeoff_outlined,
-                      size: 14, color: colors.onSurfaceVariant),
-                  const SizedBox(width: 4),
+                  const SizedBox(width: 10),
+
+                  // Маршрут
                   Text(
                     '${op.departsCode ?? "—"} → ${op.arrivesCode ?? "—"}',
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodyMedium
-                        ?.copyWith(fontWeight: FontWeight.w500),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: colors.onSurfaceVariant),
                   ),
-                  const SizedBox(width: 16),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: sColor.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(op.statusName ?? '—',
-                        style: TextStyle(
-                            color: sColor,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600)),
-                  ),
+
                   const Spacer(),
 
-                  // Crew toggle button
-                  OutlinedButton.icon(
+                  // Crew button
+                  CustomButton(
+                    label: 'Crew',
+                    icon: widget.crewVisible
+                        ? Icons.people
+                        : Icons.people_outline,
+                    isIconAfterLabel: false,
+                    verticalPadding: 8,
+                    horizontalPadding: 12,
                     onPressed: widget.onCrewToggle,
-                    icon: Icon(
-                      widget.crewVisible
-                          ? Icons.people
-                          : Icons.people_outline,
-                      size: 16,
-                    ),
-                    label: const Text('Crew'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      visualDensity: VisualDensity.compact,
-                      side: BorderSide(
-                        color: widget.crewVisible
-                            ? colors.primary
-                            : colors.outline,
-                      ),
-                      foregroundColor: widget.crewVisible
-                          ? colors.primary
-                          : colors.onSurfaceVariant,
-                    ),
                   ),
-                  const SizedBox(width: 4),
+                  const SizedBox(width: 8),
 
                   IconButton(
                     icon: const Icon(Icons.refresh_outlined, size: 18),
@@ -297,7 +311,7 @@ class _OperationInfoBarState extends State<_OperationInfoBar> {
             ),
           ),
 
-          // ── Розгорнута інформація ────────────────────────────────────────
+          // ── Розгорнута інформація ──────────────────────────────────────
           if (_expanded) ...[
             const Divider(height: 1),
             Padding(
