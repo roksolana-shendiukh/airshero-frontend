@@ -77,12 +77,17 @@ class FlightOperationApiService {
     }
   }
 
-  Future<List<GateModel>> getGates({int? airportId, int? minCapacity}) async {
+  Future<List<GateModel>> getGates({
+    int? airportId,
+    int? minCapacity,
+    int? flightId,
+  }) async {
     try {
       final uri = Uri.parse('${AppConfig.baseUrl}/gates').replace(
         queryParameters: {
           if (airportId != null) 'airport_id': airportId.toString(),
           if (minCapacity != null) 'min_capacity': minCapacity.toString(),
+          if (flightId != null) 'flight_id': flightId.toString(),
         },
       );
       final response = await http.get(uri, headers: await _headers());
@@ -96,7 +101,7 @@ class FlightOperationApiService {
       return [];
     }
   }
-
+  
   Future<List<AirfleetModel>> getAirfleets({int? flightId}) async {
     try {
       final uri = Uri.parse('${AppConfig.baseUrl}/airfleets')
@@ -269,6 +274,60 @@ class FlightOperationApiService {
     } catch (e) {
       debugPrint('Network error (removeCrew): $e');
       return false;
+    }
+  }
+
+  Future<List<GateModel>> getAvailableGates(int operationId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('${AppConfig.baseUrl}/flight-operations/$operationId/gates'),
+        headers: await _headers(),
+      );
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((e) => GateModel.fromJson(e)).toList();
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Network error (getAvailableGates): $e');
+      return [];
+    }
+  }
+
+  Future<FlightOperationModel?> setTimelineStep(
+      int operationId, String step) async {
+    try {
+      final response = await http.post(
+        Uri.parse(
+            '${AppConfig.baseUrl}/flight-operations/$operationId/timeline/$step'),
+        headers: await _headers(),
+      );
+      if (response.statusCode == 200) {
+        return FlightOperationModel.fromJson(jsonDecode(response.body));
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Network error (setTimelineStep): $e');
+      return null;
+    }
+  }
+
+  Future<FlightOperationModel?> assignGate(
+      int operationId, int gateId) async {
+    try {
+      final response = await http.put(
+        Uri.parse(
+            '${AppConfig.baseUrl}/flight-operations/$operationId'),
+        headers: await _headers(),
+        body: jsonEncode({'gate_id': gateId}),
+      );
+      if (response.statusCode == 200) {
+        return FlightOperationModel.fromJson(jsonDecode(response.body));
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Network error (assignGate): $e');
+      return null;
     }
   }
 

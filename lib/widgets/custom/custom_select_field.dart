@@ -123,9 +123,9 @@ class _CustomSelectFieldState extends State<CustomSelectField> {
     final width = renderBox.size.width;
 
     _barrierEntry = OverlayEntry(
-      builder: (_) => GestureDetector(
+      builder: (_) => Listener(
         behavior: HitTestBehavior.translucent,
-        onTap: _closeOverlay,
+        onPointerDown: (_) => _closeOverlay(),
         child: const SizedBox.expand(),
       ),
     );
@@ -186,10 +186,12 @@ class _CustomSelectFieldState extends State<CustomSelectField> {
       },
     );
 
-    final overlay = Overlay.of(context);
-    overlay.insert(_barrierEntry!);
-    overlay.insert(_overlayEntry!);
-    setState(() => _isOpen = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final overlay = Overlay.of(context);
+      overlay.insert(_barrierEntry!);
+      overlay.insert(_overlayEntry!);
+    });
   }
 
   void _closeOverlay() {

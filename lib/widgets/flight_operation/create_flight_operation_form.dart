@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import '../../models/flight_without_operation_model.dart';
 import '../../models/airfleet_model.dart';
+import '../../models/gate_model.dart';
 import '../../schemas/create_flight_operation_dto.dart';
 import '../../services/flight_operation_api_service.dart';
 import '../custom/custom_button.dart';
 import 'airfleet_step.dart';
 import 'flight_step.dart';
+import 'gate_step.dart';
 
 class CreateFlightOperationForm extends StatefulWidget {
   final FlightOperationApiService apiService;
@@ -27,42 +29,41 @@ class CreateFlightOperationForm extends StatefulWidget {
 class _CreateFlightOperationFormState
     extends State<CreateFlightOperationForm> {
   int _currentStep = 0;
-  static const int _totalSteps = 2;
+  static const int _totalSteps = 3;
 
-  bool _isLoadingData  = true;
+  bool _isLoadingData      = true;
   bool _isLoadingAirfleets = false;
-  bool _isSubmitting   = false;
+  bool _isLoadingGates     = false;
+  bool _isSubmitting       = false;
   String? _errorMessage;
 
   List<FlightWithoutOperationModel> _flights   = [];
   List<AirfleetModel>               _airfleets = [];
+  List<GateModel>                   _gates     = [];
 
   FlightWithoutOperationModel? _selectedFlight;
   AirfleetModel?               _selectedAirfleet;
+  GateModel?                   _selectedGate;
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _loadFlights();
   }
 
-  Future<void> _loadData() async {
+  Future<void> _loadFlights() async {
     setState(() => _isLoadingData = true);
     try {
       final flights = await widget.apiService.getFlightsWithoutOperation();
-      if (mounted) {
-        setState(() {
-          _flights       = flights;
-          _isLoadingData = false;
-        });
-      }
+      if (mounted) setState(() {
+        _flights       = flights;
+        _isLoadingData = false;
+      });
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _errorMessage  = 'Failed to load data';
-          _isLoadingData = false;
-        });
-      }
+      if (mounted) setState(() {
+        _errorMessage  = 'Failed to load flights';
+        _isLoadingData = false;
+      });
     }
   }
 
@@ -70,12 +71,20 @@ class _CreateFlightOperationFormState
     setState(() => _isLoadingAirfleets = true);
     final airfleets = await widget.apiService
         .getAirfleets(flightId: _selectedFlight?.flightId);
-    if (mounted) {
-      setState(() {
-        _airfleets          = airfleets;
-        _isLoadingAirfleets = false;
-      });
-    }
+    if (mounted) setState(() {
+      _airfleets          = airfleets;
+      _isLoadingAirfleets = false;
+    });
+  }
+
+  Future<void> _loadGates() async {
+    setState(() => _isLoadingGates = true);
+    final gates = await widget.apiService
+        .getGates(flightId: _selectedFlight?.flightId);
+    if (mounted) setState(() {
+      _gates          = gates;
+      _isLoadingGates = false;
+    });
   }
 
   bool get _canGoNext {
@@ -89,6 +98,7 @@ class _CreateFlightOperationFormState
   void _goNext() {
     if (!_canGoNext) return;
     if (_currentStep == 0) _loadAirfleets();
+    if (_currentStep == 1) _loadGates();
     setState(() => _currentStep++);
   }
 
@@ -97,6 +107,8 @@ class _CreateFlightOperationFormState
   }
 
   Future<void> _handleSubmit() async {
+    if (_selectedGate == null) return;
+
     setState(() {
       _isSubmitting = true;
       _errorMessage = null;
@@ -105,6 +117,7 @@ class _CreateFlightOperationFormState
     final dto = CreateFlightOperationDTO(
       flightId:   _selectedFlight!.flightId,
       airfleetId: _selectedAirfleet?.airfleetId,
+      gateId:     _selectedGate!.gateId,
     );
 
     final result = await widget.apiService.createFlightOperation(dto);
@@ -133,7 +146,6 @@ class _CreateFlightOperationFormState
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Header ──────────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 20, 12, 0),
               child: Row(
@@ -141,18 +153,15 @@ class _CreateFlightOperationFormState
                   Icon(Icons.flight_takeoff_outlined,
                       color: colors.primary, size: 22),
                   const SizedBox(width: 10),
-                  Text(
-                    'New Flight Operation',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w600),
-                  ),
+                  Text('New Flight Operation',
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w600)),
                   const Spacer(),
                   IconButton(
                     icon: const Icon(Icons.close),
                     onPressed: widget.onCancel,
-                    tooltip: 'Cancel',
                   ),
                 ],
               ),
@@ -163,13 +172,12 @@ class _CreateFlightOperationFormState
               child: _StepIndicator(
                 currentStep: _currentStep,
                 totalSteps:  _totalSteps,
-                labels: const ['Flight', 'Aircraft'],
+                labels: const ['Flight', 'Aircraft', 'Gate'],
               ),
             ),
 
             const Divider(height: 28),
 
-            // ── Step content ─────────────────────────────────────────────
             if (_isLoadingData)
               const Padding(
                 padding: EdgeInsets.all(48),
@@ -197,7 +205,6 @@ class _CreateFlightOperationFormState
                 ),
               ),
 
-            // ── Error ────────────────────────────────────────────────────
             if (_errorMessage != null)
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
@@ -214,18 +221,16 @@ class _CreateFlightOperationFormState
                           color: colors.onErrorContainer, size: 16),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Text(
-                          _errorMessage!,
-                          style: TextStyle(
-                              color: colors.onErrorContainer, fontSize: 13),
-                        ),
+                        child: Text(_errorMessage!,
+                            style: TextStyle(
+                                color: colors.onErrorContainer,
+                                fontSize: 13)),
                       ),
                     ],
                   ),
                 ),
               ),
 
-            // ── Actions ──────────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
               child: Row(
@@ -247,10 +252,15 @@ class _CreateFlightOperationFormState
                     )
                   else
                     SizedBox(
-                      width: 160,
+                      width: 140,
                       child: CustomButton(
                         label: _isSubmitting ? 'Creating...' : 'Create',
-                        onPressed: _isSubmitting ? null : _handleSubmit,
+                        verticalPadding: 14,
+                        onPressed: (_isSubmitting ||
+                                _isLoadingGates ||
+                                _selectedGate == null)
+                            ? null
+                            : _handleSubmit,
                       ),
                     ),
                 ],
@@ -271,7 +281,11 @@ class _CreateFlightOperationFormState
           child: FlightStep(
             flights:  _flights,
             selected: _selectedFlight,
-            onChanged: (f) => setState(() => _selectedFlight = f),
+            onChanged: (f) => setState(() {
+              _selectedFlight   = f;
+              _selectedAirfleet = null;
+              _selectedGate     = null;
+            }),
           ),
         );
 
@@ -288,8 +302,23 @@ class _CreateFlightOperationFormState
                   airfleets:  _airfleets,
                   selected:   _selectedAirfleet,
                   apiService: widget.apiService,
-                  onChanged: (a) => setState(() => _selectedAirfleet = a),
+                  onChanged: (a) => setState(() {
+                    _selectedAirfleet = a;
+                    _selectedGate     = null;
+                  }),
                 ),
+        );
+
+      case 2:
+        return _StepContent(
+          title:    'Assign Gate',
+          subtitle: 'Select the departure gate',
+          child: GateStep(
+            gates:     _gates,
+            selected:  _selectedGate,
+            isLoading: _isLoadingGates,
+            onChanged: (g) => setState(() => _selectedGate = g),
+          ),
         );
 
       default:
@@ -358,30 +387,26 @@ class _StepIndicator extends StatelessWidget {
                       child: isDone
                           ? Icon(Icons.check,
                               size: 12, color: colors.onPrimary)
-                          : Text(
-                              '${i + 1}',
+                          : Text('${i + 1}',
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w600,
                                 color: isActive
                                     ? colors.primary
                                     : colors.onSurfaceVariant,
-                              ),
-                            ),
+                              )),
                     ),
                   ),
                   const SizedBox(width: 4),
-                  Text(
-                    labels[i],
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: isDone || isActive
-                              ? colors.primary
-                              : colors.onSurfaceVariant,
-                          fontWeight: isActive
-                              ? FontWeight.w600
-                              : FontWeight.normal,
-                        ),
-                  ),
+                  Text(labels[i],
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: isDone || isActive
+                                ? colors.primary
+                                : colors.onSurfaceVariant,
+                            fontWeight: isActive
+                                ? FontWeight.w600
+                                : FontWeight.normal,
+                          )),
                 ],
               ),
             ],
@@ -414,20 +439,16 @@ class _StepContent extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: Theme.of(context)
-                .textTheme
-                .titleSmall
-                ?.copyWith(fontWeight: FontWeight.w600),
-          ),
+          Text(title,
+              style: Theme.of(context)
+                  .textTheme
+                  .titleSmall
+                  ?.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colors.onSurfaceVariant,
-                ),
-          ),
+          Text(subtitle,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  )),
           const SizedBox(height: 16),
           child,
         ],

@@ -67,7 +67,8 @@ class _CrewSidePanelState extends State<CrewSidePanel>
 
   Future<void> _removeCrew(int crewId) async {
     final ok = await widget.apiService.removeCrew(widget.operationId, crewId);
-    if (ok && mounted) _load();
+    if (ok && mounted) setState(() =>
+        _crew.removeWhere((c) => c.flightCrewId == crewId));
   }
 
   void _closePanel() {
@@ -79,12 +80,12 @@ class _CrewSidePanelState extends State<CrewSidePanel>
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.3),
       builder: (ctx) => _AddCrewDialog(
-        operationId: widget.operationId,
-        apiService:  widget.apiService,
-        onDone: () {
-          Navigator.of(ctx).pop();
-          _load();
+        operationId:  widget.operationId,
+        apiService:   widget.apiService,
+        onCrewAdded:  (member) {
+          if (mounted) setState(() => _crew.add(member));
         },
+        onDone: () => Navigator.of(ctx).pop(),
       ),
     );
   }
@@ -327,11 +328,13 @@ class _CrewSidePanelState extends State<CrewSidePanel>
 class _AddCrewDialog extends StatefulWidget {
   final int operationId;
   final FlightOperationApiService apiService;
+  final ValueChanged<FlightCrewModel> onCrewAdded;
   final VoidCallback onDone;
 
   const _AddCrewDialog({
     required this.operationId,
     required this.apiService,
+    required this.onCrewAdded,
     required this.onDone,
   });
 
@@ -389,10 +392,12 @@ class _AddCrewDialogState extends State<_AddCrewDialog> {
   Future<void> _assign(int crewId) async {
     final ok = await widget.apiService.assignCrew(widget.operationId, crewId);
     if (ok && mounted) {
+      final member = _available.firstWhere((c) => c.flightCrewId == crewId);
       setState(() {
         _assignedThisSession.add(crewId);
         _available.removeWhere((c) => c.flightCrewId == crewId);
       });
+      widget.onCrewAdded(member);
     }
   }
 
@@ -434,6 +439,8 @@ class _AddCrewDialogState extends State<_AddCrewDialog> {
                 padding: const EdgeInsets.fromLTRB(20, 20, 12, 16),
                 child: Row(
                   children: [
+                    Icon(Icons.person_add_outlined,
+                        color: colors.primary, size: 22),
                     const SizedBox(width: 10),
                     Text('Add crew members',
                         style: Theme.of(context)
@@ -465,11 +472,13 @@ class _AddCrewDialogState extends State<_AddCrewDialog> {
                 ),
               ),
 
+              // ── Filters ───────────────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Рядок 1: пошук
                     CustomInputField(
                       label: 'Search by name or surname',
                       value: _search,
@@ -485,6 +494,7 @@ class _AddCrewDialogState extends State<_AddCrewDialog> {
                     ),
                     const SizedBox(height: 10),
 
+                    // Рядок 2: Position + License
                     Row(
                       children: [
                         Expanded(
@@ -523,6 +533,7 @@ class _AddCrewDialogState extends State<_AddCrewDialog> {
               const SizedBox(height: 8),
               const Divider(height: 1),
 
+              // ── Crew list ─────────────────────────────────────────────
               Expanded(
                 child: _isLoading
                     ? const Center(child: CircularProgressIndicator())
@@ -583,12 +594,13 @@ class _AddCrewDialogState extends State<_AddCrewDialog> {
                           ),
               ),
 
+              // ── Done ─────────────────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
                 child: CustomButton(
                   label: _assignedThisSession.isEmpty
                       ? 'Close'
-                      : 'Done',
+                      : 'Done (${_assignedThisSession.length} added)',
                   verticalPadding: 14,
                   onPressed: widget.onDone,
                 ),

@@ -29,22 +29,29 @@ class AirfleetStep extends StatelessWidget {
 
     return ConstrainedBox(
       constraints: const BoxConstraints(maxHeight: 380),
-      child: ListView.separated(
-        shrinkWrap: true,
-        itemCount: airfleets.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 8),
-        itemBuilder: (_, i) => _AirfleetCard(
-          airfleet:   airfleets[i],
-          isSelected: selected?.airfleetId == airfleets[i].airfleetId,
-          apiService: apiService,
-          onTap: () => onChanged(
-            selected?.airfleetId == airfleets[i].airfleetId
-                ? null
-                : airfleets[i],
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (_) {
+          FocusScope.of(context).unfocus();
+          return false;
+        },
+        child: ListView.separated(
+          shrinkWrap: true,
+          itemCount: airfleets.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 8),
+          itemBuilder: (_, i) => _AirfleetCard(
+            airfleet:   airfleets[i],
+            isSelected: selected?.airfleetId == airfleets[i].airfleetId,
+            apiService: apiService,
+            onTap: () => onChanged(
+              selected?.airfleetId == airfleets[i].airfleetId
+                  ? null
+                  : airfleets[i],
+            ),
           ),
         ),
       ),
     );
+  
   }
 }
 

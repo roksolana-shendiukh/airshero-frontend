@@ -3,7 +3,9 @@ class GateModel {
   final String gateCode;
   final int terminalId;
   final String? terminalCode;
-  final int? terminalSize;
+  final double? terminalSize;
+  final String? terminalType;
+  final bool isAvailable;
 
   const GateModel({
     required this.gateId,
@@ -11,6 +13,8 @@ class GateModel {
     required this.terminalId,
     this.terminalCode,
     this.terminalSize,
+    this.terminalType,
+    this.isAvailable = true,
   });
 
   factory GateModel.fromJson(Map<String, dynamic> json) => GateModel(
@@ -18,9 +22,11 @@ class GateModel {
         gateCode:     json['gateCode'] as String,
         terminalId:   (json['terminalId'] as num).toInt(),
         terminalCode: json['terminalCode'] as String?,
-        terminalSize: (json['terminalSize'] as num?)?.toInt(),
+        terminalSize: (json['terminalSize'] as num?)?.toDouble(),
+        terminalType: json['terminalType'] as String?,
+        isAvailable:  json['isAvailable'] as bool? ?? true,
       );
 
   String get label =>
-      terminalCode != null ? 'T$terminalCode · $gateCode' : gateCode;
+      terminalCode != null ? 'T$terminalCode · Gate $gateCode' : 'Gate $gateCode';
 }

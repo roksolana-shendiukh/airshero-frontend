@@ -8,6 +8,8 @@ import '../widgets/flight_operation/flight_map.dart';
 import '../widgets/flight_operation/create_flight_operation_form.dart';
 import '../widgets/flight_operation/crew_panel.dart';
 import '../widgets/custom/custom_button.dart';
+import '../widgets/flight_operation/timeline_panel.dart';
+
 
 class FlightOperationPage extends StatefulWidget {
   const FlightOperationPage({super.key});
@@ -20,7 +22,8 @@ class _FlightOperationPageState extends State<FlightOperationPage> {
   late final FlightOperationApiService _apiService;
   FlightOperationModel? _operation;
   bool _isLoading   = true;
-  bool _crewVisible = false;
+  bool _crewVisible     = false;
+  bool _timelineVisible = false;
 
   @override
   void initState() {
@@ -80,13 +83,27 @@ class _FlightOperationPageState extends State<FlightOperationPage> {
                 : _operation == null
                     ? _noOperationBar(context)
                     : _OperationInfoBar(
-                        op:           _operation!,
-                        onRefresh:    _loadOperation,
-                        crewVisible:  _crewVisible,
-                        onCrewToggle: () =>
+                        op:               _operation!,
+                        onRefresh:        _loadOperation,
+                        crewVisible:      _crewVisible,
+                        onCrewToggle:     () =>
                             setState(() => _crewVisible = !_crewVisible),
+                        timelineVisible:  _timelineVisible,
+                        onTimelineToggle: () =>
+                            setState(() => _timelineVisible = !_timelineVisible),
                       ),
           ),
+
+          if (_timelineVisible && _operation != null)
+            Positioned(
+              top: 0, left: 0, bottom: 0,
+              child: TimelinePanel(
+                operation:          _operation!,
+                apiService:         _apiService,
+                onClose: () => setState(() => _timelineVisible = false),
+                onOperationUpdated: (op) => setState(() => _operation = op),
+              ),
+            ),
 
           if (_crewVisible && _operation != null)
             Positioned(
@@ -161,12 +178,16 @@ class _OperationInfoBar extends StatefulWidget {
   final VoidCallback         onRefresh;
   final bool                 crewVisible;
   final VoidCallback         onCrewToggle;
+  final bool                 timelineVisible;
+  final VoidCallback         onTimelineToggle;
 
   const _OperationInfoBar({
     required this.op,
     required this.onRefresh,
     required this.crewVisible,
     required this.onCrewToggle,
+    required this.timelineVisible,
+    required this.onTimelineToggle,
   });
 
   @override
@@ -280,6 +301,19 @@ class _OperationInfoBarState extends State<_OperationInfoBar> {
                   ),
 
                   const Spacer(),
+
+                  // Timeline button
+                  CustomButton(
+                    label: 'Timeline',
+                    icon: widget.timelineVisible
+                        ? Icons.timeline
+                        : Icons.timeline_outlined,
+                    isIconAfterLabel: false,
+                    verticalPadding: 8,
+                    horizontalPadding: 12,
+                    onPressed: widget.onTimelineToggle,
+                  ),
+                  const SizedBox(width: 8),
 
                   // Crew button
                   CustomButton(
