@@ -67,8 +67,11 @@ class _CrewSidePanelState extends State<CrewSidePanel>
 
   Future<void> _removeCrew(int crewId) async {
     final ok = await widget.apiService.removeCrew(widget.operationId, crewId);
-    if (ok && mounted) setState(() =>
-        _crew.removeWhere((c) => c.flightCrewId == crewId));
+    if (ok && mounted) {
+      setState(() => _crew.removeWhere((c) => c.flightCrewId == crewId));
+      final validation = await widget.apiService.validateCrew(widget.operationId);
+      if (mounted) setState(() => _validation = validation);
+    }
   }
 
   void _closePanel() {
@@ -80,10 +83,17 @@ class _CrewSidePanelState extends State<CrewSidePanel>
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.3),
       builder: (ctx) => _AddCrewDialog(
-        operationId:  widget.operationId,
-        apiService:   widget.apiService,
-        onCrewAdded:  (member) {
-          if (mounted) setState(() => _crew.add(member));
+        operationId:    widget.operationId,
+        apiService:     widget.apiService,
+        currentCrew:    List.from(_crew),
+        requiredCounts: _validation?.required ?? {},
+        onCrewAdded:    (member) async {
+          if (mounted) {
+            setState(() => _crew.add(member));
+            final validation = await widget.apiService
+                .validateCrew(widget.operationId);
+            if (mounted) setState(() => _validation = validation);
+          }
         },
         onDone: () => Navigator.of(ctx).pop(),
       ),
@@ -155,8 +165,8 @@ class _CrewSidePanelState extends State<CrewSidePanel>
             if (_validation != null) ...[
               if (_validation!.warnings.isNotEmpty)
                 _warningBanner(_validation!.warnings.first, colors),
-              if (_validation!.missing.isNotEmpty)
-                _missingBanner(_validation!.missing, colors),
+              if (_validation!.required.isNotEmpty)
+                _crewSummaryBanner(colors),
             ],
 
             Expanded(
@@ -286,36 +296,79 @@ class _CrewSidePanelState extends State<CrewSidePanel>
     );
   }
 
-  Widget _missingBanner(Map<String, int> missing, ColorScheme colors) {
+  Widget _crewSummaryBanner(ColorScheme colors) {
+    final required = _validation!.required;
+    if (required.isEmpty) return const SizedBox.shrink();
+
+    final currentCounts = <String, int>{};
+    for (final c in _crew) {
+      if (c.position != null) {
+        currentCounts[c.position!] = (currentCounts[c.position!] ?? 0) + 1;
+      }
+    }
+
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: colors.errorContainer.withValues(alpha: 0.5),
+        color: colors.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Still needed:',
+          Text('Required crew',
               style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: colors.onErrorContainer)),
-          const SizedBox(height: 4),
-          Wrap(
-            spacing: 4,
-            runSpacing: 4,
-            children: missing.entries.map((e) => Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: colors.errorContainer,
-                borderRadius: BorderRadius.circular(8),
+                  color: colors.onSurfaceVariant)),
+          const SizedBox(height: 8),
+          ...required.entries.map((e) {
+            final current   = currentCounts[e.key] ?? 0;
+            final needed    = e.value;
+            final isDone    = current >= needed;
+            final dotColor  = isDone ? Colors.green : colors.onSurfaceVariant;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Row(
+                children: [
+                  Icon(
+                    isDone
+                        ? Icons.check_circle_outline
+                        : Icons.radio_button_unchecked,
+                    size: 13,
+                    color: dotColor,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(e.key,
+                        style: TextStyle(fontSize: 12, color: colors.onSurface)),
+                  ),
+                  // Поточна / рекомендована кількість
+                  RichText(
+                    text: TextSpan(
+                      children: [
+                        TextSpan(
+                          text: '$current',
+                          style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: dotColor),
+                        ),
+                        TextSpan(
+                          text: ' / $needed',
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: colors.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              child: Text('${e.value}× ${e.key}',
-                  style: TextStyle(fontSize: 11, color: colors.onErrorContainer)),
-            )).toList(),
-          ),
+            );
+          }),
         ],
       ),
     );
@@ -328,12 +381,16 @@ class _CrewSidePanelState extends State<CrewSidePanel>
 class _AddCrewDialog extends StatefulWidget {
   final int operationId;
   final FlightOperationApiService apiService;
+  final List<FlightCrewModel> currentCrew;
+  final Map<String, int> requiredCounts;
   final ValueChanged<FlightCrewModel> onCrewAdded;
   final VoidCallback onDone;
 
   const _AddCrewDialog({
     required this.operationId,
     required this.apiService,
+    required this.currentCrew,
+    required this.requiredCounts,
     required this.onCrewAdded,
     required this.onDone,
   });
@@ -343,9 +400,15 @@ class _AddCrewDialog extends StatefulWidget {
 }
 
 class _AddCrewDialogState extends State<_AddCrewDialog> {
-  List<FlightCrewModel> _available          = [];
-  Set<int>             _assignedThisSession = {};
-  bool   _isLoading       = true;
+  List<FlightCrewModel> _available   = [];
+  List<FlightCrewModel> _currentCrew = [];
+  Map<String, int>      _required    = {};
+
+  // Лічильники доданих по позиціях за цю сесію
+  final Map<String, int> _addedByPosition = {};
+  final Set<int>         _assignedIds     = {};
+
+  bool   _isLoading = true;
   Timer? _debounce;
 
   String  _search         = '';
@@ -365,9 +428,19 @@ class _AddCrewDialogState extends State<_AddCrewDialog> {
 
   static const _licenseLabels = ['PPL', 'CPL', 'ATPL', 'FEL'];
 
+  // Скорочення позицій для бейджів
+  static const _positionShort = {
+    'Pilot':            'Pilot',
+    'Co-Pilot':         'Co-Pilot',
+    'Flight Attendant': 'FA',
+    'Engineer':         'Engineer',
+  };
+
   @override
   void initState() {
     super.initState();
+    _currentCrew = List.from(widget.currentCrew);
+    _required    = Map.from(widget.requiredCounts);
     _load();
   }
 
@@ -375,6 +448,16 @@ class _AddCrewDialogState extends State<_AddCrewDialog> {
   void dispose() {
     _debounce?.cancel();
     super.dispose();
+  }
+
+  Map<String, int> get _currentCounts {
+    final counts = <String, int>{};
+    for (final c in _currentCrew) {
+      if (c.position != null) {
+        counts[c.position!] = (counts[c.position!] ?? 0) + 1;
+      }
+    }
+    return counts;
   }
 
   Future<void> _load({String? search}) async {
@@ -389,15 +472,44 @@ class _AddCrewDialogState extends State<_AddCrewDialog> {
     });
   }
 
-  Future<void> _assign(int crewId) async {
-    final ok = await widget.apiService.assignCrew(widget.operationId, crewId);
-    if (ok && mounted) {
+  String? _limitReachedMessage(String? position) {
+    if (position == null) return null;
+    final current = _currentCounts[position] ?? 0;
+
+    if (position == 'Pilot' && current >= 1)
+      return 'Maximum 1 Pilot allowed';
+    if (position == 'Co-Pilot' && current >= 1)
+      return 'Maximum 1 Co-Pilot allowed';
+    if (position == 'Engineer' && current >= 1)
+      return 'Maximum 1 Engineer allowed';
+    if (position == 'Flight Attendant') {
+      final recommended = _required[position] ?? 0;
+      final max = recommended + 2;
+      if (current >= max)
+        return 'Maximum $max Flight Attendants allowed (recommended $recommended, +2 allowed)';
+    }
+    return null;
+  }
+
+  Future<void> _assign(int crewId, String? position) async {
+    final result = await widget.apiService.assignCrew(widget.operationId, crewId);
+    if (!mounted) return;
+    if (result.success) {
       final member = _available.firstWhere((c) => c.flightCrewId == crewId);
       setState(() {
-        _assignedThisSession.add(crewId);
+        _assignedIds.add(crewId);
         _available.removeWhere((c) => c.flightCrewId == crewId);
+        _currentCrew.add(member);
+        if (position != null) {
+          _addedByPosition[position] = (_addedByPosition[position] ?? 0) + 1;
+        }
       });
       widget.onCrewAdded(member);
+
+      final validation = await widget.apiService.validateCrew(widget.operationId);
+      if (mounted && validation != null) {
+        setState(() => _required = validation.required);
+      }
     }
   }
 
@@ -420,6 +532,7 @@ class _AddCrewDialogState extends State<_AddCrewDialog> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final totalAdded = _assignedIds.length;
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -434,35 +547,16 @@ class _AddCrewDialogState extends State<_AddCrewDialog> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // ── Header ────────────────────────────────────────────────
+              // ── Header ──────────────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 20, 12, 16),
                 child: Row(
                   children: [
-                    Icon(Icons.person_add_outlined,
-                        color: colors.primary, size: 22),
-                    const SizedBox(width: 10),
                     Text('Add crew members',
                         style: Theme.of(context)
                             .textTheme
                             .titleMedium
                             ?.copyWith(fontWeight: FontWeight.w600)),
-                    if (_assignedThisSession.isNotEmpty) ...[
-                      const SizedBox(width: 10),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: Colors.green.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text('${_assignedThisSession.length} added',
-                            style: const TextStyle(
-                                fontSize: 11,
-                                color: Colors.green,
-                                fontWeight: FontWeight.w600)),
-                      ),
-                    ],
                     const Spacer(),
                     IconButton(
                       icon: const Icon(Icons.close),
@@ -472,13 +566,42 @@ class _AddCrewDialogState extends State<_AddCrewDialog> {
                 ),
               ),
 
-              // ── Filters ───────────────────────────────────────────────
+              // ── Added badges по позиціях ─────────────────────────────
+              if (totalAdded > 0)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                  child: Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: _addedByPosition.entries
+                        .where((e) => e.value > 0)
+                        .map((e) {
+                      final short = _positionShort[e.key] ?? e.key;
+                      final pColor = _positionColor(e.key, colors);
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: pColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                              color: pColor.withValues(alpha: 0.3)),
+                        ),
+                        child: Text('$short ×${e.value}',
+                            style: TextStyle(
+                                fontSize: 11,
+                                color: pColor,
+                                fontWeight: FontWeight.w600)),
+                      );
+                    }).toList(),
+                  ),
+                ),
+
+              // ── Filters ─────────────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Рядок 1: пошук
                     CustomInputField(
                       label: 'Search by name or surname',
                       value: _search,
@@ -493,8 +616,6 @@ class _AddCrewDialogState extends State<_AddCrewDialog> {
                       },
                     ),
                     const SizedBox(height: 10),
-
-                    // Рядок 2: Position + License
                     Row(
                       children: [
                         Expanded(
@@ -533,74 +654,140 @@ class _AddCrewDialogState extends State<_AddCrewDialog> {
               const SizedBox(height: 8),
               const Divider(height: 1),
 
-              // ── Crew list ─────────────────────────────────────────────
+              // ── Crew list ────────────────────────────────────────────
               Expanded(
                 child: _isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : _filtered.isEmpty
                         ? Center(
                             child: Text('No crew matches filters',
-                                style: TextStyle(color: colors.onSurfaceVariant)),
+                                style: TextStyle(
+                                    color: colors.onSurfaceVariant)),
                           )
-                        : ListView.separated(
-                            padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-                            itemCount: _filtered.length,
-                            separatorBuilder: (_, __) => const SizedBox(height: 4),
-                            itemBuilder: (_, i) {
-                              final c      = _filtered[i];
-                              final pColor = _positionColor(c.position, colors);
-                              final justAdded =
-                                  _assignedThisSession.contains(c.flightCrewId);
-
-                              return ListTile(
-                                dense: true,
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8)),
-                                tileColor: justAdded
-                                    ? Colors.green.withValues(alpha: 0.08)
-                                    : colors.surfaceContainerHighest,
-                                leading: CircleAvatar(
-                                  radius: 16,
-                                  backgroundColor: pColor.withValues(alpha: 0.15),
-                                  child: Text(
-                                    c.firstName?.isNotEmpty == true
-                                        ? c.firstName![0]
-                                        : '?',
-                                    style: TextStyle(
-                                        color: pColor,
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 13),
-                                  ),
-                                ),
-                                title: Text(c.fullName,
-                                    style: const TextStyle(
-                                        fontSize: 13, fontWeight: FontWeight.w600)),
-                                subtitle: Text(
-                                  '${c.position ?? "—"}'
-                                  ' · ${c.experienceYears ?? 0} yrs'
-                                  '${c.licenseType != null ? ' · ${_shortLicense(c.licenseType!)}' : ''}',
-                                  style: TextStyle(fontSize: 11, color: pColor),
-                                ),
-                                trailing: justAdded
-                                    ? const Icon(Icons.check_circle,
-                                        color: Colors.green, size: 20)
-                                    : IconButton(
-                                        icon: Icon(Icons.add_circle_outline,
-                                            color: colors.primary),
-                                        onPressed: () => _assign(c.flightCrewId),
-                                      ),
-                              );
+                        : NotificationListener<ScrollNotification>(
+                            onNotification: (_) {
+                              FocusScope.of(context).unfocus();
+                              return false;
                             },
+                            child: ListView.separated(
+                              padding:
+                                  const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                              itemCount: _filtered.length,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(height: 4),
+                              itemBuilder: (_, i) {
+                                final c         = _filtered[i];
+                                final pColor    = _positionColor(c.position, colors);
+                                final justAdded = _assignedIds.contains(c.flightCrewId);
+                                final limitMsg  = _limitReachedMessage(c.position);
+                                final isLimited = limitMsg != null;
+
+                                return ListTile(
+                                  dense: true,
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8)),
+                                  tileColor: justAdded
+                                      ? Colors.green.withValues(alpha: 0.08)
+                                      : isLimited
+                                          ? colors.surfaceContainerHighest
+                                              .withValues(alpha: 0.5)
+                                          : colors.surfaceContainerHighest,
+                                  leading: CircleAvatar(
+                                    radius: 16,
+                                    backgroundColor: pColor.withValues(
+                                        alpha: isLimited ? 0.07 : 0.15),
+                                    child: Text(
+                                      c.firstName?.isNotEmpty == true
+                                          ? c.firstName![0]
+                                          : '?',
+                                      style: TextStyle(
+                                          color: isLimited
+                                              ? pColor.withValues(alpha: 0.4)
+                                              : pColor,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 13),
+                                    ),
+                                  ),
+                                  title: Row(
+                                    children: [
+                                      Flexible(
+                                        child: Text(c.fullName,
+                                            style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w600,
+                                                color: isLimited
+                                                    ? colors.onSurface
+                                                        .withValues(alpha: 0.4)
+                                                    : colors.onSurface)),
+                                      ),
+                                      if (!c.locationKnown) ...[
+                                        const SizedBox(width: 6),
+                                        Tooltip(
+                                          message:
+                                              'Location unknown — no completed flights',
+                                          child: Icon(Icons.help_outline,
+                                              size: 13,
+                                              color: Colors.orange
+                                                  .withValues(alpha: 0.7)),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                  subtitle: Text(
+                                    '${c.position ?? "—"}'
+                                    ' · ${c.experienceYears ?? 0} yrs'
+                                    '${c.licenseType != null ? ' · ${_shortLicense(c.licenseType!)}' : ''}',
+                                    style: TextStyle(
+                                        fontSize: 11,
+                                        color: isLimited
+                                            ? pColor.withValues(alpha: 0.4)
+                                            : pColor),
+                                  ),
+                                  trailing: justAdded
+                                      ? const SizedBox(
+                                          width: 40,
+                                          child: Icon(Icons.check_circle,
+                                              color: Colors.green, size: 20),
+                                        )
+                                      : isLimited
+                                          ? Tooltip(
+                                              message: limitMsg,
+                                              child: SizedBox(
+                                                width: 40,
+                                                child: Icon(
+                                                  Icons.add_circle_outline,
+                                                  size: 20,
+                                                  color: colors.onSurfaceVariant
+                                                      .withValues(alpha: 0.25),
+                                                ),
+                                              ),
+                                            )
+                                          : SizedBox(
+                                              width: 40,
+                                              child: IconButton(
+                                                padding: EdgeInsets.zero,
+                                                icon: Icon(
+                                                    Icons.add_circle_outline,
+                                                    color: colors.primary,
+                                                    size: 20),
+                                                onPressed: () => _assign(
+                                                    c.flightCrewId,
+                                                    c.position),
+                                              ),
+                                            ),
+                                );
+                              },
+                            ),
                           ),
               ),
 
-              // ── Done ─────────────────────────────────────────────────
+              // ── Footer ───────────────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
                 child: CustomButton(
-                  label: _assignedThisSession.isEmpty
+                  label: totalAdded == 0
                       ? 'Close'
-                      : 'Done (${_assignedThisSession.length} added)',
+                      : 'Done (${totalAdded} added)',
                   verticalPadding: 14,
                   onPressed: widget.onDone,
                 ),

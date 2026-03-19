@@ -18,6 +18,7 @@ class FlightOperationModel {
   final String? boardingEndTime;
   final String? baggageLoadingStartTime;
   final String? baggageLoadingEndTime;
+  final String? stateDescription;
 
   const FlightOperationModel({
     required this.flightOperationId,
@@ -39,6 +40,7 @@ class FlightOperationModel {
     this.boardingEndTime,
     this.baggageLoadingStartTime,
     this.baggageLoadingEndTime,
+    this.stateDescription,
   });
 
   factory FlightOperationModel.fromJson(Map<String, dynamic> json) =>
@@ -64,5 +66,6 @@ class FlightOperationModel {
         boardingEndTime:         json['boardingEndTime'] as String?,
         baggageLoadingStartTime: json['baggageLoadingStartTime'] as String?,
         baggageLoadingEndTime:   json['baggageLoadingEndTime'] as String?,
+        stateDescription:        json['stateDescription'] as String?,
       );
 }

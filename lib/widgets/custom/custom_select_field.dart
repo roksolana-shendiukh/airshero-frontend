@@ -27,18 +27,17 @@ class CustomSelectField extends StatefulWidget {
 }
 
 class _CustomSelectFieldState extends State<CustomSelectField> {
-  final LayerLink _layerLink = LayerLink();
   final FocusNode _focusNode = FocusNode();
   late TextEditingController _controller;
   OverlayEntry? _overlayEntry;
   OverlayEntry? _barrierEntry;
-
-  bool _isOpen = false;
+  bool _isOpen    = false;
   bool _isHovered = false;
+  bool _pendingOpen = false;
   List<int> _filteredIndices = [];
 
   static const double _itemHeight = 44.0;
-  static const int _maxVisible = 5;
+  static const int    _maxVisible = 5;
 
   @override
   void initState() {
@@ -54,14 +53,6 @@ class _CustomSelectFieldState extends State<CustomSelectField> {
       }
       if (mounted) setState(() {});
     });
-
-    _controller.addListener(() {
-      final sel = _controller.selection;
-      if (sel.start != sel.end && sel.isValid) {
-        final offset = sel.baseOffset.clamp(0, _controller.text.length);
-        _controller.selection = TextSelection.collapsed(offset: offset);
-      }
-    });
   }
 
   @override
@@ -74,9 +65,7 @@ class _CustomSelectFieldState extends State<CustomSelectField> {
       if (!_focusNode.hasFocus) {
         _controller.text = _currentLabel;
       }
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _overlayEntry?.markNeedsBuild();
-      });
+      _overlayEntry?.markNeedsBuild();
     }
   }
 
@@ -116,85 +105,86 @@ class _CustomSelectFieldState extends State<CustomSelectField> {
   }
 
   void _openOverlay() {
-    if (_overlayEntry != null) return;
+    if (_isOpen || _pendingOpen) return;
+    if (!mounted) return;
 
-    final renderBox = context.findRenderObject() as RenderBox?;
-    if (renderBox == null) return;
-    final width = renderBox.size.width;
-
-    _barrierEntry = OverlayEntry(
-      builder: (_) => Listener(
-        behavior: HitTestBehavior.translucent,
-        onPointerDown: (_) => _closeOverlay(),
-        child: const SizedBox.expand(),
-      ),
-    );
-
-    _overlayEntry = OverlayEntry(
-      builder: (ctx) {
-        final colors = Theme.of(ctx).colorScheme;
-        final indices = _filteredIndices;
-        final visibleCount = indices.length.clamp(0, _maxVisible);
-        final listHeight = visibleCount * _itemHeight;
-
-        return CompositedTransformFollower(
-          link: _layerLink,
-          showWhenUnlinked: false,
-          offset: const Offset(0, 56),
-          child: Align(
-            alignment: Alignment.topLeft,
-            child: SizedBox(
-              width: width,
-              child: Material(
-                color: colors.surface,
-                borderRadius: BorderRadius.circular(8),
-                elevation: 4,
-                child: indices.isEmpty
-                    ? Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Text(
-                          'No results',
-                          style: TextStyle(
-                            color: colors.onSurfaceVariant,
-                            fontSize: 13,
-                          ),
-                        ),
-                      )
-                    : SizedBox(
-                        height: listHeight,
-                        child: ListView.builder(
-                          padding: EdgeInsets.zero,
-                          itemCount: indices.length,
-                          itemExtent: _itemHeight,
-                          itemBuilder: (_, i) {
-                            final idx = indices[i];
-                            final label = _labelForIndex(idx);
-                            final isSelected =
-                                widget.items[idx] == widget.value;
-                            return _OverlayOption(
-                              label: label,
-                              isSelected: isSelected,
-                              onTap: () => _selectIndex(idx),
-                            );
-                          },
-                        ),
-                      ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
+    _pendingOpen = true;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
+      if (!mounted || !_pendingOpen) return;
+      _pendingOpen = false;
+
+      final renderBox = context.findRenderObject() as RenderBox?;
+      if (renderBox == null || !renderBox.hasSize || !renderBox.attached) return;
+
+      _barrierEntry = OverlayEntry(
+        builder: (_) => Listener(
+          behavior: HitTestBehavior.translucent,
+          onPointerDown: (_) => _closeOverlay(),
+          child: const SizedBox.expand(),
+        ),
+      );
+
+      _overlayEntry = OverlayEntry(
+        builder: (ctx) {
+          final rb = context.findRenderObject() as RenderBox?;
+          if (rb == null || !rb.hasSize || !rb.attached) {
+            return const SizedBox.shrink();
+          }
+          final pos  = rb.localToGlobal(Offset.zero);
+          final sz   = rb.size;
+          final colors       = Theme.of(ctx).colorScheme;
+          final indices      = _filteredIndices;
+          final visibleCount = indices.length.clamp(0, _maxVisible);
+          final listHeight   = visibleCount * _itemHeight;
+
+          return Positioned(
+            left:  pos.dx,
+            top:   pos.dy + sz.height,
+            width: sz.width,
+            child: Material(
+              color:        colors.surface,
+              borderRadius: BorderRadius.circular(8),
+              elevation:    4,
+              child: indices.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Text('No results',
+                          style: TextStyle(
+                              color: colors.onSurfaceVariant, fontSize: 13)),
+                    )
+                  : SizedBox(
+                      height: listHeight,
+                      child: ListView.builder(
+                        padding:    EdgeInsets.zero,
+                        itemCount:  indices.length,
+                        itemExtent: _itemHeight,
+                        itemBuilder: (_, i) {
+                          final idx        = indices[i];
+                          final label      = _labelForIndex(idx);
+                          final isSelected = widget.items[idx] == widget.value;
+                          return _OverlayOption(
+                            label:      label,
+                            isSelected: isSelected,
+                            onTap:      () => _selectIndex(idx),
+                          );
+                        },
+                      ),
+                    ),
+            ),
+          );
+        },
+      );
+
       final overlay = Overlay.of(context);
       overlay.insert(_barrierEntry!);
       overlay.insert(_overlayEntry!);
+      if (mounted) setState(() => _isOpen = true);
     });
   }
 
   void _closeOverlay() {
+    _pendingOpen = false;
     _barrierEntry?.remove();
     _barrierEntry = null;
     _overlayEntry?.remove();
@@ -223,6 +213,7 @@ class _CustomSelectFieldState extends State<CustomSelectField> {
 
   @override
   void dispose() {
+    _pendingOpen = false;
     _barrierEntry?.remove();
     _barrierEntry = null;
     _overlayEntry?.remove();
@@ -234,25 +225,23 @@ class _CustomSelectFieldState extends State<CustomSelectField> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final colors   = Theme.of(context).colorScheme;
     final isActive = _isOpen || _isHovered || _focusNode.hasFocus;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        CompositedTransformTarget(
-          link: _layerLink,
-          child: MouseRegion(
-            onEnter: (_) => setState(() => _isHovered = true),
-            onExit: (_) => setState(() => _isHovered = false),
-            child: GestureDetector(
-              onTap: widget.searchable ? null : _toggle,
-              child: AnimatedContainer(
+        MouseRegion(
+          onEnter: (_) => setState(() => _isHovered = true),
+          onExit:  (_) => setState(() => _isHovered = false),
+          child: GestureDetector(
+            onTap: widget.searchable ? null : _toggle,
+            child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
               decoration: BoxDecoration(
                 color: isActive
-                  ? colors.primaryContainer.withValues(alpha: 0.3)
-                  : Colors.transparent,
+                    ? colors.primaryContainer.withValues(alpha: 0.3)
+                    : Colors.transparent,
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Row(
@@ -264,8 +253,8 @@ class _CustomSelectFieldState extends State<CustomSelectField> {
                     child: widget.searchable
                         ? TextField(
                             controller: _controller,
-                            focusNode: _focusNode,
-                            onChanged: _onTextChanged,
+                            focusNode:  _focusNode,
+                            onChanged:  _onTextChanged,
                             onTap: () {
                               if (!_isOpen) {
                                 _filteredIndices = List.generate(
@@ -273,18 +262,17 @@ class _CustomSelectFieldState extends State<CustomSelectField> {
                                 _openOverlay();
                               }
                             },
-                            style: TextStyle(color: colors.onSurface),
+                            style:       TextStyle(color: colors.onSurface),
                             cursorColor: colors.primary,
                             decoration: InputDecoration(
-                              labelText: widget.label,
-                              labelStyle:
-                                  TextStyle(color: colors.onSurfaceVariant),
-                              border: InputBorder.none,
-                              enabledBorder: InputBorder.none,
-                              focusedBorder: InputBorder.none,
-                              filled: true,                       
-                              fillColor: Colors.transparent, 
-                              isDense: true,
+                              labelText:  widget.label,
+                              labelStyle: TextStyle(color: colors.onSurfaceVariant),
+                              border:         InputBorder.none,
+                              enabledBorder:  InputBorder.none,
+                              focusedBorder:  InputBorder.none,
+                              filled:         true,
+                              fillColor:      Colors.transparent,
+                              isDense:        true,
                               contentPadding: const EdgeInsets.symmetric(
                                   horizontal: 4, vertical: 16),
                             ),
@@ -293,35 +281,28 @@ class _CustomSelectFieldState extends State<CustomSelectField> {
                             ? Padding(
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 4, vertical: 18),
-                                child: Text(
-                                  widget.label,
-                                  style: TextStyle(
-                                      color: colors.onSurfaceVariant,
-                                      fontSize: 16),
-                                ),
+                                child: Text(widget.label,
+                                    style: TextStyle(
+                                        color: colors.onSurfaceVariant,
+                                        fontSize: 16)),
                               )
                             : Padding(
                                 padding: const EdgeInsets.only(
                                     left: 4, top: 8, bottom: 8),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.center,
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Text(
-                                      widget.label,
-                                      style: TextStyle(
-                                          color: colors.onSurfaceVariant,
-                                          fontSize: 12),
-                                    ),
+                                    Text(widget.label,
+                                        style: TextStyle(
+                                            color: colors.onSurfaceVariant,
+                                            fontSize: 12)),
                                     const SizedBox(height: 2),
-                                    Text(
-                                      _currentLabel,
-                                      style: TextStyle(
-                                          color: colors.onSurface,
-                                          fontSize: 16),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
+                                    Text(_currentLabel,
+                                        style: TextStyle(
+                                            color: colors.onSurface,
+                                            fontSize: 16),
+                                        overflow: TextOverflow.ellipsis),
                                   ],
                                 ),
                               ),
@@ -329,7 +310,7 @@ class _CustomSelectFieldState extends State<CustomSelectField> {
                   Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: AnimatedRotation(
-                      turns: _isOpen ? 0.5 : 0,
+                      turns:    _isOpen ? 0.5 : 0,
                       duration: const Duration(milliseconds: 150),
                       child: Icon(Icons.arrow_drop_down,
                           color: colors.onSurfaceVariant),
@@ -337,27 +318,25 @@ class _CustomSelectFieldState extends State<CustomSelectField> {
                   ),
                 ],
               ),
-            ), 
-            ), 
+            ),
           ),
         ),
 
         if (widget.errorText != null)
           Padding(
             padding: const EdgeInsets.only(left: 16, top: 4),
-            child: Text(
-              widget.errorText!,
-              style: const TextStyle(color: Colors.red, fontSize: 12),
-            ),
+            child: Text(widget.errorText!,
+                style: const TextStyle(color: Colors.red, fontSize: 12)),
           ),
       ],
     );
   }
 }
 
+
 class _OverlayOption extends StatefulWidget {
-  final String label;
-  final bool isSelected;
+  final String       label;
+  final bool         isSelected;
   final VoidCallback onTap;
 
   const _OverlayOption({
@@ -382,16 +361,16 @@ class _OverlayOptionState extends State<_OverlayOption> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       child: MouseRegion(
         onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() {
+        onExit:  (_) => setState(() {
           _isHovered = false;
           _isPressed = false;
         }),
         child: GestureDetector(
-          onTapDown: (_) {
+          onTapDown:   (_) {
             setState(() => _isPressed = true);
             widget.onTap();
           },
-          onTapUp: (_) => setState(() => _isPressed = false),
+          onTapUp:     (_) => setState(() => _isPressed = false),
           onTapCancel: () => setState(() => _isPressed = false),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 120),
@@ -399,28 +378,21 @@ class _OverlayOptionState extends State<_OverlayOption> {
               color: widget.isSelected
                   ? colors.primaryContainer.withValues(alpha: 0.4)
                   : colors.primaryContainer.withValues(
-                      alpha: _isPressed
-                          ? 0.4
-                          : _isHovered
-                              ? 0.3
-                              : 0.1),
+                      alpha: _isPressed ? 0.4 : _isHovered ? 0.3 : 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 16, vertical: 10),
               child: Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      widget.label,
-                      style: TextStyle(
-                        color: colors.onSurface,
-                        fontWeight: widget.isSelected
-                            ? FontWeight.w600
-                            : FontWeight.normal,
-                      ),
-                    ),
+                    child: Text(widget.label,
+                        style: TextStyle(
+                            color: colors.onSurface,
+                            fontWeight: widget.isSelected
+                                ? FontWeight.w600
+                                : FontWeight.normal)),
                   ),
                   if (widget.isSelected)
                     Icon(Icons.check, size: 16, color: colors.primary),

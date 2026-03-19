@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:async';
 import '../models/flight_operation_model.dart';
 import '../services/auth_service.dart';
 import '../services/flight_operation_api_service.dart';
@@ -34,16 +35,25 @@ class _FlightOperationPageState extends State<FlightOperationPage> {
 
   Future<void> _loadOperation() async {
     final operationId = context.read<AuthService>().currentUser?.operationId;
+    debugPrint('[OP] operationId from claims: $operationId');
     if (operationId == null) {
       setState(() => _isLoading = false);
       return;
     }
     setState(() => _isLoading = true);
     final op = await _apiService.getFlightOperation(operationId);
-    if (mounted) setState(() {
-      _operation = op;
-      _isLoading  = false;
-    });
+    if (mounted) {
+      if (op?.statusName == 'Completed' || op?.statusName == 'Cancelled') {
+        await context.read<AuthService>().refreshSession();
+      }
+      setState(() {
+        _operation = op;
+        _isLoading  = false;
+      });
+      if (op == null) {
+        await context.read<AuthService>().refreshSession();
+      }
+    }
   }
 
   void _openCreateForm() {
@@ -80,7 +90,9 @@ class _FlightOperationPageState extends State<FlightOperationPage> {
             top: 0, left: 0, right: 0,
             child: _isLoading
                 ? _loadingBar(context)
-                : _operation == null
+                : _operation == null || 
+                  _operation!.statusName == 'Completed' || 
+                  _operation!.statusName == 'Cancelled'
                     ? _noOperationBar(context)
                     : _OperationInfoBar(
                         op:               _operation!,
@@ -96,7 +108,7 @@ class _FlightOperationPageState extends State<FlightOperationPage> {
 
           if (_timelineVisible && _operation != null)
             Positioned(
-              top: 0, left: 0, bottom: 0,
+              top: 56, left: 0, bottom: 0,
               child: TimelinePanel(
                 operation:          _operation!,
                 apiService:         _apiService,
@@ -107,7 +119,7 @@ class _FlightOperationPageState extends State<FlightOperationPage> {
 
           if (_crewVisible && _operation != null)
             Positioned(
-              top: 0, right: 0, bottom: 0,
+              top: 56, right: 0, bottom: 0,
               child: CrewSidePanel(
                 operationId: _operation!.flightOperationId,
                 apiService:  _apiService,
@@ -170,9 +182,6 @@ class _FlightOperationPageState extends State<FlightOperationPage> {
   }
 }
 
-
-// ── Operation Info Bar ─────────────────────────────────────────────────────────
-
 class _OperationInfoBar extends StatefulWidget {
   final FlightOperationModel op;
   final VoidCallback         onRefresh;
@@ -195,15 +204,81 @@ class _OperationInfoBar extends StatefulWidget {
 }
 
 class _OperationInfoBarState extends State<_OperationInfoBar> {
-  bool _expanded = false;
+  bool     _expanded = false;
+  Timer?   _ticker;
+  DateTime _now = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() => _now = DateTime.now());
+    });
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  DateTime? get _processStart {
+    final op = widget.op;
+    switch (op.statusName) {
+      case 'Boarding':
+        // Якщо boarding ще не завершений — від boarding start
+        if (op.boardingStartTime != null && op.boardingEndTime == null) {
+          return _parseTime(op.boardingStartTime);
+        }
+        // Якщо boarding завершений але baggage ще йде
+        if (op.baggageLoadingStartTime != null && op.baggageLoadingEndTime == null) {
+          return _parseTime(op.baggageLoadingStartTime);
+        }
+        return null;
+      case 'Departed':
+        return _parseDatetime(op.actualDepartureDatetime);
+      case 'Arrived':
+        return _parseDatetime(op.actualArrivalDatetime);
+      default:
+        return null;
+    }
+  }
+
+  DateTime? _parseTime(String? t) {
+    if (t == null) return null;
+    try {
+      final parts = t.split(':');
+      final now   = DateTime.now();
+      return DateTime(now.year, now.month, now.day,
+          int.parse(parts[0]), int.parse(parts[1]),
+          parts.length > 2 ? int.parse(parts[2]) : 0);
+    } catch (_) { return null; }
+  }
+
+  DateTime? _parseDatetime(String? t) {
+    if (t == null) return null;
+    try { return DateTime.parse(t); } catch (_) { return null; }
+  }
+
+  String _elapsed(DateTime start) {
+    final diff = _now.difference(start);
+    if (diff.isNegative) return '00:00';
+    final h = diff.inHours;
+    final m = diff.inMinutes % 60;
+    final s = diff.inSeconds % 60;
+    if (h > 0) {
+      return '${h.toString().padLeft(2,'0')}:${m.toString().padLeft(2,'0')}:${s.toString().padLeft(2,'0')}';
+    }
+    return '${m.toString().padLeft(2,'0')}:${s.toString().padLeft(2,'0')}';
+  }
 
   Color _statusColor(String? status, ColorScheme colors) {
     switch (status) {
       case 'Waiting':   return colors.onSurfaceVariant;
-      case 'Boarding':  return Colors.blue;
-      case 'Departed':  return Colors.orange;
-      case 'Arrived':   return Colors.green;
-      case 'Completed': return colors.primary;
+      case 'Boarding':  return const Color(0xFF2196F3);
+      case 'Departed':  return const Color(0xFFFF9800);
+      case 'Arrived':   return const Color(0xFF00BCD4);
+      case 'Completed': return const Color(0xFF4CAF50);
       case 'Cancelled': return colors.error;
       default:          return colors.onSurfaceVariant;
     }
@@ -228,9 +303,10 @@ class _OperationInfoBarState extends State<_OperationInfoBar> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final op     = widget.op;
-    final sColor = _statusColor(op.statusName, colors);
+    final colors  = Theme.of(context).colorScheme;
+    final op      = widget.op;
+    final sColor  = _statusColor(op.statusName, colors);
+    final start   = _processStart;
 
     return Container(
       decoration: BoxDecoration(
@@ -243,31 +319,39 @@ class _OperationInfoBarState extends State<_OperationInfoBar> {
           ),
         ],
         border: Border(
-          bottom: BorderSide(
-            color: sColor.withValues(alpha: 0.4),
-            width: 2,
-          ),
+          bottom: BorderSide(color: sColor.withValues(alpha: 0.4), width: 2),
         ),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // ── Головний рядок ─────────────────────────────────────────────
           InkWell(
             onTap: () => setState(() => _expanded = !_expanded),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 10, 12, 10),
               child: Row(
                 children: [
-                  // Статус бейдж
+                  Text(op.flightNumber ?? '—',
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w700)),
+                  const SizedBox(width: 10),
+
+                  Text(
+                    '${op.departsCode ?? "—"} → ${op.arrivesCode ?? "—"}',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: colors.onSurfaceVariant),
+                  ),
+                  const SizedBox(width: 12),
+
                   Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
                       color: sColor.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                          color: sColor.withValues(alpha: 0.3)),
+                      border: Border.all(color: sColor.withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -283,26 +367,21 @@ class _OperationInfoBarState extends State<_OperationInfoBar> {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 14),
 
-                  // Номер рейсу
-                  Text(op.flightNumber ?? '—',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w700)),
-                  const SizedBox(width: 10),
-
-                  // Маршрут
-                  Text(
-                    '${op.departsCode ?? "—"} → ${op.arrivesCode ?? "—"}',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: colors.onSurfaceVariant),
-                  ),
+                  if (start != null) ...[
+                    const SizedBox(width: 10),
+                    Icon(Icons.timer_outlined,
+                        size: 13, color: colors.onSurfaceVariant),
+                    const SizedBox(width: 4),
+                    Text(_elapsed(start),
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: sColor)),
+                  ],
 
                   const Spacer(),
 
-                  // Timeline button
                   CustomButton(
                     label: 'Timeline',
                     icon: widget.timelineVisible
@@ -315,7 +394,6 @@ class _OperationInfoBarState extends State<_OperationInfoBar> {
                   ),
                   const SizedBox(width: 8),
 
-                  // Crew button
                   CustomButton(
                     label: 'Crew',
                     icon: widget.crewVisible
@@ -345,7 +423,6 @@ class _OperationInfoBarState extends State<_OperationInfoBar> {
             ),
           ),
 
-          // ── Розгорнута інформація ──────────────────────────────────────
           if (_expanded) ...[
             const Divider(height: 1),
             Padding(
@@ -406,3 +483,5 @@ class _OperationInfoBarState extends State<_OperationInfoBar> {
     );
   }
 }
+
+

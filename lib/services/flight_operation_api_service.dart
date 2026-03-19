@@ -12,6 +12,7 @@ import '../models/flight_operation_status_model.dart';
 import '../schemas/create_flight_operation_dto.dart';
 import '../models/flight_operation_model.dart';
 import '../models/flight_crew_model.dart';
+import '../models/flight_operation_state_model.dart';
 
 class FlightOperationApiService {
   final AuthService authService;
@@ -250,20 +251,28 @@ class FlightOperationApiService {
     }
   }
 
-  Future<bool> assignCrew(int operationId, int crewId) async {
+  Future<({bool success, String? error})> assignCrew(
+      int operationId, int crewId) async {
     try {
       final response = await http.post(
         Uri.parse('${AppConfig.baseUrl}/flight-operations/$operationId/crew'),
         headers: await _headers(),
         body: jsonEncode({'crewId': crewId}),
       );
-      return response.statusCode == 201;
+      if (response.statusCode == 201) {
+        return (success: true, error: null);
+      }
+      try {
+        final body = jsonDecode(response.body);
+        return (success: false, error: body['detail'] as String?);
+      } catch (_) {
+        return (success: false, error: 'Failed to assign crew');
+      }
     } catch (e) {
       debugPrint('Network error (assignCrew): $e');
-      return false;
+      return (success: false, error: 'Network error');
     }
   }
-
   Future<bool> removeCrew(int operationId, int crewId) async {
     try {
       final response = await http.delete(
@@ -294,8 +303,8 @@ class FlightOperationApiService {
     }
   }
 
-  Future<FlightOperationModel?> setTimelineStep(
-      int operationId, String step) async {
+  Future<({FlightOperationModel? operation, String? error, bool isWarning})>
+      setTimelineStep(int operationId, String step) async {
     try {
       final response = await http.post(
         Uri.parse(
@@ -303,11 +312,40 @@ class FlightOperationApiService {
         headers: await _headers(),
       );
       if (response.statusCode == 200) {
+        return (
+          operation: FlightOperationModel.fromJson(jsonDecode(response.body)),
+          error: null,
+          isWarning: false,
+        );
+      }
+      try {
+        final body    = jsonDecode(response.body);
+        final detail  = body['detail'] as String? ?? 'Unknown error';
+        final isWarn  = detail.contains('Are you sure');
+        return (operation: null, error: detail, isWarning: isWarn);
+      } catch (_) {
+        return (operation: null, error: 'Failed', isWarning: false);
+      }
+    } catch (e) {
+      debugPrint('Network error (setTimelineStep): $e');
+      return (operation: null, error: 'Network error', isWarning: false);
+    }
+  }
+ 
+  Future<FlightOperationModel?> forceTimelineStep(
+      int operationId, String step) async {
+    try {
+      final response = await http.post(
+        Uri.parse(
+            '${AppConfig.baseUrl}/flight-operations/$operationId/timeline/$step/force'),
+        headers: await _headers(),
+      );
+      if (response.statusCode == 200) {
         return FlightOperationModel.fromJson(jsonDecode(response.body));
       }
       return null;
     } catch (e) {
-      debugPrint('Network error (setTimelineStep): $e');
+      debugPrint('Network error (forceTimelineStep): $e');
       return null;
     }
   }
@@ -344,6 +382,65 @@ class FlightOperationApiService {
       return [];
     } catch (e) {
       debugPrint('Network error (getAirfleetPhotos): $e');
+      return [];
+    }
+  }
+
+  Future<FlightOperationModel?> cancelOperation(
+    int operationId, {int? stateId, String? customReason}) async {
+  try {
+      final response = await http.post(
+        Uri.parse('${AppConfig.baseUrl}/flight-operations/$operationId/cancel'),
+        headers: await _headers(),
+        body: jsonEncode({
+          if (stateId != null) 'state_id': stateId,
+          if (customReason != null) 'custom_reason': customReason,
+        }),
+      );
+      if (response.statusCode == 200) {
+        return FlightOperationModel.fromJson(jsonDecode(response.body));
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Network error (cancelOperation): $e');
+      return null;
+    }
+  }
+
+  Future<FlightOperationModel?> completeOperation(
+      int operationId, {int? stateId, String? customReason}) async {
+    try {
+      final response = await http.post(
+        Uri.parse('${AppConfig.baseUrl}/flight-operations/$operationId/complete'),
+        headers: await _headers(),
+        body: jsonEncode({
+          if (stateId != null) 'state_id': stateId,
+          if (customReason != null) 'custom_reason': customReason,
+        }),
+      );
+      if (response.statusCode == 200) {
+        return FlightOperationModel.fromJson(jsonDecode(response.body));
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Network error (completeOperation): $e');
+      return null;
+    }
+  }
+  
+  Future<List<FlightOperationStateModel>> getOperationStates() async {
+    try {
+      final response = await http.get(
+        Uri.parse('${AppConfig.baseUrl}/flight-operations/states'),
+        headers: await _headers(),
+      );
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((e) => FlightOperationStateModel.fromJson(e)).toList();
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Network error (getOperationStates): $e');
       return [];
     }
   }

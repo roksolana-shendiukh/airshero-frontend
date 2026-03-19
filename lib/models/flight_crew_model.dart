@@ -5,6 +5,7 @@ class FlightCrewModel {
   final String? position;
   final String? licenseType;
   final int? experienceYears;
+  final bool locationKnown;
 
   const FlightCrewModel({
     required this.flightCrewId,
@@ -13,30 +14,34 @@ class FlightCrewModel {
     this.position,
     this.licenseType,
     this.experienceYears,
+    this.locationKnown = true,
   });
 
   String get fullName => '${firstName ?? ''} ${lastName ?? ''}'.trim();
 
-  factory FlightCrewModel.fromJson(Map<String, dynamic> json) =>
-      FlightCrewModel(
+  factory FlightCrewModel.fromJson(Map<String, dynamic> json) => FlightCrewModel(
         flightCrewId:    (json['flightCrewId'] as num).toInt(),
         firstName:       json['firstName'] as String?,
         lastName:        json['lastName'] as String?,
         position:        json['position'] as String?,
         licenseType:     json['licenseType'] as String?,
         experienceYears: (json['experienceYears'] as num?)?.toInt(),
+        locationKnown:   json['locationKnown'] as bool? ?? true,
       );
 }
+
 
 class CrewValidationModel {
   final bool valid;
   final Map<String, int> missing;
   final List<String> warnings;
+  final Map<String, int> required;
 
   const CrewValidationModel({
     required this.valid,
     required this.missing,
     required this.warnings,
+    this.required = const {},
   });
 
   factory CrewValidationModel.fromJson(Map<String, dynamic> json) =>
@@ -46,5 +51,7 @@ class CrewValidationModel {
                       ?.map((k, v) => MapEntry(k, (v as num).toInt())) ?? {},
         warnings: (json['warnings'] as List<dynamic>?)
                       ?.map((e) => e as String).toList() ?? [],
+        required: (json['required'] as Map<String, dynamic>?)
+                      ?.map((k, v) => MapEntry(k, (v as num).toInt())) ?? {},
       );
 }
