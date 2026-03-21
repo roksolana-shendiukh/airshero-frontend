@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../models/flight_operation_state_model.dart';
 import '../../services/flight_operation_api_service.dart';
+import '../custom/custom_button.dart';
 import '../custom/custom_input_field.dart';
+import '../custom/custom_select_field.dart';
 
 class OperationStateDialog extends StatefulWidget {
   final FlightOperationApiService apiService;
@@ -24,6 +27,7 @@ class OperationStateDialog extends StatefulWidget {
     return showDialog(
       context: context,
       barrierDismissible: false,
+      barrierColor: Colors.black.withValues(alpha: 0.45),
       builder: (ctx) => OperationStateDialog(
         apiService: apiService,
         isCancel:   isCancel,
@@ -40,9 +44,9 @@ class _OperationStateDialogState extends State<OperationStateDialog> {
   List<FlightOperationStateModel> _states = [];
   bool   _isLoading    = true;
   bool   _isSubmitting = false;
-  int?   _selectedStateId;
-  String _customReason = '';
-  bool   _useCustom    = false;
+  String _selectedStateId = '';
+  String _ownReason    = '';
+  bool   _writeOwn     = false;
 
   @override
   void initState() {
@@ -58,11 +62,20 @@ class _OperationStateDialogState extends State<OperationStateDialog> {
     });
   }
 
+  bool get _canSubmit {
+    if (!widget.isCancel) return true;
+    if (_writeOwn) return _ownReason.trim().isNotEmpty;
+    return _selectedStateId.isNotEmpty;
+  }
+
   Future<void> _submit() async {
+    if (!_canSubmit) return;
     setState(() => _isSubmitting = true);
-    final stateId = _useCustom ? null : _selectedStateId;
-    final reason  = _useCustom && _customReason.isNotEmpty
-        ? _customReason
+    final stateId = _writeOwn || _selectedStateId.isEmpty
+        ? null
+        : int.tryParse(_selectedStateId);
+    final reason = _writeOwn && _ownReason.trim().isNotEmpty
+        ? _ownReason.trim()
         : null;
     await widget.onConfirm(stateId, reason);
     if (mounted) Navigator.of(context).pop();
@@ -70,223 +83,232 @@ class _OperationStateDialogState extends State<OperationStateDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final title  = widget.isCancel ? 'Cancel Operation' : 'Complete Operation';
-    final icon   = widget.isCancel
-        ? Icons.cancel_outlined
-        : Icons.check_circle_outline;
-    final color  = widget.isCancel ? colors.error : Colors.green;
+    final colors       = Theme.of(context).colorScheme;
+    final isCancel     = widget.isCancel;
+    final accentColor  = isCancel ? colors.error : colors.primary;
+    final title        = isCancel ? 'Cancel operation' : 'Complete operation';
+    final icon         = isCancel ? Icons.cancel_outlined : Icons.check_circle_outline;
+    final confirmLabel = isCancel ? 'Cancel operation' : 'Complete';
 
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.all(24),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 460),
+        constraints: const BoxConstraints(maxWidth: 420),
         child: Container(
           decoration: BoxDecoration(
-            color: colors.surfaceContainerHigh,
+            color:        colors.surfaceContainerHigh,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Header
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 12, 16),
-                child: Row(
-                  children: [
-                    Icon(icon, color: color, size: 22),
-                    const SizedBox(width: 10),
-                    Text(title,
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w600)),
-                    const Spacer(),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                  ],
-                ),
-              ),
-
+              _buildHeader(colors, icon, accentColor, title),
               const Divider(height: 1),
-
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: _isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Select a reason (optional)',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: colors.onSurfaceVariant,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-
-                          // Список причин
-                          if (!_useCustom) ...[
-                            ConstrainedBox(
-                              constraints:
-                                  const BoxConstraints(maxHeight: 280),
-                              child: ListView.separated(
-                                shrinkWrap: true,
-                                itemCount: _states.length,
-                                separatorBuilder: (_, __) =>
-                                    const SizedBox(height: 6),
-                                itemBuilder: (_, i) {
-                                  final s        = _states[i];
-                                  final selected =
-                                      _selectedStateId == s.stateId;
-                                  return InkWell(
-                                    onTap: () => setState(() =>
-                                        _selectedStateId = selected
-                                            ? null
-                                            : s.stateId),
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: AnimatedContainer(
-                                      duration:
-                                          const Duration(milliseconds: 150),
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 14, vertical: 10),
-                                      decoration: BoxDecoration(
-                                        color: selected
-                                            ? color.withValues(alpha: 0.1)
-                                            : colors.surfaceContainerHighest,
-                                        borderRadius:
-                                            BorderRadius.circular(8),
-                                        border: Border.all(
-                                          color: selected
-                                              ? color.withValues(alpha: 0.4)
-                                              : colors.outlineVariant,
-                                          width: selected ? 1.5 : 1,
-                                        ),
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Expanded(
-                                            child: Text(
-                                              s.description,
-                                              style: TextStyle(
-                                                fontSize: 13,
-                                                color: selected
-                                                    ? color
-                                                    : colors.onSurface,
-                                                fontWeight: selected
-                                                    ? FontWeight.w500
-                                                    : FontWeight.normal,
-                                              ),
-                                            ),
-                                          ),
-                                          if (selected)
-                                            Icon(Icons.check,
-                                                size: 16, color: color),
-                                        ],
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            GestureDetector(
-                              onTap: () => setState(() {
-                                _useCustom      = true;
-                                _selectedStateId = null;
-                              }),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.edit_outlined,
-                                      size: 14,
-                                      color: colors.primary),
-                                  const SizedBox(width: 6),
-                                  Text('Enter custom reason',
-                                      style: TextStyle(
-                                          fontSize: 12,
-                                          color: colors.primary,
-                                          fontWeight: FontWeight.w500)),
-                                ],
-                              ),
-                            ),
-                          ] else ...[
-                            CustomInputField(
-                              label: 'Custom reason',
-                              value: _customReason,
-                              icon: Icons.edit_outlined,
-                              onChanged: (v) =>
-                                  setState(() => _customReason = v),
-                            ),
-                            const SizedBox(height: 8),
-                            GestureDetector(
-                              onTap: () => setState(() {
-                                _useCustom    = false;
-                                _customReason = '';
-                              }),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.list_outlined,
-                                      size: 14,
-                                      color: colors.primary),
-                                  const SizedBox(width: 6),
-                                  Text('Choose from list',
-                                      style: TextStyle(
-                                          fontSize: 12,
-                                          color: colors.primary,
-                                          fontWeight: FontWeight.w500)),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-              ),
-
-              // Actions
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: _isSubmitting
-                            ? null
-                            : () => Navigator.of(context).pop(),
-                        style: OutlinedButton.styleFrom(
-                          padding:
-                              const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        child: const Text('Back'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: FilledButton(
-                        onPressed: _isSubmitting ? null : _submit,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: color,
-                          padding:
-                              const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        child: Text(_isSubmitting
-                            ? 'Processing...'
-                            : widget.isCancel
-                                ? 'Cancel Operation'
-                                : 'Complete'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              _buildBody(colors, accentColor),
+              _buildFooter(colors, accentColor, confirmLabel),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildHeader(ColorScheme colors, IconData icon,
+      Color accentColor, String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 16, 12, 14),
+      child: Row(
+        children: [
+          Container(
+            width: 32, height: 32,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: accentColor.withValues(alpha: 0.12),
+            ),
+            child: Icon(icon, size: 16, color: accentColor),
+          ),
+          const SizedBox(width: 10),
+          Text(title,
+              style: Theme.of(context)
+                  .textTheme
+                  .titleSmall
+                  ?.copyWith(fontWeight: FontWeight.w600)),
+          const Spacer(),
+          IconButton(
+            icon: const Icon(Icons.close, size: 16),
+            onPressed: () => Navigator.of(context).pop(),
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBody(ColorScheme colors, Color accentColor) {
+    final stateIds = _states
+      .map((s) => s.stateId.toString())
+      .toList()
+      .cast<String>(); 
+    final stateLabels  = _states.map((s) => s.description).toList();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 14, 18, 4),
+      child: _isLoading
+          ? const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      widget.isCancel ? 'Reason' : 'Note',
+                      style: TextStyle(
+                        fontSize:   12,
+                        fontWeight: FontWeight.w500,
+                        color:      colors.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    if (widget.isCancel)
+                      Text('*',
+                          style: TextStyle(
+                              color: colors.error, fontSize: 12))
+                    else
+                      Text('(optional)',
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: colors.onSurfaceVariant)),
+                  ],
+                ),
+                const SizedBox(height: 10),
+
+                if (!_writeOwn) ...[
+                  CustomSelectField(
+                    label:      widget.isCancel
+                        ? 'Select a reason'
+                        : 'Select a note',
+                    value:      _selectedStateId,
+                    icon:       Icons.list_outlined,
+                    items:      stateIds,
+                    itemLabels: stateLabels,
+                    onChanged:  (v) => setState(
+                        () => _selectedStateId = v ?? ''),
+                  ),
+                  const SizedBox(height: 10),
+                  GestureDetector(
+                    onTap: () => setState(() {
+                      _writeOwn        = true;
+                      _selectedStateId = '';
+                    }),
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit_outlined,
+                            size: 13, color: colors.primary),
+                        const SizedBox(width: 5),
+                        Text('Write your own',
+                            style: TextStyle(
+                                fontSize:   12,
+                                color:      colors.primary,
+                                fontWeight: FontWeight.w500)),
+                      ],
+                    ),
+                  ),
+                ] else ...[
+                  CustomInputField(
+                    label:           widget.isCancel
+                        ? 'Describe the reason'
+                        : 'Add a note',
+                    value:           _ownReason,
+                    icon:            Icons.edit_outlined,
+                    inputFormatters: [LengthLimitingTextInputFormatter(70)],
+                    onChanged: (v) => setState(() => _ownReason = v),
+                  ),
+                  const SizedBox(height: 4),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      '${_ownReason.length} / 70',
+                      style: TextStyle(
+                          fontSize: 11,
+                          color:    colors.onSurfaceVariant),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  GestureDetector(
+                    onTap: () => setState(() {
+                      _writeOwn    = false;
+                      _ownReason   = '';
+                    }),
+                    child: Row(
+                      children: [
+                        Icon(Icons.list_outlined,
+                            size: 13, color: colors.primary),
+                        const SizedBox(width: 5),
+                        Text('Choose from list',
+                            style: TextStyle(
+                                fontSize:   12,
+                                color:      colors.primary,
+                                fontWeight: FontWeight.w500)),
+                      ],
+                    ),
+                  ),
+                ],
+
+                if (widget.isCancel && !_canSubmit) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(Icons.info_outline,
+                          size: 12, color: colors.error),
+                      const SizedBox(width: 4),
+                      Text('Reason is required to cancel',
+                          style: TextStyle(
+                              fontSize: 11, color: colors.error)),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 14),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildFooter(ColorScheme colors, Color accentColor,
+      String confirmLabel) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 0, 18, 16),
+      child: Row(
+        children: [
+          Expanded(
+            child: OutlinedButton(
+              onPressed: _isSubmitting
+                  ? null
+                  : () => Navigator.of(context).pop(),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 11),
+              ),
+              child: const Text('Back',
+                  style: TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w500)),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: CustomButton(
+              label:             confirmLabel,
+              verticalPadding:   11,
+              horizontalPadding: 16,
+              onPressed: _isSubmitting || !_canSubmit ? null : _submit,
+            ),
+          ),
+        ],
       ),
     );
   }

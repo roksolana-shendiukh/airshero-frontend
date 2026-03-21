@@ -169,6 +169,7 @@ class FlightOperationApiService {
         headers: await _headers(),
       );
       if (response.statusCode == 200) {
+         debugPrint('[API response] ${response.body}');
         final List<dynamic> data = jsonDecode(response.body);
         return data.map((e) => FlightOperationModel.fromJson(e)).toList();
       }
@@ -306,18 +307,18 @@ class FlightOperationApiService {
   Future<({FlightOperationModel? operation, String? error, bool isWarning})>
       setTimelineStep(int operationId, String step) async {
     try {
-      final response = await http.post(
-        Uri.parse(
-            '${AppConfig.baseUrl}/flight-operations/$operationId/timeline/$step'),
-        headers: await _headers(),
+    final response = await http.post(
+      Uri.parse('${AppConfig.baseUrl}/flight-operations/$operationId/timeline/$step'),
+      headers: await _headers(),
+    );
+    if (response.statusCode == 200) {
+      debugPrint('[setTimelineStep response] ${response.body}'); // ← тут
+      return (
+        operation: FlightOperationModel.fromJson(jsonDecode(response.body)),
+        error: null,
+        isWarning: false,
       );
-      if (response.statusCode == 200) {
-        return (
-          operation: FlightOperationModel.fromJson(jsonDecode(response.body)),
-          error: null,
-          isWarning: false,
-        );
-      }
+    }
       try {
         final body    = jsonDecode(response.body);
         final detail  = body['detail'] as String? ?? 'Unknown error';

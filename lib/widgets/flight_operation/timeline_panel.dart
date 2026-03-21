@@ -134,6 +134,7 @@ class _TimelinePanelState extends State<TimelinePanel>
               setState(() => _isProcessing = true);
               final updated = await widget.apiService
                   .forceTimelineStep(_op.flightOperationId, step);
+              debugPrint('[force] updated=${updated?.statusName}, step=$step');
               if (mounted) {
                 setState(() {
                   if (updated != null) _op = updated;
@@ -141,7 +142,6 @@ class _TimelinePanelState extends State<TimelinePanel>
                 });
                 if (updated != null) {
                   widget.onOperationUpdated(updated);
-                  await widget.apiService.authService.refreshSession();
                 }
               }
             },
@@ -188,27 +188,24 @@ class _TimelinePanelState extends State<TimelinePanel>
   bool get _canComplete =>
       !_isTerminated && _op.actualArrivalDatetime != null;
 
-  bool get _canCancel => !_isTerminated;
+  bool get _canCancel => !_isTerminated && _op.statusName != 'Arrived';
 
   DateTime? _parseTime(String? t) {
     if (t == null) return null;
     try {
       final parts = t.split(':');
-      final now   = DateTime.now();
+      debugPrint('[_parseTime] input=$t parts=$parts');
+      final now = DateTime.now();
       return DateTime(
         now.year, now.month, now.day,
         int.parse(parts[0]),
         int.parse(parts[1]),
-        parts.length > 2 ? int.parse(parts[2]) : 0,
+        parts.length > 2 ? int.parse(parts[2].split('.').first) : 0, // ← фікс мілісекунд
       );
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[_parseTime] error=$e');
       return null;
     }
-  }
-
-  DateTime? _parseDatetime(String? t) {
-    if (t == null) return null;
-    try { return DateTime.parse(t); } catch (_) { return null; }
   }
 
   String _fmtTime(String? t) {
@@ -220,8 +217,7 @@ class _TimelinePanelState extends State<TimelinePanel>
     if (t == null) return '—';
     try {
       final d = DateTime.parse(t);
-      return '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')} '
-          '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+      return '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
     } catch (_) {
       return _fmtTime(t);
     }
@@ -256,7 +252,6 @@ class _TimelinePanelState extends State<TimelinePanel>
         ),
         child: Column(
           children: [
-            // ── Header ──────────────────────────────────────────────────
             Container(
               padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
               decoration: BoxDecoration(
@@ -297,7 +292,6 @@ class _TimelinePanelState extends State<TimelinePanel>
               ),
             ),
 
-            // ── Steps ────────────────────────────────────────────────────
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
@@ -338,6 +332,7 @@ class _TimelinePanelState extends State<TimelinePanel>
                       icon:       Icons.flight_land_outlined,
                       label:      'Arrival',
                       time:       _op.actualArrivalDatetime,
+                      endTime:    _op.actualDepartureDatetime, 
                       step:       'arrival',
                       canSet:     _canArrive,
                       isDatetime: true,
@@ -474,10 +469,19 @@ class _TimelinePanelState extends State<TimelinePanel>
     required String   step,
     required bool     canSet,
     required bool     isLast,
-    bool isDatetime = false,
+    bool    isDatetime = false,
+    String? endTime,
   }) {
     final colors  = Theme.of(context).colorScheme;
     final hasTime = time != null;
+
+    DateTime? _parseAny(String? t) {
+      if (t == null) return null;
+      try { return DateTime.parse(t); } catch (_) { return null; }
+    }
+
+    final startDt = _parseAny(endTime); 
+    final endDt   = _parseAny(time);    
 
     return _StepWrapper(
       icon:       icon,
@@ -510,6 +514,20 @@ class _TimelinePanelState extends State<TimelinePanel>
                 ),
             ],
           ),
+          if (hasTime && startDt != null && endDt != null) ...[
+            const SizedBox(height: 2),
+            Row(
+              children: [
+                Expanded(
+                  child: Text('Flight duration',
+                      style: TextStyle(
+                          fontSize: 11, color: colors.onSurfaceVariant)),
+                ),
+                _DurationBadge(
+                    label: _duration(startDt, endDt), colors: colors),
+              ],
+            ),
+          ],
           if (canSet) ...[
             const SizedBox(height: 6),
             _ActionButton(
@@ -629,9 +647,6 @@ class _TimelinePanelState extends State<TimelinePanel>
   }
 }
 
-
-// ── Step Wrapper ───────────────────────────────────────────────────────────────
-
 class _StepWrapper extends StatelessWidget {
   final IconData icon;
   final bool     isDone;
@@ -701,9 +716,6 @@ class _StepWrapper extends StatelessWidget {
   }
 }
 
-
-// ── Live Timer ─────────────────────────────────────────────────────────────────
-
 class _LiveTimer extends StatelessWidget {
   final DateTime    start;
   final DateTime    now;
@@ -741,9 +753,6 @@ class _LiveTimer extends StatelessWidget {
     );
   }
 }
-
-
-// ── Duration Badge ─────────────────────────────────────────────────────────────
 
 class _DurationBadge extends StatelessWidget {
   final String      label;
