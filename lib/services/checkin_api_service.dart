@@ -48,4 +48,24 @@ class CheckInApiService {
       rethrow;
     }
   }
+
+  Future<Map<String, dynamic>> getSeatMap(int flightOperationId) async {
+    try {
+      final uri = Uri.parse(
+        '${AppConfig.baseUrl}/checkin/seat-map/$flightOperationId',
+      );
+      final response = await http.get(uri, headers: await _headers());
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      } else {
+        debugPrint('SeatMap error: ${response.statusCode} ${response.body}');
+        return {};
+      }
+    } catch (e) {
+      debugPrint('Network error (getSeatMap): $e');
+      rethrow;
+    }
+  }
+  
 }

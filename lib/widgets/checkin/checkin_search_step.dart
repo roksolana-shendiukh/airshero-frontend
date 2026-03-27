@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../../services/auth_service.dart';
+import '../../services/checkin_api_service.dart';
 import '../custom/custom_input_field.dart';
 import '../custom/custom_button.dart';
 import '../custom/custom_single_date_picker.dart';
@@ -17,6 +18,7 @@ class CheckInSearchStep extends StatefulWidget {
     required String documentNumber,
     required String flightNumber,
     required DateTime departDate,
+    required Map<String, dynamic> booking,
   }) onSearch;
 
   const CheckInSearchStep({
@@ -30,15 +32,18 @@ class CheckInSearchStep extends StatefulWidget {
 }
 
 class _CheckInSearchStepState extends State<CheckInSearchStep> {
-  final _documentNumberController    = TextEditingController();
-  final _flightNumberController      = TextEditingController();
-  final _departureDateController     = TextEditingController();
+  final _documentNumberController = TextEditingController();
+  final _flightNumberController   = TextEditingController();
+  final _departureDateController  = TextEditingController();
 
   DateTime? _departDate;
 
   bool _documentNumberTouched = false;
   bool _flightNumberTouched   = false;
   bool _departDateTouched     = false;
+
+  bool    _isLoading = false;
+  String? _apiError;
 
   final LayerLink _dateLayerLink         = LayerLink();
   final FocusNode _dateFocusNode         = FocusNode();
@@ -62,7 +67,6 @@ class _CheckInSearchStepState extends State<CheckInSearchStep> {
 
   void _showDatePicker() {
     if (_datePickerOverlay != null) return;
-    _removeDatePicker();
 
     _datePickerBarrier = OverlayEntry(
       builder: (_) => GestureDetector(
@@ -93,7 +97,8 @@ class _CheckInSearchStepState extends State<CheckInSearchStep> {
                   onDateSelected: (date) {
                     setState(() {
                       _departDate = date;
-                      _departureDateController.text = DateFormat('dd.MM.yyyy').format(date);
+                      _departureDateController.text =
+                          DateFormat('dd.MM.yyyy').format(date);
                       _departDateTouched = true;
                     });
                   },
@@ -116,21 +121,15 @@ class _CheckInSearchStepState extends State<CheckInSearchStep> {
     });
   }
 
-  void _toggleDatePicker() {
-    if (_isPickerOpen) {
-      _removeDatePicker();
-    } else {
-      _showDatePicker();
-    }
-  }
+  void _toggleDatePicker() =>
+      _isPickerOpen ? _removeDatePicker() : _showDatePicker();
 
   void _handleDateInput(String value) {
     _departureDateController.text = value;
     if (value.length == 10) {
       try {
-        final parsed = DateFormat('dd.MM.yyyy').parseStrict(value);
         setState(() {
-          _departDate        = parsed;
+          _departDate        = DateFormat('dd.MM.yyyy').parseStrict(value);
           _departDateTouched = true;
         });
       } catch (_) {
@@ -141,38 +140,73 @@ class _CheckInSearchStepState extends State<CheckInSearchStep> {
     }
   }
 
-  void _handleSearch() {
+  // ── Search ────────────────────────────────────────────────────────────────
+
+  Future<void> _handleSearch() async {
     setState(() {
       _documentNumberTouched = true;
       _flightNumberTouched   = true;
       _departDateTouched     = true;
+      _apiError              = null;
     });
 
     if (!_isFormValid) return;
 
-    widget.onSearch(
-      documentNumber: _documentNumberController.text.trim().toUpperCase(),
-      flightNumber:   _flightNumberController.text.trim().toUpperCase(),
-      departDate:     _departDate!,
-    );
+    setState(() => _isLoading = true);
+
+    try {
+      final api     = CheckInApiService(widget.authService);
+      final results = await api.searchBooking(
+        documentNumber: _documentNumberController.text.trim().toUpperCase(),
+        flightNumber:   _flightNumberController.text.trim().toUpperCase(),
+        departsDate:    _departDate!,
+      );
+
+      if (!mounted) return;
+
+      if (results.isEmpty) {
+        setState(() => _apiError = 'Booking not found. Check the document number, flight, and date.');
+        return;
+      }
+
+      widget.onSearch(
+        documentNumber: _documentNumberController.text.trim().toUpperCase(),
+        flightNumber:   _flightNumberController.text.trim().toUpperCase(),
+        departDate:     _departDate!,
+        booking:        results.first,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _apiError = 'Connection error. Please try again.');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
   void initState() {
     super.initState();
     _flightNumberFocusNode.addListener(() {
-      if (mounted) setState(() {
-        if (!_flightNumberFocusNode.hasFocus && _flightNumberController.text.isNotEmpty) {
-          _flightNumberTouched = true;
-        }
-      });
+      if (mounted) {
+        setState(() {
+          if (!_flightNumberFocusNode.hasFocus &&
+              _flightNumberController.text.isNotEmpty) {
+            _flightNumberTouched = true;
+          }
+        });
+      }
     });
-    _dateFocusNode.addListener(() { if (mounted) setState(() {}); });
+    _dateFocusNode.addListener(() {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
   void dispose() {
-    _removeDatePicker();
+    _datePickerOverlay?.remove();
+    _datePickerOverlay = null;
+    _datePickerBarrier?.remove();
+    _datePickerBarrier = null;
     _documentNumberController.dispose();
     _flightNumberController.dispose();
     _departureDateController.dispose();
@@ -196,24 +230,32 @@ class _CheckInSearchStepState extends State<CheckInSearchStep> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
 
+          // ── Document number ──────────────────────────────────────
           CheckInDocumentSearchField(
             authService: widget.authService,
-            value: _documentNumberController.text,
+            value:       _documentNumberController.text,
             onChanged: (v) {
               _documentNumberController.text = v;
-              setState(() => _documentNumberTouched = v.isNotEmpty);
+              setState(() {
+                _documentNumberTouched = v.isNotEmpty;
+                _apiError              = null;
+              });
             },
           ),
           if (_documentNumberError != null) ...[
             const SizedBox(height: 4),
             Text(
               _documentNumberError!,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: colors.error),
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: colors.error),
             ),
           ],
 
           const SizedBox(height: 12),
 
+          // ── Flight number + date ─────────────────────────────────
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -234,23 +276,28 @@ class _CheckInSearchStepState extends State<CheckInSearchStep> {
                         ],
                         onChanged: (v) {
                           _flightNumberController.text = v.toUpperCase();
-                          setState(() {});
+                          setState(() => _apiError = null);
                         },
                       ),
                     ),
                     if (_flightNumberFocusNode.hasFocus || _flightNumberTouched) ...[
                       const SizedBox(height: 4),
                       Text(
-                        _flightNumberController.text.isEmpty && _flightNumberTouched && !_flightNumberFocusNode.hasFocus
+                        _flightNumberController.text.isEmpty &&
+                                _flightNumberTouched &&
+                                !_flightNumberFocusNode.hasFocus
                             ? 'Required field'
                             : _flightNumberHint,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: (_flightNumberTouched && !_flightNumberFocusNode.hasFocus &&
-                                  (_flightNumberController.text.isEmpty ||
-                                   !_isFlightNumberValid(_flightNumberController.text))) ||
-                                 (_flightNumberFocusNode.hasFocus &&
-                                  _flightNumberController.text.isNotEmpty &&
-                                  !_isFlightNumberPartiallyValid(_flightNumberController.text))
+                          color: (_flightNumberTouched &&
+                                      !_flightNumberFocusNode.hasFocus &&
+                                      (_flightNumberController.text.isEmpty ||
+                                          !_isFlightNumberValid(
+                                              _flightNumberController.text))) ||
+                                  (_flightNumberFocusNode.hasFocus &&
+                                      _flightNumberController.text.isNotEmpty &&
+                                      !_isFlightNumberPartiallyValid(
+                                          _flightNumberController.text))
                               ? colors.error
                               : colors.onSurfaceVariant,
                         ),
@@ -286,13 +333,18 @@ class _CheckInSearchStepState extends State<CheckInSearchStep> {
                       const SizedBox(height: 4),
                       Text(
                         _departDateError!,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: colors.error),
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(color: colors.error),
                       ),
                     ] else if (_dateFocusNode.hasFocus || _isPickerOpen) ...[
                       const SizedBox(height: 4),
                       Text(
                         _departDateHint,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: colors.onSurfaceVariant,
+                            ),
                       ),
                     ],
                   ],
@@ -301,13 +353,46 @@ class _CheckInSearchStepState extends State<CheckInSearchStep> {
             ],
           ),
 
+          // ── API error ────────────────────────────────────────────
+          if (_apiError != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color:        colors.errorContainer.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: colors.error.withValues(alpha: 0.3),
+                  width: 0.5,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, size: 16, color: colors.error),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _apiError!,
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(color: colors.error),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
           const SizedBox(height: 16),
 
+          // ── Submit ───────────────────────────────────────────────
           SizedBox(
             width: double.infinity,
             child: CustomButton(
-              label:     'Find Booking',
-              onPressed: _isFormValid ? _handleSearch : null,
+              label:     _isLoading ? 'Searching...' : 'Find Booking',
+              onPressed: (_isFormValid && !_isLoading) ? _handleSearch : null,
             ),
           ),
         ],

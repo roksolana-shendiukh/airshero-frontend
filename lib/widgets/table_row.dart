@@ -64,7 +64,7 @@ class TableRow extends StatelessWidget {
             width: columnWidths['checkbox'],
             child: Checkbox(value: isSelected, onChanged: (_) => onToggle()),
           ),
-          // name
+
           SizedBox(
             width: columnWidths['name'],
             child: ClipRect(
@@ -121,7 +121,7 @@ class TableRow extends StatelessWidget {
               ),
             ),
           ),
-          // email
+
           SizedBox(
             width: columnWidths['email'],
             child: ClipRect(
@@ -136,7 +136,6 @@ class TableRow extends StatelessWidget {
               ),
             ),
           ),
-          // airline
           SizedBox(
             width: columnWidths['airline'],
             child: ClipRect(
@@ -171,7 +170,6 @@ class TableRow extends StatelessWidget {
               ),
             ),
           ),
-          // role
           SizedBox(
             width: columnWidths['role'],
             child: ClipRect(
@@ -186,7 +184,6 @@ class TableRow extends StatelessWidget {
               ),
             ),
           ),
-          // status
           SizedBox(
             width: columnWidths['status'],
             child: ClipRect(

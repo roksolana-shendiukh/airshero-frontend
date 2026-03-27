@@ -13,13 +13,13 @@ import '../custom/custom_select_field.dart';
 import '../custom/custom_button.dart';
 import '../custom/custom_single_date_picker.dart';
 import '../passenger_search_bar.dart';
+import '../passenger_name_search_bar.dart';
 import 'date_input_formatter.dart';
 
 part 'passenger_form_validators.dart';
 part 'passenger_form_handlers.dart';
 part 'passenger_form_date_picker.dart';
 part 'passenger_form_build.dart';
-
 
 const Map<String, String> _docHints = {
   'PAS': 'Format: AB1234567 (2 letters + 7 digits)',
@@ -88,6 +88,18 @@ class _PassengerFormCardState extends State<PassengerFormCard> {
   bool _documentNumberTouched     = false;
   bool _sexTouched                = false;
   bool _documentIssueInvalid      = false;
+  bool _isPassengerSaved = false;
+
+  bool _documentSearched       = false;
+  bool _passengerSearchVisible = false;
+  bool _editingDocument        = false;
+  bool _changingDocumentOnly   = false;
+
+  String?   _editOriginalDocumentNumber;
+  DateTime? _editOriginalDocumentIssue;
+  DateTime? _editOriginalDocumentExpire;
+  int?      _editOriginalCitizenshipId;
+  int?      _editOriginalDocumentTypeId;
 
   String?   _selectedSexId;
   DateTime? _dateOfBirth;
@@ -126,7 +138,23 @@ class _PassengerFormCardState extends State<PassengerFormCard> {
   OverlayEntry? _datePickerBarrier;
   Timer? _datePickerDebounce;
 
-  
+  bool get _hasChanges =>
+    _firstNameController.text != (widget.initialData?['firstName'] ?? '') ||
+    _lastNameController.text  != (widget.initialData?['lastName'] ?? '')  ||
+    _dateOfBirth              != widget.initialData?['dateOfBirth']        ||
+    _selectedSexId            != widget.initialData?['sexId']?.toString()  ||
+    _selectedCitizenshipId    != widget.initialData?['citizenshipId']      ||
+    _selectedDocumentTypeId   != widget.initialData?['documentTypeId']     ||
+    _documentNumberController.text != (widget.initialData?['documentNumber'] ?? '') ||
+    _documentIssue            != widget.initialData?['documentIssue']      ||
+    _documentExpire           != widget.initialData?['documentExpire'];
+
+  bool get _documentFieldsLocked =>
+      (_documentSearched || _foundPassengerId != null) && !_isAddingNewDocument;
+
+  bool get _passengerBlockHidden =>
+      _isAddingNewDocument && !_passengerSearchVisible && !_editingDocument && !_changingDocumentOnly;
+
   String? get _selectedDocTypeCode {
     if (_selectedDocumentTypeId == null) return null;
     for (final d in _documentTypes) {
@@ -227,7 +255,6 @@ class _PassengerFormCardState extends State<PassengerFormCard> {
     return found.isNotEmpty ? found['name'] as String : '';
   }
 
-
   @override
   void initState() {
     super.initState();
@@ -245,6 +272,11 @@ class _PassengerFormCardState extends State<PassengerFormCard> {
       _selectedDocumentTypeId = widget.initialData!['documentTypeId'];
       _isSaved                = widget.initialData!['isSaved'] ?? false;
       _foundPassengerId       = widget.initialData!['foundPassengerId'];
+      _documentSearched       = widget.initialData!['documentSearched'] ?? false;
+      _isAddingNewDocument    = widget.initialData!['isAddingNewDocument'] ?? false;
+      _passengerSearchVisible = widget.initialData!['passengerSearchVisible'] ?? false;
+      _editingDocument        = widget.initialData!['editingDocument'] ?? false;
+      _changingDocumentOnly   = widget.initialData!['changingDocumentOnly'] ?? false;
     }
 
     _dateOfBirthController = TextEditingController(
@@ -312,7 +344,6 @@ class _PassengerFormCardState extends State<PassengerFormCard> {
     });
 
     _loadReferences();
-
   }
 
   Future<void> _loadReferences() async {
@@ -343,72 +374,78 @@ class _PassengerFormCardState extends State<PassengerFormCard> {
   }
 
   @override
-void didUpdateWidget(PassengerFormCard oldWidget) {
-  super.didUpdateWidget(oldWidget);
+  void didUpdateWidget(PassengerFormCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
 
-  if (oldWidget.passengerIndex != widget.passengerIndex ||
-      oldWidget.initialData != widget.initialData) {
+    if (oldWidget.passengerIndex != widget.passengerIndex ||
+        oldWidget.initialData != widget.initialData) {
 
-    _firstNameController.removeListener(_onFormChanged);
-    _lastNameController.removeListener(_onFormChanged);
-    _documentNumberController.removeListener(_onDocumentNumberChanged);
-    _dateOfBirthController.removeListener(_handleDateOfBirthInput);
-    _documentIssueController.removeListener(_handleDocumentIssueInput);
-    _documentExpireController.removeListener(_handleDocumentExpireInput);
+      _firstNameController.removeListener(_onFormChanged);
+      _lastNameController.removeListener(_onFormChanged);
+      _documentNumberController.removeListener(_onDocumentNumberChanged);
+      _dateOfBirthController.removeListener(_handleDateOfBirthInput);
+      _documentIssueController.removeListener(_handleDocumentIssueInput);
+      _documentExpireController.removeListener(_handleDocumentExpireInput);
 
-    _firstNameController.text      = widget.initialData?['firstName'] ?? '';
-    _lastNameController.text       = widget.initialData?['lastName'] ?? '';
-    _documentNumberController.text = widget.initialData?['documentNumber'] ?? '';
+      _firstNameController.text      = widget.initialData?['firstName'] ?? '';
+      _lastNameController.text       = widget.initialData?['lastName'] ?? '';
+      _documentNumberController.text = widget.initialData?['documentNumber'] ?? '';
 
-    setState(() {
-      _selectedSexId          = widget.initialData?['sexId']?.toString();
-      _dateOfBirth            = widget.initialData?['dateOfBirth'];
-      _documentIssue          = widget.initialData?['documentIssue'];
-      _documentExpire         = widget.initialData?['documentExpire'];
-      _selectedCitizenshipId  = widget.initialData?['citizenshipId'];
-      _selectedDocumentTypeId = widget.initialData?['documentTypeId'];
-      _isSaved                = widget.initialData?['isSaved'] ?? false;
-      _foundPassengerId       = widget.initialData?['foundPassengerId'];
-      _documentChanged        = false;
-      _dateOfBirthTouched     = false;
-      _documentIssueTouched   = false;
-      _documentExpireTouched  = false;
-      _citizenshipTouched     = false;
-      _documentTypeTouched    = false;
-      _documentNumberTouched  = false;
-      _documentIssueInvalid   = false;
+      setState(() {
+        _selectedSexId          = widget.initialData?['sexId']?.toString();
+        _dateOfBirth            = widget.initialData?['dateOfBirth'];
+        _documentIssue          = widget.initialData?['documentIssue'];
+        _documentExpire         = widget.initialData?['documentExpire'];
+        _selectedCitizenshipId  = widget.initialData?['citizenshipId'];
+        _selectedDocumentTypeId = widget.initialData?['documentTypeId'];
+        _isSaved                = widget.initialData?['isSaved'] ?? false;
+        _foundPassengerId       = widget.initialData?['foundPassengerId'];
+        _documentSearched       = widget.initialData?['documentSearched'] ?? false;
+        _documentChanged        = false;
+        _isAddingNewDocument    = widget.initialData?['isAddingNewDocument'] ?? false;
+        _passengerSearchVisible = widget.initialData?['passengerSearchVisible'] ?? false;
+        _editingDocument        = widget.initialData?['editingDocument'] ?? false;
+        _changingDocumentOnly   = widget.initialData?['changingDocumentOnly'] ?? false;
 
-      if (_selectedSexId == null && _sexes.isNotEmpty) {
-        _selectedSexId = _sexes.first['id'].toString();
+        _dateOfBirthTouched     = false;
+        _documentIssueTouched   = false;
+        _documentExpireTouched  = false;
+        _citizenshipTouched     = false;
+        _documentTypeTouched    = false;
+        _documentNumberTouched  = false;
+        _documentIssueInvalid   = false;
+
+        if (_selectedSexId == null && _sexes.isNotEmpty) {
+          _selectedSexId = _sexes.first['id'].toString();
+        }
+        if (_selectedCitizenshipId == null && _citizenships.isNotEmpty) {
+          _selectedCitizenshipId = _citizenships.first['citizenshipId'] as int;
+        }
+        if (_selectedDocumentTypeId == null && _documentTypes.isNotEmpty) {
+          _selectedDocumentTypeId = _documentTypes.first['documentTypeId'] as int;
+        }
+
+        _dateOfBirthController.text = _dateOfBirth != null
+            ? DateFormat('dd.MM.yyyy').format(_dateOfBirth!) : '';
+        _documentIssueController.text = _documentIssue != null
+            ? DateFormat('dd.MM.yyyy').format(_documentIssue!) : '';
+        _documentExpireController.text = _documentExpire != null
+            ? DateFormat('dd.MM.yyyy').format(_documentExpire!) : '';
+      });
+
+      _firstNameController.addListener(_onFormChanged);
+      _lastNameController.addListener(_onFormChanged);
+      _documentNumberController.addListener(_onDocumentNumberChanged);
+      _dateOfBirthController.addListener(_handleDateOfBirthInput);
+      _documentIssueController.addListener(_handleDocumentIssueInput);
+      _documentExpireController.addListener(_handleDocumentExpireInput);
+
+      if (oldWidget.passengerIndex != widget.passengerIndex) {
+        _removeDatePicker();
       }
-      if (_selectedCitizenshipId == null && _citizenships.isNotEmpty) {
-        _selectedCitizenshipId = _citizenships.first['citizenshipId'] as int;
-      }
-      if (_selectedDocumentTypeId == null && _documentTypes.isNotEmpty) {
-        _selectedDocumentTypeId = _documentTypes.first['documentTypeId'] as int;
-      }
-
-      _dateOfBirthController.text = _dateOfBirth != null
-          ? DateFormat('dd.MM.yyyy').format(_dateOfBirth!) : '';
-      _documentIssueController.text = _documentIssue != null
-          ? DateFormat('dd.MM.yyyy').format(_documentIssue!) : '';
-      _documentExpireController.text = _documentExpire != null
-          ? DateFormat('dd.MM.yyyy').format(_documentExpire!) : '';
-    });
-
-    _firstNameController.addListener(_onFormChanged);
-    _lastNameController.addListener(_onFormChanged);
-    _documentNumberController.addListener(_onDocumentNumberChanged);
-    _dateOfBirthController.addListener(_handleDateOfBirthInput);
-    _documentIssueController.addListener(_handleDocumentIssueInput);
-    _documentExpireController.addListener(_handleDocumentExpireInput);
-
-    // ← тільки при зміні пасажира закриваємо picker
-    if (oldWidget.passengerIndex != widget.passengerIndex) {
-      _removeDatePicker();
     }
   }
-}
+
   @override
   Widget build(BuildContext context) => _buildForm(context);
 

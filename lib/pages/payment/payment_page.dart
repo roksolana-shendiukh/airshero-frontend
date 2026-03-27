@@ -154,7 +154,7 @@ class _PaymentPageState extends State<PaymentPage> {
       setState(() {
         _bookingId     = result['bookingId'];
         _bookingNumber = result['bookingNumber'];
-        _expiresAt     = DateTime.parse(result['expiresAt']);
+        _expiresAt = DateTime.parse(result['expiresAt']).toLocal();
         _isCreatingBooking = false;
       });
 
@@ -228,24 +228,25 @@ class _PaymentPageState extends State<PaymentPage> {
   }
 
   void _startTimer() {
-    if (_expiresAt == null) return;
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      final diff = _expiresAt!.toUtc().difference(DateTime.now().toUtc());
-      
-      if (diff.isNegative) {
-        _timer?.cancel();
-        setState(() {
-          _timeLeft = Duration.zero;
+    _timeLeft = const Duration(minutes: 10);
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      setState(() {
+        if (_timeLeft.inSeconds <= 0) {
+          timer.cancel();
           _isExpired = true;
-        });
-        
+        } else {
+          _timeLeft = _timeLeft - const Duration(seconds: 1);
+        }
+      });
+      if (_timeLeft.inSeconds <= 0 && mounted) {
         _showTimeoutDialog();
-      } else {
-        setState(() => _timeLeft = diff);
       }
     });
   }
-
   void _showTimeoutDialog() {
     showDialog(
       context: context,

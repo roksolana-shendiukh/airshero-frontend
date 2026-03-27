@@ -7,18 +7,24 @@ class PassengerSearchBar extends StatefulWidget {
   final AuthService authService;
   final void Function(PassengerModel passenger) onPassengerFound;
   final void Function() onClear;
+  final void Function()? onAddDocument;
+  final void Function()? onSearched;
   final String? initialDocumentNumber;
   final Set<String> usedDocumentNumbers;
   final ValueChanged<String>? onTextChanged;
+  final DateTime? departDate;
 
   const PassengerSearchBar({
     super.key,
     required this.authService,
     required this.onPassengerFound,
     required this.onClear,
+    this.onAddDocument,
+    this.onSearched,
     this.initialDocumentNumber,
     this.usedDocumentNumbers = const {},
     this.onTextChanged,
+    this.departDate,
   });
 
   @override
@@ -58,12 +64,11 @@ class _PassengerSearchBarState extends State<PassengerSearchBar> {
   }
 
   Future<void> _onChanged(String value) async {
-    widget.onTextChanged?.call(value); 
+    widget.onTextChanged?.call(value);
     setState(() {
       _notFound = false;
       _duplicateError = false;
     });
-    widget.onClear();
 
     if (value.trim().length < 2) {
       _suggestionsNotifier.value = [];
@@ -76,7 +81,10 @@ class _PassengerSearchBarState extends State<PassengerSearchBar> {
     _showOverlay();
 
     final api = PassengerApiService(widget.authService);
-    final results = await api.getDocumentSuggestions(value.trim());
+    final results = await api.getDocumentSuggestions(
+      value.trim(),
+      departDate: widget.departDate,
+    );
 
     if (!mounted) return;
 
@@ -135,6 +143,8 @@ class _PassengerSearchBarState extends State<PassengerSearchBar> {
       _isLoadingPassenger = false;
       _notFound = passenger == null;
     });
+
+    widget.onSearched?.call();
 
     if (passenger != null) {
       widget.onPassengerFound(passenger);
@@ -204,8 +214,10 @@ class _PassengerSearchBarState extends State<PassengerSearchBar> {
                                 .map((s) => _SuggestionTile(
                                       documentNumber:
                                           s['document_number'] as String,
-                                      firstName: s['first_name'] as String? ?? '',
-                                      lastName: s['last_name'] as String? ?? '',
+                                      firstName:
+                                          s['first_name'] as String? ?? '',
+                                      lastName:
+                                          s['last_name'] as String? ?? '',
                                       onTap: () => _selectSuggestion(s),
                                     ))
                                 .toList(),
@@ -267,7 +279,8 @@ class _PassengerSearchBarState extends State<PassengerSearchBar> {
               style: TextStyle(color: colors.onSurface),
               cursorColor: colors.primary,
               decoration: InputDecoration(
-                prefixIcon: Icon(Icons.contact_page_outlined, color: colors.primary),
+                prefixIcon:
+                    Icon(Icons.contact_page_outlined, color: colors.primary),
                 suffixIcon: _isLoadingPassenger
                     ? Padding(
                         padding: const EdgeInsets.all(12),
@@ -303,16 +316,39 @@ class _PassengerSearchBarState extends State<PassengerSearchBar> {
         if (_notFound) ...[
           const SizedBox(height: 8),
           Padding(
-            padding: const EdgeInsets.only(left: 16),
+            padding: const EdgeInsets.only(left: 4),
             child: Row(
               children: [
                 Icon(Icons.info_outline, size: 14, color: colors.error),
                 const SizedBox(width: 6),
                 Text(
-                  'No passenger found with this document number',
+                  'Document not found',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: colors.error,
                       ),
+                ),
+                const SizedBox(width: 12),
+                TextButton.icon(
+                  onPressed: () {
+                    setState(() => _notFound = false);
+                    widget.onAddDocument?.call();
+                  },
+                  icon: Icon(Icons.add_card_outlined,
+                      size: 16, color: colors.primary),
+                  label: Text(
+                    'Add Document',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: colors.primary,
+                    ),
+                  ),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
                 ),
               ],
             ),
@@ -382,7 +418,8 @@ class _SuggestionTileState extends State<_SuggestionTile> {
             onTap: widget.onTap,
             borderRadius: BorderRadius.circular(8),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               child: Row(
                 children: [
                   Icon(Icons.contact_page_outlined,
@@ -400,7 +437,7 @@ class _SuggestionTileState extends State<_SuggestionTile> {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          '- ${widget.firstName} ${widget.lastName}',
+                          '— ${widget.firstName} ${widget.lastName}',
                           style: TextStyle(
                             color: colors.onSurfaceVariant,
                             fontSize: 13,

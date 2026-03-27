@@ -35,6 +35,17 @@ extension PassengerFormValidators on _PassengerFormCardState {
     return null;
   }
 
+  bool _validateDocumentFields() {
+    if (_documentDatesMismatchMessage != null) return false;
+    if (_documentNumberInvalid) return false;
+    if (!_isDocumentNumberValid(_documentNumberController.text)) return false;
+    return _documentNumberController.text.isNotEmpty &&
+        _documentIssue != null &&
+        _documentExpire != null &&
+        _selectedCitizenshipId != null &&
+        _selectedDocumentTypeId != null;
+  }
+
   bool _isDocumentNumberValid(String number) {
     final code = _selectedDocTypeCode;
     if (code == null || number.isEmpty) return true;
@@ -70,21 +81,33 @@ extension PassengerFormValidators on _PassengerFormCardState {
   }
 
   bool _validateForm() {
-    if (_ageMismatchMessage != null) return false;
     if (_documentDatesMismatchMessage != null) return false;
-    if (_firstNameController.text.length < 3) return false;
-    if (_lastNameController.text.length < 3) return false;
     if (_documentNumberInvalid) return false;
     if (!_isDocumentNumberValid(_documentNumberController.text)) return false;
-    return _firstNameController.text.isNotEmpty &&
-        _lastNameController.text.isNotEmpty &&
-        _dateOfBirth != null &&
-        _selectedSexId != null &&
+
+    // В режимі "Save Document" перевіряємо тільки поля документа
+    final documentOnly = _isAddingNewDocument && !_passengerSearchVisible;
+
+    if (!documentOnly) {
+      if (_ageMismatchMessage != null) return false;
+      if (_firstNameController.text.length < 3) return false;
+      if (_lastNameController.text.length < 3) return false;
+    }
+
+    final documentValid =
         _documentNumberController.text.isNotEmpty &&
         _documentIssue != null &&
         _documentExpire != null &&
         _selectedCitizenshipId != null &&
         _selectedDocumentTypeId != null;
+
+    if (documentOnly) return documentValid;
+
+    return documentValid &&
+        _firstNameController.text.isNotEmpty &&
+        _lastNameController.text.isNotEmpty &&
+        _dateOfBirth != null &&
+        _selectedSexId != null;
   }
 
   String? get _documentDatesMismatchMessage {
@@ -113,7 +136,7 @@ extension PassengerFormValidators on _PassengerFormCardState {
           _documentIssue!.year + minYears,
           _documentIssue!.month,
           _documentIssue!.day,
-        );
+        ).subtract(const Duration(days: 1));
         if (_documentExpire!.isBefore(minExpireFromIssue)) {
           final label = const {
             'PAS': 'Passport',

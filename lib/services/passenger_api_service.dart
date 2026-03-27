@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:intl/intl.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
@@ -95,6 +96,36 @@ class PassengerApiService {
     }
   }
 
+  Future<List<PassengerModel>> searchPassengers(
+    String query, {
+    String? passengerType,
+    DateTime? departDate,
+  }) async {
+    try {
+      final uri = Uri.parse('${AppConfig.baseUrl}/passengers/search/name')
+          .replace(queryParameters: {
+        'q': query,
+        'limit': '10',
+        if (passengerType != null) 'passenger_type': passengerType,
+        if (departDate != null)
+          'depart_date': DateFormat('yyyy-MM-dd').format(departDate),
+      });
+      final response = await http.get(uri, headers: await _headers());
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data
+            .map((e) => PassengerModel.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Network error (searchPassengers): $e');
+      return [];
+    }
+  }
+
+  
   Future<PassengerModel?> createPassenger({
     required String firstName,
     required String lastName,
@@ -227,21 +258,32 @@ class PassengerApiService {
     }
   }
 
-  Future<List<Map<String, dynamic>>> getDocumentSuggestions(String query) async {
-  try {
-    final uri = Uri.parse('${AppConfig.baseUrl}/passengers/search/suggestions')
-        .replace(queryParameters: {'q': query});
-    final response = await http.get(uri, headers: await _headers());
-
-    if (response.statusCode == 200) {
-      final List<dynamic> data = jsonDecode(response.body);
-      debugPrint('Suggestions response: ${response.body}'); 
-      return data.cast<Map<String, dynamic>>();
+  Future<List<Map<String, dynamic>>> getDocumentSuggestions(
+      String query, {
+      DateTime? departDate,
+      String? passengerType,
+    }) async {
+    try {
+      final params = <String, String>{'q': query};
+      if (departDate != null) {
+        params['depart_date'] = DateFormat('yyyy-MM-dd').format(departDate);
+      }
+      if (passengerType != null) {
+        params['passenger_type'] = passengerType;
+      }
+      final uri = Uri.parse('${AppConfig.baseUrl}/passengers/search/suggestions')
+          .replace(queryParameters: params);
+      final response = await http.get(uri, headers: await _headers());
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.cast<Map<String, dynamic>>();
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Network error (getDocumentSuggestions): $e');
+      return [];
     }
-    return [];
-  } catch (e) {
-    debugPrint('Network error (getDocumentSuggestions): $e');
-    return [];
   }
-}
+
+
 }

@@ -17,12 +17,15 @@ class ReferenceApiService {
     };
   }
 
-  Future<List<Map<String, dynamic>>> getCitizenships() async {
+  Future<List<Map<String, dynamic>>> getCitizenships({String? query}) async {
     try {
-      final response = await http.get(
-        Uri.parse('${AppConfig.baseUrl}/citizenships'),
-        headers: await _headers(),
-      );
+      final params = <String, String>{};
+      if (query != null && query.isNotEmpty) {
+        params['q'] = query;
+      }
+      final uri = Uri.parse('${AppConfig.baseUrl}/citizenships')
+          .replace(queryParameters: params.isEmpty ? null : params);
+      final response = await http.get(uri, headers: await _headers());
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         return data.cast<Map<String, dynamic>>();
