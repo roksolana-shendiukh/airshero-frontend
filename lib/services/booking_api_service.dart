@@ -5,6 +5,7 @@ import '../config/app_config.dart';
 import '../models/city_model.dart';
 import '../models/flight_model.dart';
 import '../services/auth_service.dart';
+import '../models/flight_alternatives_model.dart';
 
 class BookingApiService {
   final AuthService _authService;
@@ -70,15 +71,24 @@ class BookingApiService {
     return [];
   }
 
-  Future<List<CityModel>> getAlternatives(int fromCityId) async {
-    final uri = Uri.parse('${AppConfig.baseUrl}/cities/alternatives/$fromCityId');
+  Future<FlightAlternatives> getAlternatives(int fromCityId, int toCityId) async {
+    final uri = Uri.parse('${AppConfig.baseUrl}/alternatives').replace(
+      queryParameters: {
+        'from_city': fromCityId.toString(),
+        'to_city': toCityId.toString(),
+      },
+    );
+
     final response = await http.get(uri, headers: await _headers());
+
     if (response.statusCode == 200) {
-      final List<dynamic> data = jsonDecode(response.body);
-      return data.map((e) => CityModel.fromJson(e)).toList();
+      final Map<String, dynamic> data = json.decode(response.body);
+      return FlightAlternatives.fromJson(data);
+    } else {
+      throw Exception('Failed to load alternatives');
     }
-    return [];
   }
+
 
   Future<List<String>> getAvailableDates(int fromCityId, int toCityId) async {
     try {
@@ -245,4 +255,15 @@ class BookingApiService {
     return [];
   }
 }
+
+  Future<Map<String, dynamic>> createGroupBooking(Map<String, dynamic> body) async {
+    final uri = Uri.parse('${AppConfig.baseUrl}/bookings/group');
+    final response = await http.post(uri, headers: await _headers(), body: jsonEncode(body));
+    if (response.statusCode == 201) {
+      return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+    }
+    final error = jsonDecode(response.body);
+    throw Exception((error['detail'] ?? 'Failed to create group booking').toString());
+  }
+
 }

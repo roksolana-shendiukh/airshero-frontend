@@ -33,10 +33,10 @@ class _CheckInSeatMapStepState extends State<CheckInSeatMapStep> {
   int?    _selectedLayoutId;
 
   static const _classColors = {
-    0: Color(0xFF00BCD4), // Economy         — бірюзовий
-    1: Color(0xFF2196F3), // Premium Economy  — синій
-    2: Color(0xFFFF6B9D), // Business         — рожевий
-    3: Color(0xFFFFD700), // First            — золотистий
+    0: Color(0xFF00BCD4),
+    1: Color(0xFF2196F3), 
+    2: Color(0xFFFF6B9D), 
+    3: Color(0xFFFFD700), 
   };
 
   Color _baseColor(int classId) =>
@@ -83,8 +83,6 @@ class _CheckInSeatMapStepState extends State<CheckInSeatMapStep> {
       });
     }
   }
-
-  // ── Helpers ───────────────────────────────────────────────────────────────
 
   List<String> get _columns {
     final cols = _seats.map((s) => s['column'] as String).toSet().toList();
@@ -144,12 +142,9 @@ class _CheckInSeatMapStepState extends State<CheckInSeatMapStep> {
     return names[classId] ?? 'Unknown';
   }
 
-  // Висота колонки місць для роздільника між класами
   double _columnHeight(List<String> cols) {
     return cols.length * 40.0 + (cols.length ~/ 2) * 16.0;
   }
-
-  // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -204,8 +199,6 @@ class _CheckInSeatMapStepState extends State<CheckInSeatMapStep> {
     );
   }
 
-  // ── Legend ────────────────────────────────────────────────────────────────
-
   Widget _buildLegend() {
     final colors = Theme.of(context).colorScheme;
 
@@ -214,7 +207,6 @@ class _CheckInSeatMapStepState extends State<CheckInSeatMapStep> {
       runSpacing: 8,
       children: [
 
-        // Клас пасажира
         _LegendItem(
           color:      _baseColor(widget.passengerClassId),
           label:      '${_classNameById(widget.passengerClassId)} (your class)',
@@ -222,7 +214,6 @@ class _CheckInSeatMapStepState extends State<CheckInSeatMapStep> {
           isOnFlight: true,
         ),
 
-        // Інші класи на рейсі — сірі (один пункт)
         if (_flightClassIds.any((id) => id != widget.passengerClassId))
           const _LegendItem(
             color:      Color(0xFF9E9E9E),
@@ -231,7 +222,6 @@ class _CheckInSeatMapStepState extends State<CheckInSeatMapStep> {
             isOnFlight: true,
           ),
 
-        // Класи не на рейсі — ледь видні (один пункт)
         if (_classColors.keys.any((id) => !_flightClassIds.contains(id)))
           const _LegendItem(
             color:      Color(0xFF9E9E9E),
@@ -240,7 +230,6 @@ class _CheckInSeatMapStepState extends State<CheckInSeatMapStep> {
             isOnFlight: false,
           ),
 
-        // Вибране
         _LegendItem(
           color:      colors.primary,
           label:      'Selected',
@@ -249,7 +238,6 @@ class _CheckInSeatMapStepState extends State<CheckInSeatMapStep> {
           isSelected: true,
         ),
 
-        // Зайняте
         const _LegendItem(
           color:      Color(0xFF9E9E9E),
           label:      'Occupied',
@@ -258,7 +246,6 @@ class _CheckInSeatMapStepState extends State<CheckInSeatMapStep> {
           isOccupied: true,
         ),
 
-        // Аварійний вихід
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -281,8 +268,7 @@ class _CheckInSeatMapStepState extends State<CheckInSeatMapStep> {
     );
   }
 
-  // ── Seat map ──────────────────────────────────────────────────────────────
-
+  
   Widget _buildSeatMap() {
     final cols = _columns;
     final rows = _rows;
@@ -293,7 +279,6 @@ class _CheckInSeatMapStepState extends State<CheckInSeatMapStep> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
 
-          // Колонки зліва вертикально
           Padding(
             padding: const EdgeInsets.only(top: 20),
             child: Column(
@@ -324,7 +309,6 @@ class _CheckInSeatMapStepState extends State<CheckInSeatMapStep> {
 
           const SizedBox(width: 4),
 
-          // Ряди горизонтально
           ...rows.asMap().entries.map((entry) {
             final rowIndex    = entry.key;
             final row         = entry.value;
@@ -336,9 +320,7 @@ class _CheckInSeatMapStepState extends State<CheckInSeatMapStep> {
                 ? _rowHasEmergencyExit(rows[rowIndex + 1])
                 : false;
 
-            // Відступ перед аварійним рядом (якщо попередній не аварійний)
             final gapBefore = isEmergency && !prevIsEmergency;
-            // Відступ після аварійного ряду (якщо наступний не аварійний)
             final gapAfter  = isEmergency && !nextIsEmergency;
 
             return Row(

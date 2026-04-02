@@ -414,6 +414,8 @@ class _PassengerFormCardState extends State<PassengerFormCard> {
         _documentTypeTouched    = false;
         _documentNumberTouched  = false;
         _documentIssueInvalid   = false;
+        _documentNumberInvalid     = false;
+        _documentNumberExistsError = false;
 
         if (_selectedSexId == null && _sexes.isNotEmpty) {
           _selectedSexId = _sexes.first['id'].toString();

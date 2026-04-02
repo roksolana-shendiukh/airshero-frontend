@@ -16,6 +16,7 @@ import '../services/recent_searches_service.dart';
 import '../config/routes.dart';
 import '../services/navigation_storage_service.dart';
 import '../models/flight_model.dart';
+import '../models/booking_group_draft.dart';
 
 class SearchResultsPage extends StatefulWidget {
   final int fromCityId;
@@ -26,6 +27,11 @@ class SearchResultsPage extends StatefulWidget {
   final DateTime? returnDate;
   final Map<String, int> passengers;
 
+  // multi-segment: якщо не null — це leg-1 або leg-2 пошук
+  final BookingGroupDraft? bookingGroupDraft;
+  // дата для leg-2 (С→Б), передається з BookingsPage через leg-1
+  final DateTime? leg2Date;
+
   const SearchResultsPage({
     super.key,
     required this.fromCityId,
@@ -35,6 +41,8 @@ class SearchResultsPage extends StatefulWidget {
     required this.departDate,
     this.returnDate,
     required this.passengers,
+    this.bookingGroupDraft,
+    this.leg2Date,
   });
 
   @override
@@ -61,6 +69,13 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
   final _recentSearchesService = RecentSearchesService();
 
   bool get _isRoundTrip => widget.returnDate != null;
+
+  // leg-1: є draft і є leg2Date — обираємо перший рейс А→С
+  // leg-2: є draft але немає leg2Date — обираємо другий рейс С→Б
+  bool get _isLeg1 =>
+      widget.bookingGroupDraft != null && widget.leg2Date != null;
+  bool get _isLeg2 =>
+      widget.bookingGroupDraft != null && widget.leg2Date == null;
 
   @override
   void initState() {
@@ -102,7 +117,6 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
       final results = await Future.wait(futures);
 
       _outboundFlightIds = results[0].map((f) => f.flightId).toSet().toList();
-      debugPrint('outboundFlightIds: $_outboundFlightIds');
       if (_isRoundTrip && results.length > 1) {
         _returnFlightIds = results[1].map((f) => f.flightId).toSet().toList();
       }
@@ -161,7 +175,8 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
       final authService = context.read<AuthService>();
       final service = BookingApiService(authService);
 
-      final hasAnyClass = newState.passengerClasses.values.any((c) => c == Class.any);
+      final hasAnyClass =
+          newState.passengerClasses.values.any((c) => c == Class.any);
       final classNames = hasAnyClass
           ? null
           : newState.passengerClasses.values
@@ -187,13 +202,15 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
             ? newState.selectedMaxPrice
             : null,
         airlineNames: airlineNames,
-        sortBy: newState.sortOrder == SortOrder.priceAsc ? 'price_asc' : 'price_desc',
+        sortBy:
+            newState.sortOrder == SortOrder.priceAsc ? 'price_asc' : 'price_desc',
         departureSlots: departureSlots,
       );
 
       List<FlightModel> returnFiltered = [];
       if (_isRoundTrip && _returnFlightIds.isNotEmpty) {
-        final hasAnyReturnClass = newState.returnPassengerClasses.values.any((c) => c == Class.any);
+        final hasAnyReturnClass =
+            newState.returnPassengerClasses.values.any((c) => c == Class.any);
         final returnClassNames = hasAnyReturnClass
             ? null
             : newState.returnPassengerClasses.values
@@ -215,7 +232,9 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
               ? newState.selectedMaxPrice
               : null,
           airlineNames: airlineNames,
-          sortBy: newState.sortOrder == SortOrder.priceAsc ? 'price_asc' : 'price_desc',
+          sortBy: newState.sortOrder == SortOrder.priceAsc
+              ? 'price_asc'
+              : 'price_desc',
           departureSlots: returnSlots,
         );
       }
@@ -251,7 +270,7 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
       if (mounted) setState(() => _isFiltering = false);
     }
   }
-  
+
   Map<String, String> _buildClassLabels(FlightCombo combo) {
     final Map<String, String> result = {};
     for (final a in combo.outboundAssignments) {
@@ -285,6 +304,91 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
         ? resolvedCombo.outboundAssignments.first.flightClassId
         : 0;
 
+    // Будуємо сегмент з обраного рейсу
+    final segment = BookingSegmentDraft(
+      flightId: resolvedCombo.outbound.flightId,
+      flightClassId: outboundFlightClassId,
+      fromCity: widget.fromCity,
+      toCity: widget.toCity,
+      fromCityId: widget.fromCityId,
+      toCityId: widget.toCityId,
+      fromAirportCode: resolvedCombo.outbound.departsCode,
+      toAirportCode: resolvedCombo.outbound.arrivesCode,
+      departureTime: resolvedCombo.outbound.departureTime,
+      arrivalTime: resolvedCombo.outbound.arrivalTime,
+      duration: resolvedCombo.outbound.formattedDuration,
+      airlineName: resolvedCombo.outbound.airlineName,
+      airlineLogoUrl: resolvedCombo.outbound.airlineLogoUrl ?? '',
+      departDate: widget.departDate,
+      passengerClassLabels: _buildClassLabels(resolvedCombo),
+      basePrice: resolvedCombo.totalPrice,
+      assignments: serializeAssignments(resolvedCombo.outboundAssignments),
+    );
+
+    // ── leg-1: обрали рейс А→С → йдемо на пошук С→Б ────────────────────────
+    if (_isLeg1) {
+      final updatedDraft = BookingGroupDraft(
+        segments: [segment],
+        passengers: widget.passengers,
+        finalDestinationCityId:
+            widget.bookingGroupDraft!.finalDestinationCityId,
+        finalDestinationCity: widget.bookingGroupDraft!.finalDestinationCity,
+      );
+
+      final leg2Args = SearchResultsArguments(
+        fromCityId: widget.toCityId,
+        fromCity: widget.toCity,
+        toCityId: updatedDraft.finalDestinationCityId,
+        toCity: updatedDraft.finalDestinationCity,
+        departDate: widget.leg2Date!,
+        passengers: widget.passengers,
+        bookingGroupDraft: updatedDraft,
+        // leg2Date не передаємо — щоб leg-2 знав що він leg-2
+      );
+
+      if (!mounted) return;
+      context.push('/search-results/leg-2', extra: leg2Args);
+      return;
+    }
+
+    // ── leg-2: обрали рейс С→Б → йдемо на багаж сегменту 1 (А→С) ───────────
+    if (_isLeg2) {
+      final updatedDraft =
+          widget.bookingGroupDraft!.withSecondSegment(segment);
+
+      final seg1 = updatedDraft.firstSegment;
+
+      final baggageArgs = BaggageSelectionArguments(
+        fromCity: seg1.fromCity,
+        toCity: seg1.toCity,
+        departDate: seg1.departDate,
+        passengers: widget.passengers,
+        passengerClassLabels: seg1.passengerClassLabels,
+        airlineName: seg1.airlineName,
+        airlineLogoUrl: seg1.airlineLogoUrl,
+        fromAirportCode: seg1.fromAirportCode,
+        toAirportCode: seg1.toAirportCode,
+        departureTime: seg1.departureTime,
+        arrivalTime: seg1.arrivalTime,
+        duration: seg1.duration,
+        basePrice: seg1.basePrice,
+        isRoundTrip: false,
+        outboundAssignments: seg1.assignments,
+        outboundFlightId: seg1.flightId,
+        outboundFlightClassId: seg1.flightClassId,
+        bookingGroupDraft: updatedDraft,
+        segmentIndex: 0,
+      );
+
+      debugPrint('Saving baggage args for leg-1...');
+      await NavigationStorageService.saveBaggageArgs(baggageArgs.toMap());
+
+      if (!mounted) return;
+      context.go('/baggage-selection', extra: baggageArgs);
+      return;
+    }
+
+    // ── звичайний флоу (один рейс або round-trip) ────────────────────────────
     final args = BaggageSelectionArguments(
       fromCity: widget.fromCity,
       toCity: widget.toCity,
@@ -301,7 +405,8 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
       duration: resolvedCombo.outbound.formattedDuration,
       basePrice: resolvedCombo.totalPrice,
       isRoundTrip: _isRoundTrip,
-      outboundAssignments: serializeAssignments(resolvedCombo.outboundAssignments),
+      outboundAssignments:
+          serializeAssignments(resolvedCombo.outboundAssignments),
       returnAssignments: serializeAssignments(resolvedCombo.returnAssignments),
       outboundFlightId: resolvedCombo.outbound.flightId,
       outboundFlightClassId: outboundFlightClassId,
@@ -338,7 +443,8 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
             const SizedBox(height: 16),
             Text(_error!, style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
-            TextButton(onPressed: _loadFlights, child: const Text('Try again')),
+            TextButton(
+                onPressed: _loadFlights, child: const Text('Try again')),
           ],
         ),
       );
@@ -348,7 +454,9 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              _allCombos.isEmpty ? Icons.airplane_ticket : Icons.filter_alt_off,
+              _allCombos.isEmpty
+                  ? Icons.airplane_ticket
+                  : Icons.filter_alt_off,
               size: 48,
               color: Colors.grey,
             ),
@@ -366,7 +474,8 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
                   FlightFilterState.fromCombos(
                     combos: _allCombos,
                     passengerClasses: {
-                      for (final e in _passengerClasses.entries) e.key: Class.any
+                      for (final e in _passengerClasses.entries)
+                        e.key: Class.any
                     },
                   ),
                 ),
@@ -451,9 +560,11 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
               ),
             ),
             child: InkWell(
-              onTap: () => setState(() => _filtersExpanded = !_filtersExpanded),
+              onTap: () =>
+                  setState(() => _filtersExpanded = !_filtersExpanded),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Row(
                   children: [
                     const Icon(Icons.tune, size: 20),
@@ -526,11 +637,10 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
         returnDate: widget.returnDate,
         totalPassengers: totalPassengers,
         flightClass: _classLabel,
-        currentStep: 'search',
+        currentStep: _isLeg2 ? 'search-leg-2' : 'search',
         onBack: _handleBack,
       ),
       body: body,
     );
   }
 }
-

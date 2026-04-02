@@ -561,9 +561,7 @@ class _OperationInfoBarState extends State<_OperationInfoBar> {
         return null;
         case 'Departed':
           return _parseDatetime(op.actualDepartureDatetime);
-        // case 'Arrived':
-        //   return _parseDatetime(op.actualArrivalDatetime);
-      default:
+        default:
         return null;
     }
   }

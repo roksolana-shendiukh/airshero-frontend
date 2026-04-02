@@ -13,6 +13,7 @@ class PassengerSearchBar extends StatefulWidget {
   final Set<String> usedDocumentNumbers;
   final ValueChanged<String>? onTextChanged;
   final DateTime? departDate;
+  final String? passengerType;
 
   const PassengerSearchBar({
     super.key,
@@ -25,6 +26,7 @@ class PassengerSearchBar extends StatefulWidget {
     this.usedDocumentNumbers = const {},
     this.onTextChanged,
     this.departDate,
+    this.passengerType, 
   });
 
   @override
@@ -81,9 +83,11 @@ class _PassengerSearchBarState extends State<PassengerSearchBar> {
     _showOverlay();
 
     final api = PassengerApiService(widget.authService);
+    
     final results = await api.getDocumentSuggestions(
       value.trim(),
       departDate: widget.departDate,
+      passengerType: widget.passengerType, 
     );
 
     if (!mounted) return;
@@ -91,9 +95,12 @@ class _PassengerSearchBarState extends State<PassengerSearchBar> {
     _suggestionsNotifier.value = results;
     _isSearchingNotifier.value = false;
 
-    if (results.isEmpty) _hideOverlay();
+    if (results.isEmpty) {
+      _hideOverlay();
+    } else {
+      _showOverlay(); 
+    }
   }
-
   Future<void> _selectSuggestion(Map<String, dynamic> suggestion) async {
     final docNumber = (suggestion['document_number'] as String?) ?? '';
     if (docNumber.isEmpty) return;
@@ -376,6 +383,7 @@ class _PassengerSearchBarState extends State<PassengerSearchBar> {
       ],
     );
   }
+
 }
 
 class _SuggestionTile extends StatefulWidget {

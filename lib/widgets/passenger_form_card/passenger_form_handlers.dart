@@ -2,7 +2,13 @@ part of 'passenger_form_card.dart';
 
 extension PassengerFormHandlers on _PassengerFormCardState {
   void _onFormChanged() {
-    if (_isSaved) setState(() => _isSaved = false);
+    setState(() {
+      if (_isAddingNewDocument) {
+        if (_isPassengerSaved) _isPassengerSaved = false;
+      } else {
+        if (_isSaved) _isSaved = false;
+      }
+    });
     _notifyParent();
   }
 
@@ -274,7 +280,7 @@ extension PassengerFormHandlers on _PassengerFormCardState {
 
       _foundPassengerId          = passenger.passengerId;
       _documentChanged           = false;
-      _isSaved                   = false;
+      _isSaved                   = true;
       _isAddingNewDocument       = false;
 
       _dateOfBirthInvalid        = false;
@@ -292,6 +298,10 @@ extension PassengerFormHandlers on _PassengerFormCardState {
   }
 
   void _fillFromPassengerOnly(PassengerModel passenger) {
+    debugPrint('_fillFromPassengerOnly: _isSaved=$_isSaved, _isPassengerSaved=$_isPassengerSaved, _isAddingNewDocument=$_isAddingNewDocument');
+    
+    final wasDocumentSaved = _isSaved; 
+
     setState(() {
       _firstNameController.text = passenger.firstName;
       _lastNameController.text  = passenger.lastName;
@@ -309,7 +319,7 @@ extension PassengerFormHandlers on _PassengerFormCardState {
 
       _selectedSexId = _sexNameToId(passenger.sex) ?? _selectedSexId;
 
-     if (!_passengerSearchVisible) {
+      if (!_passengerSearchVisible) {
         _documentNumberController.text = '';
         _documentIssueController.text  = '';
         _documentExpireController.text = '';
@@ -322,7 +332,6 @@ extension PassengerFormHandlers on _PassengerFormCardState {
       _foundPassengerId    = passenger.passengerId;
       _isAddingNewDocument = true;
 
-
       _documentChanged           = false;
       _isPassengerSaved          = false;
       _dateOfBirthInvalid        = false;
@@ -334,12 +343,13 @@ extension PassengerFormHandlers on _PassengerFormCardState {
       _firstNameEdited           = false;
       _lastNameEdited            = false;
       _documentNumberExistsError = false;
+      
+      _isSaved = wasDocumentSaved; 
     });
 
-    
     _notifyParent();
   }
-
+  
   void _onChangeDocument() {
     setState(() {
       _isAddingNewDocument           = true;
@@ -368,15 +378,34 @@ extension PassengerFormHandlers on _PassengerFormCardState {
 
   void _onAddDocument() {
     setState(() {
-      _documentNumberController.text = '';
-      _documentIssueController.text  = '';
-      _documentExpireController.text = '';
+      _documentNumberController.clear();
+      _documentIssueController.clear();
+      _documentExpireController.clear();
       _documentIssue                 = null;
       _documentExpire                = null;
       _originalDocumentNumber        = null;
       _originalDocumentExpire        = null;
       _originalCitizenshipId         = null;
       _originalDocumentTypeId        = null;
+
+      _firstNameController.clear();
+      _lastNameController.clear();
+      _dateOfBirthController.clear();
+      _dateOfBirth          = null;
+      _selectedSexId        = _sexes.isNotEmpty ? _sexes.first['id'].toString() : null;
+      _foundPassengerId     = null;
+      
+      _isPassengerSaved              = false;
+      _firstNameInvalid              = false;
+      _lastNameInvalid               = false;
+      _firstNameTouched              = false;
+      _lastNameTouched               = false;
+      _firstNameEdited               = false;
+      _lastNameEdited                = false;
+      _dateOfBirthTouched            = false;
+      _dateOfBirthInvalid            = false;
+      _passengerSearchVisible = false;
+
       _documentChanged               = false;
       _documentNumberInvalid         = false;
       _documentIssueInvalid          = false;
@@ -384,9 +413,9 @@ extension PassengerFormHandlers on _PassengerFormCardState {
       _documentExpireTouched         = false;
       _documentNumberTouched         = false;
       _documentNumberExistsError     = false;
-      // foundPassengerId НЕ скидаємо — якщо пасажир вже знайдений за ім'ям,
-      // він залишається. Якщо документ не знайдено взагалі — null і так.
-      _isAddingNewDocument = true;
+      
+      _isSaved                       = false; 
+      _isAddingNewDocument           = true;
     });
     _notifyParent();
   }
@@ -477,7 +506,9 @@ extension PassengerFormHandlers on _PassengerFormCardState {
       _dateOfBirth          = null;
       _selectedSexId        = _sexes.isNotEmpty ? _sexes.first['id'].toString() : null;
       _foundPassengerId     = null;
-      _isSaved              = false;
+      
+      _isPassengerSaved     = false; 
+      
       _firstNameInvalid     = false;
       _lastNameInvalid      = false;
       _firstNameTouched     = false;

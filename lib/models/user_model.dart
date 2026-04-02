@@ -133,7 +133,9 @@ enum UserRole {
         ];
       case UserRole.planningManager:
         return [
-          const MenuItem(icon: Icons.calendar_month_outlined, title: 'Planning', route: '/planning'),
+          const MenuItem(icon: Icons.calendar_month_outlined, title: 'Overview', route: '/planning/overview'),
+          const MenuItem(icon: Icons.flight_outlined, title: 'Flights', route: '/planning/flights'),
+          const MenuItem(icon: Icons.add_circle_outline, title: 'Create Flight', route: '/planning/create-flight'),
         ];
       case UserRole.systemAdmin:
         return [

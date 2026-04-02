@@ -4,16 +4,14 @@ import 'package:intl/intl.dart';
 
 import '../../services/auth_service.dart';
 import '../../services/checkin_api_service.dart';
-import '../custom/custom_input_field.dart';
 import '../custom/custom_button.dart';
-import '../custom/custom_single_date_picker.dart';
-import '../passenger_form_card/date_input_formatter.dart';
-import 'checkin_document_search_field.dart';
 
 part 'checkin_validators.dart';
 
 class CheckInSearchStep extends StatefulWidget {
   final AuthService authService;
+  final String      flightNumber;
+  final DateTime    departDate;
   final void Function({
     required String documentNumber,
     required String flightNumber,
@@ -24,6 +22,8 @@ class CheckInSearchStep extends StatefulWidget {
   const CheckInSearchStep({
     super.key,
     required this.authService,
+    required this.flightNumber,
+    required this.departDate,
     required this.onSearch,
   });
 
@@ -32,147 +32,137 @@ class CheckInSearchStep extends StatefulWidget {
 }
 
 class _CheckInSearchStepState extends State<CheckInSearchStep> {
-  final _documentNumberController = TextEditingController();
-  final _flightNumberController   = TextEditingController();
-  final _departureDateController  = TextEditingController();
+  late TextEditingController _controller;
+  final _focusNode = FocusNode();
+  final _layerLink = LayerLink();
 
-  DateTime? _departDate;
+  final ValueNotifier<List<Map<String, dynamic>>> _suggestionsNotifier =
+      ValueNotifier([]);
+  final ValueNotifier<bool> _isSearchingNotifier = ValueNotifier(false);
 
-  bool _documentNumberTouched = false;
-  bool _flightNumberTouched   = false;
-  bool _departDateTouched     = false;
-
-  bool    _isLoading = false;
+  bool    _documentNumberTouched = false;
+  bool    _isLoading             = false;
   String? _apiError;
 
-  final LayerLink _dateLayerLink         = LayerLink();
-  final FocusNode _dateFocusNode         = FocusNode();
-  final FocusNode _flightNumberFocusNode = FocusNode();
+  OverlayEntry? _overlayEntry;
 
-  OverlayEntry? _datePickerOverlay;
-  OverlayEntry? _datePickerBarrier;
-
-  bool get _isPickerOpen => _datePickerOverlay != null;
-
-  String get _flightNumberHint => 'Format: PS101 (2 chars + 1–4 digits)';
-  String get _departDateHint   => 'DD.MM.YYYY';
-
-  void _removeDatePicker() {
-    _datePickerOverlay?.remove();
-    _datePickerOverlay = null;
-    _datePickerBarrier?.remove();
-    _datePickerBarrier = null;
-    if (mounted) setState(() {});
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+    _focusNode.addListener(_onFocusChanged);
   }
 
-  void _showDatePicker() {
-    if (_datePickerOverlay != null) return;
-
-    _datePickerBarrier = OverlayEntry(
-      builder: (_) => GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onTapDown: (_) => _removeDatePicker(),
-      ),
-    );
-
-    _datePickerOverlay = OverlayEntry(
-      builder: (context) => CompositedTransformFollower(
-        link: _dateLayerLink,
-        showWhenUnlinked: false,
-        offset: const Offset(0, 60),
-        child: Align(
-          alignment: Alignment.topLeft,
-          child: Material(
-            elevation: 8,
-            borderRadius: BorderRadius.circular(12),
-            child: SizedBox(
-              width: 350,
-              height: 280,
-              child: NotificationListener<ScrollNotification>(
-                onNotification: (_) => true,
-                child: CustomSingleDatePicker(
-                  selectedDate: _departDate,
-                  firstDate: DateTime.now(),
-                  lastDate: DateTime(DateTime.now().year + 2),
-                  onDateSelected: (date) {
-                    setState(() {
-                      _departDate = date;
-                      _departureDateController.text =
-                          DateFormat('dd.MM.yyyy').format(date);
-                      _departDateTouched = true;
-                    });
-                  },
-                  onClose: _removeDatePicker,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-
-    final overlay = Overlay.of(context);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_datePickerOverlay != null) {
-        overlay.insert(_datePickerBarrier!);
-        overlay.insert(_datePickerOverlay!);
-        if (mounted) setState(() {});
-      }
-    });
-  }
-
-  void _toggleDatePicker() =>
-      _isPickerOpen ? _removeDatePicker() : _showDatePicker();
-
-  void _handleDateInput(String value) {
-    _departureDateController.text = value;
-    if (value.length == 10) {
-      try {
-        setState(() {
-          _departDate        = DateFormat('dd.MM.yyyy').parseStrict(value);
-          _departDateTouched = true;
-        });
-      } catch (_) {
-        setState(() => _departDate = null);
+  void _onFocusChanged() {
+    setState(() {});
+    if (_focusNode.hasFocus) {
+      if (_suggestionsNotifier.value.isNotEmpty ||
+          _isSearchingNotifier.value) {
+        _showOverlay();
       }
     } else {
-      setState(() => _departDate = null);
+      Future.delayed(const Duration(milliseconds: 200), _hideOverlay);
+    }
+  }
+
+  // ── Suggestions ───────────────────────────────────────────────────────────
+
+  Future<void> _onChanged(String value) async {
+    final upper = value.toUpperCase();
+    _controller.value = TextEditingValue(
+      text:      upper,
+      selection: TextSelection.collapsed(offset: upper.length),
+    );
+
+    setState(() {
+      _documentNumberTouched = upper.isNotEmpty;
+      _apiError              = null;
+    });
+
+    if (upper.trim().length < 2) {
+      _suggestionsNotifier.value = [];
+      _isSearchingNotifier.value = false;
+      _hideOverlay();
+      return;
+    }
+
+    _isSearchingNotifier.value = true;
+    _showOverlay();
+
+    try {
+      final api     = CheckInApiService(widget.authService);
+      final results = await api.getFlightPassengerSuggestions(
+        query:        upper.trim(),
+        flightNumber: widget.flightNumber,
+        departsDate:  widget.departDate,
+      );
+      if (!mounted) return;
+      _suggestionsNotifier.value = results;
+      _isSearchingNotifier.value = false;
+      if (results.isEmpty) _hideOverlay();
+    } catch (_) {
+      if (!mounted) return;
+      _isSearchingNotifier.value = false;
+      _hideOverlay();
+    }
+  }
+
+  Future<void> _selectSuggestion(Map<String, dynamic> suggestion) async {
+    final doc = (suggestion['document_number'] as String? ?? '').toUpperCase();
+    if (doc.isEmpty) return;
+    _controller.text = doc;
+    _hideOverlay();
+    _focusNode.unfocus();
+    await _handleSearch(docNumber: doc);
+  }
+
+  Future<void> _onSubmitted(String value) async {
+    final query = value.trim().toUpperCase();
+    if (query.isEmpty) return;
+
+    if (_suggestionsNotifier.value.isNotEmpty) {
+      await _selectSuggestion(_suggestionsNotifier.value.first);
+    } else {
+      _hideOverlay();
+      _focusNode.unfocus();
+      await _handleSearch(docNumber: query);
     }
   }
 
   // ── Search ────────────────────────────────────────────────────────────────
 
-  Future<void> _handleSearch() async {
+  Future<void> _handleSearch({String? docNumber}) async {
+    final doc = (docNumber ?? _controller.text).trim().toUpperCase();
+
     setState(() {
       _documentNumberTouched = true;
-      _flightNumberTouched   = true;
-      _departDateTouched     = true;
       _apiError              = null;
     });
 
-    if (!_isFormValid) return;
+    if (doc.isEmpty) return;
 
     setState(() => _isLoading = true);
 
     try {
       final api     = CheckInApiService(widget.authService);
       final results = await api.searchBooking(
-        documentNumber: _documentNumberController.text.trim().toUpperCase(),
-        flightNumber:   _flightNumberController.text.trim().toUpperCase(),
-        departsDate:    _departDate!,
+        documentNumber: doc,
+        flightNumber:   widget.flightNumber,
+        departsDate:    widget.departDate,
       );
 
       if (!mounted) return;
 
       if (results.isEmpty) {
-        setState(() => _apiError = 'Booking not found. Check the document number, flight, and date.');
+        setState(() =>
+            _apiError = 'Booking not found. Check the document number.');
         return;
       }
 
       widget.onSearch(
-        documentNumber: _documentNumberController.text.trim().toUpperCase(),
-        flightNumber:   _flightNumberController.text.trim().toUpperCase(),
-        departDate:     _departDate!,
+        documentNumber: doc,
+        flightNumber:   widget.flightNumber,
+        departDate:     widget.departDate,
         booking:        results.first,
       );
     } catch (e) {
@@ -183,41 +173,116 @@ class _CheckInSearchStepState extends State<CheckInSearchStep> {
     }
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _flightNumberFocusNode.addListener(() {
-      if (mounted) {
-        setState(() {
-          if (!_flightNumberFocusNode.hasFocus &&
-              _flightNumberController.text.isNotEmpty) {
-            _flightNumberTouched = true;
-          }
-        });
-      }
+  void _clear() {
+    _controller.clear();
+    _suggestionsNotifier.value = [];
+    _isSearchingNotifier.value = false;
+    setState(() {
+      _documentNumberTouched = false;
+      _apiError              = null;
     });
-    _dateFocusNode.addListener(() {
-      if (mounted) setState(() {});
-    });
+    _hideOverlay();
+  }
+
+  // ── Overlay ───────────────────────────────────────────────────────────────
+
+  void _showOverlay() {
+    if (_overlayEntry != null) return;
+
+    final renderBox = context.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+    final width = renderBox.size.width;
+
+    _overlayEntry = OverlayEntry(
+      builder: (ctx) => CompositedTransformFollower(
+        link:             _layerLink,
+        showWhenUnlinked: false,
+        offset:           const Offset(0, 56),
+        child: Align(
+          alignment: Alignment.topLeft,
+          child: SizedBox(
+            width: width,
+            child: Material(
+              color:        Theme.of(ctx).colorScheme.surface,
+              borderRadius: BorderRadius.circular(8),
+              elevation:    4,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 280),
+                child: SingleChildScrollView(
+                  child: ValueListenableBuilder<bool>(
+                    valueListenable: _isSearchingNotifier,
+                    builder: (_, isSearching, __) {
+                      return ValueListenableBuilder<List<Map<String, dynamic>>>(
+                        valueListenable: _suggestionsNotifier,
+                        builder: (_, suggestions, __) {
+                          if (isSearching) {
+                            return const Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Center(
+                                  child: CircularProgressIndicator()),
+                            );
+                          }
+
+                          final filtered = suggestions
+                              .where((s) =>
+                                  (s['document_number'] as String?)
+                                      ?.isNotEmpty ??
+                                  false)
+                              .toList();
+
+                          if (filtered.isEmpty) return const SizedBox.shrink();
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: filtered
+                                .map((s) => _SuggestionTile(
+                                      documentNumber:
+                                          s['document_number'] as String,
+                                      firstName:
+                                          s['first_name'] as String? ?? '',
+                                      lastName:
+                                          s['last_name'] as String? ?? '',
+                                      onTap: () => _selectSuggestion(s),
+                                    ))
+                                .toList(),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    Overlay.of(context).insert(_overlayEntry!);
+  }
+
+  void _hideOverlay() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
   }
 
   @override
   void dispose() {
-    _datePickerOverlay?.remove();
-    _datePickerOverlay = null;
-    _datePickerBarrier?.remove();
-    _datePickerBarrier = null;
-    _documentNumberController.dispose();
-    _flightNumberController.dispose();
-    _departureDateController.dispose();
-    _dateFocusNode.dispose();
-    _flightNumberFocusNode.dispose();
+    _focusNode.removeListener(_onFocusChanged);
+    _hideOverlay();
+    _suggestionsNotifier.dispose();
+    _isSearchingNotifier.dispose();
+    _controller.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
+  // ── Build ─────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final colors   = Theme.of(context).colorScheme;
+    final isActive = _focusNode.hasFocus;
 
     return Container(
       margin:  const EdgeInsets.all(16),
@@ -230,135 +295,97 @@ class _CheckInSearchStepState extends State<CheckInSearchStep> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
 
-          // ── Document number ──────────────────────────────────────
-          CheckInDocumentSearchField(
-            authService: widget.authService,
-            value:       _documentNumberController.text,
-            onChanged: (v) {
-              _documentNumberController.text = v;
-              setState(() {
-                _documentNumberTouched = v.isNotEmpty;
-                _apiError              = null;
-              });
-            },
-          ),
-          if (_documentNumberError != null) ...[
-            const SizedBox(height: 4),
-            Text(
-              _documentNumberError!,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: colors.error),
-            ),
-          ],
-
-          const SizedBox(height: 12),
-
-          // ── Flight number + date ─────────────────────────────────
+          // ── Рейс і дата ─────────────────────────────────────
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Focus(
-                      focusNode: _flightNumberFocusNode,
-                      child: CustomInputField(
-                        label: 'Flight Number',
-                        value: _flightNumberController.text,
-                        icon:  Icons.flight_outlined,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9]')),
-                          LengthLimitingTextInputFormatter(6),
-                        ],
-                        onChanged: (v) {
-                          _flightNumberController.text = v.toUpperCase();
-                          setState(() => _apiError = null);
-                        },
-                      ),
-                    ),
-                    if (_flightNumberFocusNode.hasFocus || _flightNumberTouched) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        _flightNumberController.text.isEmpty &&
-                                _flightNumberTouched &&
-                                !_flightNumberFocusNode.hasFocus
-                            ? 'Required field'
-                            : _flightNumberHint,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: (_flightNumberTouched &&
-                                      !_flightNumberFocusNode.hasFocus &&
-                                      (_flightNumberController.text.isEmpty ||
-                                          !_isFlightNumberValid(
-                                              _flightNumberController.text))) ||
-                                  (_flightNumberFocusNode.hasFocus &&
-                                      _flightNumberController.text.isNotEmpty &&
-                                      !_isFlightNumberPartiallyValid(
-                                          _flightNumberController.text))
-                              ? colors.error
-                              : colors.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ],
+                child: _InfoChip(
+                  icon:  Icons.flight_outlined,
+                  label: 'Flight',
+                  value: widget.flightNumber,
                 ),
               ),
-
-              const SizedBox(width: 12),
-
+              const SizedBox(width: 8),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    CompositedTransformTarget(
-                      link: _dateLayerLink,
-                      child: Focus(
-                        focusNode: _dateFocusNode,
-                        child: CustomInputField(
-                          label:           'Departure Date',
-                          value:           _departureDateController.text,
-                          icon:            Icons.calendar_today_outlined,
-                          keyboardType:    TextInputType.number,
-                          inputFormatters: [DateInputFormatter()],
-                          isSelected:      _isPickerOpen,
-                          onChanged:       _handleDateInput,
-                          onIconTap:       _toggleDatePicker,
-                        ),
-                      ),
-                    ),
-                    if (_departDateError != null) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        _departDateError!,
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodySmall
-                            ?.copyWith(color: colors.error),
-                      ),
-                    ] else if (_dateFocusNode.hasFocus || _isPickerOpen) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        _departDateHint,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: colors.onSurfaceVariant,
-                            ),
-                      ),
-                    ],
-                  ],
+                child: _InfoChip(
+                  icon:  Icons.calendar_today_outlined,
+                  label: 'Date',
+                  value: DateFormat('MMM d, yyyy').format(widget.departDate),
                 ),
               ),
             ],
           ),
 
-          // ── API error ────────────────────────────────────────────
+          const SizedBox(height: 12),
+
+          // ── Поле документа з overlay ─────────────────────────
+          CompositedTransformTarget(
+            link: _layerLink,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              decoration: BoxDecoration(
+                color: colors.primaryContainer
+                    .withValues(alpha: isActive ? 0.3 : 0.1),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: TextField(
+                controller:      _controller,
+                focusNode:       _focusNode,
+                onChanged:       _onChanged,
+                onSubmitted:     _onSubmitted,
+                textInputAction: TextInputAction.search,
+                style:           TextStyle(color: colors.onSurface),
+                cursorColor:     colors.primary,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9]')),
+                  LengthLimitingTextInputFormatter(10),
+                ],
+                decoration: InputDecoration(
+                  prefixIcon: Icon(
+                    Icons.contact_page_outlined,
+                    color: colors.primary,
+                  ),
+                  suffixIcon: _isLoading
+                      ? Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: SizedBox(
+                            width:  20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: colors.primary,
+                            ),
+                          ),
+                        )
+                      : _controller.text.isNotEmpty
+                          ? IconButton(
+                              icon: Icon(Icons.close, color: colors.primary),
+                              onPressed: _clear,
+                            )
+                          : null,
+                  labelText:  'Document Number',
+                  labelStyle: TextStyle(color: colors.onSurfaceVariant),
+                  border:        InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  fillColor:     Colors.transparent,
+                  isDense:       true,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical:   16,
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // ── API error ────────────────────────────────────────
           if (_apiError != null) ...[
             const SizedBox(height: 12),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
                 color:        colors.errorContainer.withValues(alpha: 0.4),
                 borderRadius: BorderRadius.circular(6),
@@ -387,15 +414,151 @@ class _CheckInSearchStepState extends State<CheckInSearchStep> {
 
           const SizedBox(height: 16),
 
-          // ── Submit ───────────────────────────────────────────────
+          // ── Submit ───────────────────────────────────────────
           SizedBox(
             width: double.infinity,
             child: CustomButton(
-              label:     _isLoading ? 'Searching...' : 'Find Booking',
-              onPressed: (_isFormValid && !_isLoading) ? _handleSearch : null,
+              label: _isLoading ? 'Searching...' : 'Find Booking',
+              onPressed: (_isFormValid && !_isLoading)
+                  ? () => _handleSearch()
+                  : null,
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Info chip ─────────────────────────────────────────────────────────────────
+
+class _InfoChip extends StatelessWidget {
+  final IconData icon;
+  final String   label;
+  final String   value;
+
+  const _InfoChip({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color:        colors.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: colors.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color:    colors.onSurfaceVariant,
+                        fontSize: 11,
+                      ),
+                ),
+                Text(
+                  value,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color:      colors.onSurface,
+                      ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Suggestion tile ───────────────────────────────────────────────────────────
+
+class _SuggestionTile extends StatefulWidget {
+  final String       documentNumber;
+  final String       firstName;
+  final String       lastName;
+  final VoidCallback onTap;
+
+  const _SuggestionTile({
+    required this.documentNumber,
+    required this.firstName,
+    required this.lastName,
+    required this.onTap,
+  });
+
+  @override
+  State<_SuggestionTile> createState() => _SuggestionTileState();
+}
+
+class _SuggestionTileState extends State<_SuggestionTile> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit:  (_) => setState(() => _isHovered = false),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          decoration: BoxDecoration(
+            color: colors.primaryContainer
+                .withValues(alpha: _isHovered ? 0.3 : 0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: InkWell(
+            onTap:        widget.onTap,
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 16, vertical: 10),
+              child: Row(
+                children: [
+                  Icon(Icons.contact_page_outlined,
+                      color: colors.primary, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Text(
+                          widget.documentNumber,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color:      colors.onSurface,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '— ${widget.firstName} ${widget.lastName}',
+                          style: TextStyle(
+                            color:    colors.onSurfaceVariant,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

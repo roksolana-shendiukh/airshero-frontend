@@ -39,6 +39,7 @@ class AuthService extends ChangeNotifier {
       _idToken = await firebaseUser.getIdToken();
       final idTokenResult = await firebaseUser.getIdTokenResult();
       final claims = idTokenResult.claims ?? {};
+      print("AIRLINE LOGO URL FROM CLAIMS: ${claims['airlineLogoUrl']}");
 
       _currentUser = UserModel(
         id: firebaseUser.uid,
@@ -47,6 +48,8 @@ class AuthService extends ChangeNotifier {
         lastName: claims['lastName'] ?? '',
         role: _parseRole(claims['role']),
         status: _parseStatus(claims['status']),
+        airlineName: claims['airlineName'],     
+        airlineLogoUrl: claims['airlineLogoUrl'],
         operationId: claims['operationId'] != null
           ? int.tryParse(claims['operationId'].toString())
           : null,
@@ -85,6 +88,8 @@ class AuthService extends ChangeNotifier {
       lastName: claims['lastName'] ?? '',
       role: _parseRole(claims['role']),
       status: _parseStatus(claims['status']),
+      airlineName: claims['airlineName'],    
+      airlineLogoUrl: claims['airlineLogoUrl'],
       operationId: claims['operationId'] != null
         ? int.tryParse(claims['operationId'].toString())
         : null,
@@ -124,6 +129,8 @@ class AuthService extends ChangeNotifier {
         lastName: claims['lastName'] ?? '',
         role: _parseRole(claims['role']),
         status: _parseStatus(claims['status']),
+        airlineName: claims['airlineName'],    
+        airlineLogoUrl: claims['airlineLogoUrl'],
         operationId: claims['operationId'] != null
           ? int.tryParse(claims['operationId'].toString())
           : null,
@@ -135,6 +142,7 @@ class AuthService extends ChangeNotifier {
 
     notifyListeners();
   }
+  
   UserRole _parseRole(dynamic role) {
     switch (role) {
       case 'salesAgent': return UserRole.salesAgent;

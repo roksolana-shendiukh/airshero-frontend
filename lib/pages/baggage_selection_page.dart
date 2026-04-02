@@ -10,6 +10,8 @@ import '../widgets/booking_progress_header.dart';
 import '../widgets/price_summary_card.dart';
 import '../services/auth_service.dart';
 import '../services/baggage_api_service.dart';
+import '../models/booking_group_draft.dart';
+import '../config/routes.dart';
 
 class BaggageSelectionPage extends StatefulWidget {
   final String fromCity;
@@ -30,6 +32,10 @@ class BaggageSelectionPage extends StatefulWidget {
   final List<Map<String, dynamic>> outboundAssignments;
   final List<Map<String, dynamic>> returnAssignments;
   final int outboundFlightClassId;
+  final BookingGroupDraft? bookingGroupDraft;
+  final int segmentIndex;
+  final Map<int, Map<String, dynamic>>? initialPassengerData;
+
 
   const BaggageSelectionPage({
     super.key,
@@ -51,6 +57,9 @@ class BaggageSelectionPage extends StatefulWidget {
     required this.outboundAssignments,
     this.returnAssignments = const [],
     required this.outboundFlightClassId,
+    this.bookingGroupDraft,
+    this.segmentIndex = 0,
+    this.initialPassengerData,
   });
 
   @override
@@ -91,6 +100,13 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
     for (int i = 0; i < totalPassengers; i++) {
       _passengerBaggageSelections[i] = {};
       _passengerData[i] = {};
+    }
+
+    if (widget.initialPassengerData != null) {
+      for (final entry in widget.initialPassengerData!.entries) {
+        _passengerData[entry.key] = Map<String, dynamic>.from(entry.value);
+        _passengerData[entry.key]?['isSaved'] = true;
+      }
     }
 
     _loadBaggageOptions();
@@ -319,6 +335,82 @@ int _getFirstActiveIndex() {
   void _navigateToPayment() {
     setState(() => _hasVisitedPayment = true);
 
+    debugPrint('segmentIndex: ${widget.segmentIndex}');
+    debugPrint('bookingGroupDraft: ${widget.bookingGroupDraft}');
+    debugPrint('secondSegment: ${widget.bookingGroupDraft?.secondSegment}');
+
+    if (widget.bookingGroupDraft != null && widget.segmentIndex == 0) {
+      final updatedDraft = widget.bookingGroupDraft!.withBaggageForSegment(
+        0,
+        _passengerBaggageSelections,
+      );
+
+      final seg2 = updatedDraft.secondSegment!;
+
+      final args = BaggageSelectionArguments(
+        fromCity: seg2.fromCity,
+        toCity: seg2.toCity,
+        departDate: seg2.departDate,
+        passengers: widget.passengers,
+        passengerClassLabels: seg2.passengerClassLabels,
+        airlineName: seg2.airlineName,
+        airlineLogoUrl: seg2.airlineLogoUrl,
+        fromAirportCode: seg2.fromAirportCode,
+        toAirportCode: seg2.toAirportCode,
+        departureTime: seg2.departureTime,
+        arrivalTime: seg2.arrivalTime,
+        duration: seg2.duration,
+        basePrice: seg2.basePrice,
+        isRoundTrip: false,
+        outboundAssignments: seg2.assignments,
+        outboundFlightId: seg2.flightId,
+        outboundFlightClassId: seg2.flightClassId,
+        bookingGroupDraft: updatedDraft,
+        segmentIndex: 1,
+        initialPassengerData: _passengerData,
+      );
+
+      context.push('/baggage-selection/leg-2', extra: args);
+      return;
+    }
+
+    if (widget.bookingGroupDraft != null && widget.segmentIndex == 1) {
+      final updatedDraft = widget.bookingGroupDraft!.withBaggageForSegment(
+        1,
+        _passengerBaggageSelections,
+      );
+
+      final seg1 = updatedDraft.firstSegment;
+      final seg2 = updatedDraft.secondSegment!;
+
+      context.push('/payment', extra: {
+        'fromCity': seg1.fromCity,
+        'toCity': seg2.toCity,
+        'departDate': seg1.departDate.toIso8601String(),
+        'passengers': widget.passengers,
+        'passengerClassLabels': seg1.passengerClassLabels,
+        'airlineName': seg1.airlineName,
+        'airlineLogoUrl': seg1.airlineLogoUrl,
+        'fromAirportCode': seg1.fromAirportCode,
+        'toAirportCode': seg2.toAirportCode,
+        'departureTime': seg1.departureTime,
+        'arrivalTime': seg2.arrivalTime,
+        'duration': seg1.duration,
+        'basePrice': updatedDraft.totalPrice,
+        'isRoundTrip': false,
+        'baggageSelections': _passengerBaggageSelections,
+        'passengerData': _passengerData,
+        'totalPrice': updatedDraft.totalPrice,
+        'sessionId': _sessionId,
+        'outboundAssignments': seg1.assignments,
+        'returnAssignments': const [],
+        'removedPassengerIndices': _removedPassengerIndices.toList(),
+        'bookingGroupDraft': updatedDraft,
+        'isMultiSegment': true,
+      });
+      return;
+    }
+
     context.push('/payment', extra: {
       'fromCity': widget.fromCity,
       'toCity': widget.toCity,
@@ -391,8 +483,16 @@ int _getFirstActiveIndex() {
         currentStep: 'baggage',
         airlineName: widget.airlineName,
         baggageCount: _totalBaggageCount > 0 ? _totalBaggageCount : null,
-        onBack: () => context.pop(),
-        onForward: _hasVisitedPayment && _isFormValid() ? _navigateToPayment : null,
+        onBack: () {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go('/sales/bookings'); 
+          }
+        },
+        onForward: (widget.segmentIndex == 0 || _hasVisitedPayment) && _isFormValid()
+          ? _navigateToPayment
+          : null,
       ),
       body: ListView(
         physics: const BouncingScrollPhysics(
@@ -465,7 +565,9 @@ int _getFirstActiveIndex() {
                   SizedBox(
                     width: 220,
                     child: CustomButton(
-                      label: 'Proceed to Payment',
+                      label: widget.bookingGroupDraft != null && widget.segmentIndex == 0
+                          ? 'Continue to Next Flight'
+                          : 'Proceed to Payment',
                       onPressed: _isFormValid() ? _navigateToPayment : null,
                     ),
                   ),
@@ -590,13 +692,20 @@ int _getFirstActiveIndex() {
           final isHovered = _hoveredPassengerIndex == index;
           final baggageCount = _getTotalBaggageForPassenger(index);
           final hasPassengerData = _passengerData[index]?.isNotEmpty ?? false;
+          
           final label = _getPassengerLabel(index);
+          final type = _getPassengerType(index); // Отримуємо тип пасажира (Adult/Child/Infant)
           final classLabel = widget.passengerClassLabels[label] ?? '';
+          
           String passengerName = label;
           if (hasPassengerData &&
               _passengerData[index]!['firstName']?.toString().isNotEmpty == true) {
             passengerName = _passengerData[index]!['firstName'].toString();
           }
+
+          final subtitleText = classLabel.isNotEmpty ? '$type • $classLabel' : type;
+
+          final IconData passengerIcon = hasPassengerData ? Icons.person : Icons.person_outline;
 
           return Padding(
             padding: const EdgeInsets.only(right: 12),
@@ -605,7 +714,7 @@ int _getFirstActiveIndex() {
               onExit: (_) => setState(() => _hoveredPassengerIndex = null),
               child: Stack(
                 clipBehavior: Clip.none,
-                children: [
+                children:[
                   InkWell(
                     onTap: () => setState(() => _currentPassengerIndex = index),
                     borderRadius: BorderRadius.circular(12),
@@ -627,9 +736,9 @@ int _getFirstActiveIndex() {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
+                        children:[
                           Icon(
-                            hasPassengerData ? Icons.person : Icons.person_outline,
+                            passengerIcon,
                             size: 20,
                             color: isSelected
                                 ? Theme.of(context).colorScheme.onPrimaryContainer
@@ -649,26 +758,25 @@ int _getFirstActiveIndex() {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          if (classLabel.isNotEmpty) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              classLabel,
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    fontSize: 10,
-                                    color: isSelected
-                                        ? Theme.of(context).colorScheme.onPrimaryContainer
-                                        : Theme.of(context).colorScheme.primary,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
+                          const SizedBox(height: 2),
+                          // Виводимо підзаголовок з типом (Adult/Child/Infant) та класом
+                          Text(
+                            subtitleText,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  fontSize: 10,
+                                  color: isSelected
+                                      ? Theme.of(context).colorScheme.onPrimaryContainer
+                                      : Theme.of(context).colorScheme.primary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                           if (baggageCount > 0) ...[
                             const SizedBox(height: 2),
                             Row(
                               mainAxisSize: MainAxisSize.min,
-                              children: [
+                              children:[
                                 Icon(Icons.luggage,
                                     size: 10,
                                     color: Theme.of(context).colorScheme.primary),
@@ -717,7 +825,7 @@ int _getFirstActiveIndex() {
       ),
     );
   }
-  
+
   Widget _buildPriceSummary(BuildContext context) {
     final List<PassengerPriceItem> passengerPrices = [];
 

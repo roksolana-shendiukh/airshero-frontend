@@ -13,6 +13,10 @@ import '../services/navigation_storage_service.dart';
 import '../models/user_model.dart';
 import 'package:provider/provider.dart';
 import '../pages/flight_operation_page.dart';
+import '../pages/planning/planning_overview_page.dart';
+import '../pages/planning/planning_flights_page.dart';
+import '../pages/planning/create_flight_page.dart';
+import '../models/booking_group_draft.dart';
 
 class SearchResultsArguments {
   final int fromCityId;
@@ -22,6 +26,8 @@ class SearchResultsArguments {
   final DateTime departDate;
   final DateTime? returnDate;
   final Map<String, int> passengers;
+  final BookingGroupDraft? bookingGroupDraft;
+  final DateTime? leg2Date;
 
   SearchResultsArguments({
     required this.fromCityId,
@@ -31,6 +37,8 @@ class SearchResultsArguments {
     required this.departDate,
     this.returnDate,
     required this.passengers,
+    this.bookingGroupDraft,
+    this.leg2Date,
   });
 }
 
@@ -54,6 +62,9 @@ class BaggageSelectionArguments {
   final List<Map<String, dynamic>> returnAssignments;
   final int outboundFlightId;
   final int outboundFlightClassId;
+  final BookingGroupDraft? bookingGroupDraft;
+  final int segmentIndex;
+  final Map<int, Map<String, dynamic>>? initialPassengerData;
 
   BaggageSelectionArguments({
     required this.fromCity,
@@ -75,6 +86,9 @@ class BaggageSelectionArguments {
     this.returnAssignments = const [],
     required this.outboundFlightId,
     required this.outboundFlightClassId,
+    this.bookingGroupDraft,
+    this.segmentIndex = 0,
+    this.initialPassengerData,
   });
 
   Map<String, dynamic> toMap() => {
@@ -97,6 +111,7 @@ class BaggageSelectionArguments {
         'returnAssignments': returnAssignments,
         'outboundFlightId': outboundFlightId,
         'outboundFlightClassId': outboundFlightClassId,
+        'segmentIndex': segmentIndex,
       };
 
   static BaggageSelectionArguments? fromMap(Map<String, dynamic>? map) {
@@ -118,9 +133,11 @@ class BaggageSelectionArguments {
         fromCity: map['fromCity'] as String,
         toCity: map['toCity'] as String,
         departDate: parseDate(map['departDate']),
-        returnDate: map['returnDate'] != null ? parseDate(map['returnDate']) : null,
+        returnDate:
+            map['returnDate'] != null ? parseDate(map['returnDate']) : null,
         passengers: Map<String, int>.from(map['passengers'] as Map),
-        passengerClassLabels: Map<String, String>.from(map['passengerClassLabels'] as Map),
+        passengerClassLabels:
+            Map<String, String>.from(map['passengerClassLabels'] as Map),
         airlineName: map['airlineName'] as String,
         airlineLogoUrl: map['airlineLogoUrl'] as String,
         fromAirportCode: map['fromAirportCode'] as String,
@@ -134,6 +151,7 @@ class BaggageSelectionArguments {
         returnAssignments: parseAssignments(map['returnAssignments']),
         outboundFlightId: (map['outboundFlightId'] as num).toInt(),
         outboundFlightClassId: (map['outboundFlightClassId'] as num).toInt(),
+        segmentIndex: (map['segmentIndex'] as num?)?.toInt() ?? 0,
       );
     } catch (e) {
       debugPrint('BaggageSelectionArguments.fromMap error: $e');
@@ -161,6 +179,8 @@ class PaymentArguments {
   final Map<int, Map<int, int>> baggageSelections;
   final Map<int, Map<String, dynamic>> passengerData;
   final double totalPrice;
+  final bool isMultiSegment;
+  final BookingGroupDraft? bookingGroupDraft;
 
   PaymentArguments({
     required this.fromCity,
@@ -181,6 +201,8 @@ class PaymentArguments {
     required this.baggageSelections,
     required this.passengerData,
     required this.totalPrice,
+    this.isMultiSegment = false,
+    this.bookingGroupDraft,
   });
 }
 
@@ -264,6 +286,8 @@ class AppRouter {
               departDate: args.departDate,
               returnDate: args.returnDate,
               passengers: args.passengers,
+              bookingGroupDraft: args.bookingGroupDraft,
+              leg2Date: args.leg2Date,
             );
           }
 
@@ -292,9 +316,8 @@ class AppRouter {
             toCityId: int.tryParse(q['toId'] ?? '0') ?? 0,
             toCity: toCity,
             departDate: departDate,
-            returnDate: returnDateStr != null
-                ? DateTime.tryParse(returnDateStr)
-                : null,
+            returnDate:
+                returnDateStr != null ? DateTime.tryParse(returnDateStr) : null,
             passengers: {
               'adults': int.tryParse(q['adults'] ?? '1') ?? 1,
               'children': int.tryParse(q['children'] ?? '0') ?? 0,
@@ -305,15 +328,49 @@ class AppRouter {
       ),
 
       GoRoute(
+        path: '/search-results/leg-2',
+        name: 'search-results-leg-2',
+        builder: (context, state) {
+          final args = state.extra as SearchResultsArguments?;
+          if (args == null || args.bookingGroupDraft == null) {
+            WidgetsBinding.instance
+                .addPostFrameCallback((_) => context.go('/sales/bookings'));
+            return const SizedBox.shrink();
+          }
+          return SearchResultsPage(
+            fromCityId: args.fromCityId,
+            fromCity: args.fromCity,
+            toCityId: args.toCityId,
+            toCity: args.toCity,
+            departDate: args.departDate,
+            passengers: args.passengers,
+            bookingGroupDraft: args.bookingGroupDraft,
+          );
+        },
+      ),
+
+      GoRoute(
         path: '/baggage-selection',
         name: 'baggage-selection',
         builder: (context, state) {
           if (state.extra is BaggageSelectionArguments) {
-            final args = state.extra as BaggageSelectionArguments;
-            return _buildBaggagePage(args);
+            return _buildBaggagePage(state.extra as BaggageSelectionArguments);
           }
-
           return _BaggageSelectionLoader();
+        },
+      ),
+
+      GoRoute(
+        path: '/baggage-selection/leg-2',
+        name: 'baggage-selection-leg-2',
+        builder: (context, state) {
+          final args = state.extra as BaggageSelectionArguments?;
+          if (args == null || args.bookingGroupDraft == null) {
+            WidgetsBinding.instance
+                .addPostFrameCallback((_) => context.go('/sales/bookings'));
+            return const SizedBox.shrink();
+          }
+          return _buildBaggagePage(args);
         },
       ),
 
@@ -352,12 +409,19 @@ class AppRouter {
                 extra['passengerData'] as Map<int, Map<String, dynamic>>,
             totalPrice: extra['totalPrice'] as double,
             sessionId: extra['sessionId'] as String,
-            outboundAssignments:
-                extra['outboundAssignments'] as List<Map<String, dynamic>>,
-            returnAssignments:
-                (extra['returnAssignments'] as List<Map<String, dynamic>>?) ?? [],
+            outboundAssignments: (extra['outboundAssignments'] as List<dynamic>)
+                .map((e) => Map<String, dynamic>.from(e as Map))
+                .toList(),
+            returnAssignments: ((extra['returnAssignments'] as List<dynamic>?) ?? [])
+                .map((e) => Map<String, dynamic>.from(e as Map))
+                .toList(),
             removedPassengerIndices: List<int>.from(
-                (extra['removedPassengerIndices'] as List?)?.map((e) => e as int) ?? []),
+                (extra['removedPassengerIndices'] as List?)
+                        ?.map((e) => e as int) ??
+                    []),
+            isMultiSegment: extra['isMultiSegment'] as bool? ?? false,
+            bookingGroupDraft:
+                extra['bookingGroupDraft'] as BookingGroupDraft?,
           );
         },
       ),
@@ -376,7 +440,7 @@ class AppRouter {
         path: '/login',
         builder: (context, state) => const LoginPage(),
       ),
-    
+
       GoRoute(
         path: '/checkin',
         builder: (context, state) => CheckInPage(
@@ -387,6 +451,21 @@ class AppRouter {
       GoRoute(
         path: '/flight-operations',
         builder: (context, state) => const FlightOperationPage(),
+      ),
+
+      GoRoute(
+        path: '/planning/overview',
+        builder: (context, state) => const PlanningOverviewPage(),
+      ),
+
+      GoRoute(
+        path: '/planning/flights',
+        builder: (context, state) => const PlanningFlightsPage(),
+      ),
+
+      GoRoute(
+        path: '/planning/create-flight',
+        builder: (context, state) => const CreateFlightPage(),
       ),
     ],
   );
@@ -410,7 +489,10 @@ class AppRouter {
       isRoundTrip: args.isRoundTrip,
       outboundAssignments: args.outboundAssignments,
       returnAssignments: args.returnAssignments,
-      outboundFlightClassId: args.outboundFlightClassId, 
+      outboundFlightClassId: args.outboundFlightClassId,
+      bookingGroupDraft: args.bookingGroupDraft,
+      segmentIndex: args.segmentIndex,
+      initialPassengerData: args.initialPassengerData,
     );
   }
 }
@@ -431,14 +513,9 @@ class _BaggageSelectionLoaderState extends State<_BaggageSelectionLoader> {
   }
 
   Future<void> _load() async {
-    debugPrint('Loading baggage args from storage...');
     final map = await NavigationStorageService.loadBaggageArgs();
-    debugPrint('Loaded map: $map');
     final args = BaggageSelectionArguments.fromMap(map);
-    debugPrint('Args parsed: $args');
-
     if (!mounted) return;
-
     if (args == null) {
       context.go('/sales/bookings');
     } else {

@@ -5,8 +5,11 @@ import '../../widgets/checkin/checkin_search_step.dart';
 import '../../widgets/checkin/checkin_progress_header.dart';
 import '../../widgets/checkin/checkin_confirm_passenger_step.dart';
 import '../../widgets/checkin/checkin_seat_map_step.dart';
+import '../../widgets/checkin/checkin_flight_select_modal.dart';
+import '../../widgets/checkin/checkin_baggage_step.dart';
 
 enum CheckInStep {
+  selectFlight,
   search,
   confirmPassenger,
   selectSeat,
@@ -25,11 +28,13 @@ class CheckInPage extends StatefulWidget {
 }
 
 class _CheckInPageState extends State<CheckInPage> {
-  CheckInStep _currentStep = CheckInStep.search;
+  CheckInStep _currentStep = CheckInStep.selectFlight;
+
+  Map<String, dynamic>? _selectedFlight;
+  String?               _flightNumber;
+  DateTime?             _departDate;
 
   String?   _documentNumber;
-  String?   _flightNumber;
-  DateTime? _departDate;
   String?   _passengerName;
   String?   _flightClass;
   String?   _selectedSeat;
@@ -38,13 +43,44 @@ class _CheckInPageState extends State<CheckInPage> {
   int?      _flightOperationId;
   int?      _passengerClassId;
   int?      _selectedSeatLayoutId;
-  String? _passengerDateOfBirth;
+  String?   _passengerDateOfBirth;
+  int?      _bookingItemId;
 
   Map<String, dynamic>?      _bookingData;
   List<Map<String, dynamic>> _baggageUnits = [];
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _showFlightModal());
+  }
+
+  void _showFlightModal() {
+    showDialog(
+      context:            context,
+      barrierDismissible: false,
+      builder: (_) => CheckInFlightSelectModal(
+        authService:      widget.authService,
+        onFlightSelected: _handleFlightSelected,
+      ),
+    );
+  }
+
+  void _handleFlightSelected(Map<String, dynamic> flight) {
+    Navigator.of(context).pop();
+    setState(() {
+      _selectedFlight    = flight;
+      _flightNumber      = flight['flightNumber'] as String?;
+      _flightOperationId = flight['flightOperationId'] as int?;
+      _departDate        = DateTime.tryParse(
+          flight['departsDatetime'] as String? ?? '');
+      _currentStep       = CheckInStep.search;
+    });
+  }
+
   String get _currentStepKey {
     switch (_currentStep) {
+      case CheckInStep.selectFlight:     return 'search';
       case CheckInStep.search:           return 'search';
       case CheckInStep.confirmPassenger: return 'confirmPassenger';
       case CheckInStep.selectSeat:       return 'selectSeat';
@@ -64,6 +100,7 @@ class _CheckInPageState extends State<CheckInPage> {
           _bookingData   = null;
           _passengerName = null;
           _flightClass   = null;
+          _bookingItemId = null;
         case CheckInStep.selectSeat:
           _currentStep = CheckInStep.confirmPassenger;
         case CheckInStep.baggage:
@@ -72,28 +109,9 @@ class _CheckInPageState extends State<CheckInPage> {
           _currentStep = CheckInStep.baggage;
         case CheckInStep.boardingPass:
         case CheckInStep.search:
+        case CheckInStep.selectFlight:
           break;
       }
-    });
-  }
-
-  void _resetWizard() {
-    setState(() {
-      _currentStep          = CheckInStep.search;
-      _documentNumber       = null;
-      _flightNumber         = null;
-      _departDate           = null;
-      _passengerName        = null;
-      _passengerDateOfBirth = null;
-      _flightClass          = null;
-      _selectedSeat         = null;
-      _baggageCount         = null;
-      _extraPaymentAmount   = 0;
-      _flightOperationId    = null;
-      _passengerClassId     = null;
-      _selectedSeatLayoutId = null;
-      _bookingData          = null;
-      _baggageUnits         = [];
     });
   }
 
@@ -104,16 +122,15 @@ class _CheckInPageState extends State<CheckInPage> {
     required Map<String, dynamic> booking,
   }) {
     setState(() {
-      _documentNumber    = documentNumber;
-      _flightNumber      = flightNumber;
-      _departDate        = departDate;
-      _bookingData       = booking;
-      _passengerName     = '${booking['passengerName']} ${booking['passengerSurname']}';
+      _documentNumber       = documentNumber;
+      _bookingData          = booking;
+      _passengerName        = '${booking['passengerName']} ${booking['passengerSurname']}';
       _passengerDateOfBirth = booking['passengerDateOfBirth'] as String?;
-      _flightClass       = booking['className']        as String?;
-      _flightOperationId = booking['flightOperationId'] as int?;
-      _passengerClassId  = booking['classId']          as int?;
-      _currentStep       = CheckInStep.confirmPassenger;
+      _flightClass          = booking['className']            as String?;
+      _flightOperationId    = booking['flightOperationId']    as int?;
+      _passengerClassId     = booking['classId']              as int?;
+      _bookingItemId        = booking['bookingItemId']        as int?;
+      _currentStep          = CheckInStep.confirmPassenger;
     });
   }
 
@@ -134,6 +151,11 @@ class _CheckInPageState extends State<CheckInPage> {
             baggageCount:    _baggageCount,
             hasExtraPayment: _extraPaymentAmount > 0,
           ),
+
+          if (_selectedFlight != null &&
+              _currentStep != CheckInStep.selectFlight)
+            _buildFlightBanner(),
+
           Expanded(
             child: SingleChildScrollView(
               child: _buildCurrentStep(),
@@ -144,21 +166,74 @@ class _CheckInPageState extends State<CheckInPage> {
     );
   }
 
+  Widget _buildFlightBanner() {
+    final colors = Theme.of(context).colorScheme;
+    final flight = _selectedFlight!;
+    final gate   = flight['gateCode'] as String? ?? '—';
+    final status = flight['status']   as String? ?? '—';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color:   colors.primaryContainer.withValues(alpha: 0.3),
+      child: Row(
+        children: [
+          Icon(Icons.flight_takeoff, size: 14, color: colors.primary),
+          const SizedBox(width: 8),
+          Text(
+            _flightNumber ?? '—',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color:      colors.primary,
+                ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '· Gate $gate · $status',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
+          ),
+          const Spacer(),
+          TextButton(
+            onPressed: _showFlightModal,
+            style: TextButton.styleFrom(
+              padding:       const EdgeInsets.symmetric(horizontal: 8),
+              visualDensity: VisualDensity.compact,
+            ),
+            child: Text(
+              'Change flight',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colors.primary,
+                  ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCurrentStep() {
     switch (_currentStep) {
 
+      case CheckInStep.selectFlight:
+        return const SizedBox.shrink();
+
       case CheckInStep.search:
         return CheckInSearchStep(
-          authService: widget.authService,
-          onSearch:    _handleSearchResult,
+          authService:  widget.authService,
+          flightNumber: _flightNumber!,
+          departDate:   _departDate!,
+          onSearch:     _handleSearchResult,
         );
 
       case CheckInStep.confirmPassenger:
         return Column(
           children: [
             CheckInSearchStep(
-              authService: widget.authService,
-              onSearch:    _handleSearchResult,
+              authService:  widget.authService,
+              flightNumber: _flightNumber!,
+              departDate:   _departDate!,
+              onSearch:     _handleSearchResult,
             ),
             CheckInConfirmPassengerStep(
               bookingData: _bookingData!,
@@ -170,9 +245,7 @@ class _CheckInPageState extends State<CheckInPage> {
         );
 
       case CheckInStep.selectSeat:
-        if (_flightOperationId == null) {
-          return _buildFlightOperationError();
-        }
+        if (_flightOperationId == null) return _buildFlightOperationError();
         return CheckInSeatMapStep(
           authService:          widget.authService,
           flightOperationId:    _flightOperationId!,
@@ -188,16 +261,28 @@ class _CheckInPageState extends State<CheckInPage> {
         );
 
       case CheckInStep.baggage:
-        return _buildPlaceholder('Baggage', Icons.luggage_outlined);
+        return CheckInBaggageStep(
+          authService:    widget.authService,
+          bookingItemId:  _bookingItemId!,
+          passengerClassId: _passengerClassId!,
+          onCompleted: (units, surcharge) {
+            setState(() {
+              _baggageUnits         = units.map((u) => u.toJson()).toList();
+              _baggageCount         = units.length;
+              _extraPaymentAmount   = surcharge;
+              _currentStep          = surcharge > 0
+                  ? CheckInStep.payment
+                  : CheckInStep.boardingPass;
+            });
+          },
+        );
 
       case CheckInStep.payment:
         return _buildPlaceholder('Payment', Icons.payment_outlined);
 
       case CheckInStep.boardingPass:
         return _buildPlaceholder(
-          'Boarding Pass',
-          Icons.confirmation_number_outlined,
-        );
+            'Boarding Pass', Icons.confirmation_number_outlined);
     }
   }
 
@@ -209,10 +294,7 @@ class _CheckInPageState extends State<CheckInPage> {
       decoration: BoxDecoration(
         color:        colors.errorContainer.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: colors.error.withValues(alpha: 0.3),
-          width: 0.5,
-        ),
+        border:       Border.all(color: colors.error.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -225,17 +307,14 @@ class _CheckInPageState extends State<CheckInPage> {
                 Text(
                   'Flight operation not found',
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: colors.error,
-                        fontWeight: FontWeight.w600,
-                      ),
+                        color: colors.error, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   'This flight has no scheduled operation yet. '
                   'Please contact a supervisor.',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colors.onErrorContainer,
-                      ),
+                        color: colors.onErrorContainer),
                 ),
               ],
             ),

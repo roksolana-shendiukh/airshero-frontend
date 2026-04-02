@@ -1,4 +1,3 @@
-/// Визначення однієї колонки таблиці
 class TableColumnDef {
   final String key;
   final String label;

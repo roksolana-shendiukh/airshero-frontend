@@ -20,7 +20,7 @@ class CustomDateRangePicker extends StatefulWidget {
     this.onSelectingReturnChanged,
     this.onClose,
     this.availableDates = const [],
-    this.returnAvailableDates = const [],
+    this.returnAvailableDates = const[],
   });
 
   @override
@@ -28,8 +28,6 @@ class CustomDateRangePicker extends StatefulWidget {
 }
 
 class _CustomDateRangePickerState extends State<CustomDateRangePicker> {
-  DateTime? _tempDepartDate;
-  DateTime? _tempReturnDate;
   late DateTime _focusedMonth;
 
   List<String> get _activeDates =>
@@ -55,56 +53,28 @@ class _CustomDateRangePickerState extends State<CustomDateRangePicker> {
   @override
   void initState() {
     super.initState();
-    _tempDepartDate = widget.departDate;
-    _tempReturnDate = widget.returnDate;
-    _focusedMonth = _firstAvailableDate ?? _tempDepartDate ?? DateTime.now();
-  }
-
-  @override
-  void didUpdateWidget(CustomDateRangePicker oldWidget) {
-    super.didUpdateWidget(oldWidget);
-
-    if (oldWidget.isSelectingReturn != widget.isSelectingReturn) {
-      final first = _firstAvailableDate;
-      if (first != null) setState(() => _focusedMonth = first);
-      return;
-    }
-
-    final oldDates = oldWidget.isSelectingReturn
-        ? oldWidget.returnAvailableDates
-        : oldWidget.availableDates;
-    if (oldDates.isEmpty && _activeDates.isNotEmpty) {
-      final first = _firstAvailableDate;
-      if (first != null) setState(() => _focusedMonth = first);
-    }
+    _focusedMonth = _firstAvailableDate ?? 
+        (widget.isSelectingReturn ? widget.returnDate : widget.departDate) ?? 
+        DateTime.now();
   }
 
   void _selectDate(DateTime date) {
-    setState(() {
-      if (widget.isSelectingReturn) {
-        _tempReturnDate = date;
-        if (_tempDepartDate != null && date.isBefore(_tempDepartDate!)) {
-          _tempDepartDate = date;
-          _tempReturnDate = null;
-        }
-      } else {
-        _tempDepartDate = date;
-        if (_tempReturnDate != null && date.isAfter(_tempReturnDate!)) {
-          _tempReturnDate = null;
-        }
+    if (widget.isSelectingReturn) {
+      widget.onDatesSelected(widget.departDate, date);
+    } else {
+      DateTime? newReturn = widget.returnDate;
+      if (newReturn != null && date.isAfter(newReturn)) {
+        newReturn = null;
       }
-      widget.onDatesSelected(_tempDepartDate, _tempReturnDate);
-    });
+      widget.onDatesSelected(date, newReturn);
+    }
+    widget.onClose?.call(); 
   }
 
   bool _isDateAvailable(DateTime date) {
-    if (_activeDates.isEmpty) return true;
+    if (_activeDates.isEmpty) return false; 
     final formatted =
         '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-
-    if (date.day == 11 && date.month == 3) {
-      print('Checking 2026-03-11: formatted=$formatted, activeDates sample=${_activeDates.take(3).toList()}');
-    }
     return _activeDates.contains(formatted);
   }
 
@@ -113,9 +83,11 @@ class _CustomDateRangePickerState extends State<CustomDateRangePicker> {
     final lastDay = DateTime(month.year, month.month + 1, 0);
     final daysInMonth = lastDay.day;
     final startWeekday = firstDay.weekday % 7;
+    final now = DateTime.now();
+    final todayDate = DateTime(now.year, now.month, now.day);
 
     return Column(
-      children: [
+      children:[
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 12),
           child: Text(
@@ -126,7 +98,7 @@ class _CustomDateRangePickerState extends State<CustomDateRangePicker> {
         Table(
           children: [
             TableRow(
-              children: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) {
+              children:['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) {
                 return Center(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8),
@@ -151,27 +123,28 @@ class _CustomDateRangePickerState extends State<CustomDateRangePicker> {
 
                 final date = DateTime(month.year, month.month, dayNumber);
                 final isToday = DateUtils.isSameDay(date, DateTime.now());
-                final isDepart = DateUtils.isSameDay(date, _tempDepartDate);
-                final isReturn = DateUtils.isSameDay(date, _tempReturnDate);
-                final isInRange = _tempDepartDate != null &&
-                    _tempReturnDate != null &&
-                    date.isAfter(_tempDepartDate!) &&
-                    date.isBefore(_tempReturnDate!);
-                final isPast = date.isBefore(DateTime.now().subtract(const Duration(days: 1)));
+                
+                final isSelected = widget.isSelectingReturn 
+                    ? DateUtils.isSameDay(date, widget.returnDate)
+                    : DateUtils.isSameDay(date, widget.departDate);
+
+                final isPast = date.isBefore(todayDate);
                 final isAvailable = _isDateAvailable(date);
-                final isDisabled = isPast || !isAvailable;
+                
+                final isBeforeDepart = widget.isSelectingReturn && 
+                                       widget.departDate != null && 
+                                       date.isBefore(widget.departDate!);
+
+                final isDisabled = isPast || !isAvailable || isBeforeDepart;
 
                 Color? bgColor;
                 Color? textColor;
 
                 if (isDisabled) {
-                  textColor = Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.3);
-                } else if (isDepart || isReturn) {
+                  textColor = Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.3);
+                } else if (isSelected) {
                   bgColor = Theme.of(context).colorScheme.primary;
                   textColor = Theme.of(context).colorScheme.onPrimary;
-                } else if (isInRange) {
-                  bgColor = Theme.of(context).colorScheme.primaryContainer;
-                  textColor = Theme.of(context).colorScheme.onPrimaryContainer;
                 } else if (isToday) {
                   bgColor = Theme.of(context).colorScheme.surfaceContainerHighest;
                   textColor = Theme.of(context).colorScheme.onSurface;
@@ -188,29 +161,19 @@ class _CustomDateRangePickerState extends State<CustomDateRangePicker> {
                       decoration: BoxDecoration(
                         color: bgColor,
                         borderRadius: BorderRadius.circular(8),
-                        border: isToday && !isDepart && !isReturn && !isDisabled
+                        border: isToday && !isSelected && !isDisabled
                             ? Border.all(color: Theme.of(context).colorScheme.primary, width: 2)
                             : null,
                       ),
                       child: Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              '$dayNumber',
-                              style: TextStyle(
-                                color: textColor,
-                                fontWeight: isDepart || isReturn ? FontWeight.bold : FontWeight.normal,
-                                fontSize: 14,
-                                decoration: !isAvailable && !isPast ? TextDecoration.lineThrough : null,
-                              ),
-                            ),
-                            if (isDepart || isReturn)
-                              Text(
-                                isDepart ? 'Out' : 'In',
-                                style: TextStyle(color: textColor, fontSize: 8, fontWeight: FontWeight.bold),
-                              ),
-                          ],
+                        child: Text(
+                          '$dayNumber',
+                          style: TextStyle(
+                            color: textColor,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            fontSize: 14,
+                            decoration: isDisabled ? TextDecoration.lineThrough : null,
+                          ),
                         ),
                       ),
                     ),
@@ -231,42 +194,40 @@ class _CustomDateRangePickerState extends State<CustomDateRangePicker> {
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
+        boxShadow:[
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
+            color: Colors.black.withOpacity(0.1),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
-        children: [
+        children:[
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
+            children:[
               Text(
-                widget.isSelectingReturn ? 'Inbound date' : 'Outbound date',
-                style: Theme.of(context).textTheme.titleLarge,
+                widget.isSelectingReturn ? 'Select Inbound date' : 'Select Outbound date',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               ),               
-              const Divider(height: 24),
             ],
           ),
+          const Divider(height: 24),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
+            children:[
               IconButton(
                 icon: const Icon(Icons.chevron_left),
                 onPressed: () => setState(() {
-                  _focusedMonth =
-                      DateTime(_focusedMonth.year, _focusedMonth.month - 1);
+                  _focusedMonth = DateTime(_focusedMonth.year, _focusedMonth.month - 1);
                 }),
               ),
               Expanded(child: _buildCalendar(_focusedMonth)),
               IconButton(
                 icon: const Icon(Icons.chevron_right),
                 onPressed: () => setState(() {
-                  _focusedMonth =
-                      DateTime(_focusedMonth.year, _focusedMonth.month + 1);
+                  _focusedMonth = DateTime(_focusedMonth.year, _focusedMonth.month + 1);
                 }),
               ),
             ],

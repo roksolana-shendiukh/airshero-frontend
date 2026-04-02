@@ -19,12 +19,11 @@ class ResponsiveLayout extends StatefulWidget {
   State<ResponsiveLayout> createState() => _ResponsiveLayoutState();
 }
 
-class _ResponsiveLayoutState extends State<ResponsiveLayout>
-    with SingleTickerProviderStateMixin {
+class _ResponsiveLayoutState extends State<ResponsiveLayout> {
   bool _sidebarCollapsed = false;
 
-  static const double _expandedWidth  = 260;
-  static const double _collapsedWidth = 60;
+  static const double _expandedWidth = 260;
+  static const double _collapsedWidth = 75;
 
   void _toggleSidebar() => setState(() => _sidebarCollapsed = !_sidebarCollapsed);
 
@@ -33,6 +32,7 @@ class _ResponsiveLayoutState extends State<ResponsiveLayout>
     final bool isLargeScreen = MediaQuery.of(context).size.width >= 1024;
     final themeNotifier = ThemeNotifier.of(context);
     final isLightTheme = themeNotifier?.isLightTheme ?? true;
+    final colors = Theme.of(context).colorScheme;
 
     return Consumer<AuthService>(
       builder: (context, authService, _) {
@@ -42,18 +42,43 @@ class _ResponsiveLayoutState extends State<ResponsiveLayout>
           drawer: isLargeScreen ? null : _buildDrawer(context, currentUser),
           body: Column(
             children: [
-              _buildAppBar(context, authService, currentUser, isLargeScreen, isLightTheme, themeNotifier),
+              // HEADER (З НИЖНЬОЮ ЛІНІЄЮ)
+              Container(
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: colors.outlineVariant.withOpacity(0.5),
+                      width: 1,
+                    ),
+                  ),
+                ),
+                child: _buildAppBar(context, authService, currentUser, isLargeScreen, isLightTheme, themeNotifier),
+              ),
+              
               Expanded(
                 child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // SIDEBAR (З КЛІПУВАННЯМ ТА ПРАВОЮ ЛІНІЄЮ)
                     if (isLargeScreen)
                       AnimatedContainer(
-                        duration: const Duration(milliseconds: 220),
+                        duration: const Duration(milliseconds: 250),
                         curve: Curves.easeInOut,
                         width: _sidebarCollapsed ? _collapsedWidth : _expandedWidth,
-                        child: _buildSidebar(context, currentUser),
+                        decoration: BoxDecoration(
+                          color: colors.surfaceContainerLow,
+                          border: Border(
+                            right: BorderSide(
+                              color: colors.outlineVariant.withOpacity(0.5),
+                            ),
+                          ),
+                        ),
+                        // Кліпування контенту під час анімації
+                        child: ClipRect(
+                          child: _buildSidebarContent(context, currentUser, collapsed: _sidebarCollapsed),
+                        ),
                       ),
+                    
+                    // MAIN BODY
                     Expanded(
                       child: Column(
                         children: [
@@ -84,245 +109,200 @@ class _ResponsiveLayoutState extends State<ResponsiveLayout>
 
     return AppBar(
       elevation: 0,
+      scrolledUnderElevation: 0,
+      backgroundColor: Colors.transparent,
       leading: isLargeScreen
-          ? Padding(
-              padding: const EdgeInsets.all(8),
-              child: Icon(Icons.flight, color: colors.primary, size: 32),
+          ? Center(
+              child: Icon(Icons.flight_takeoff, color: colors.primary, size: 28),
             )
-          : Builder(
-              builder: (context) => IconButton(
-                icon: const Icon(Icons.menu),
-                onPressed: () => Scaffold.of(context).openDrawer(),
-              ),
-            ),
+          : null,
+      titleSpacing: isLargeScreen ? 0 : null,
       title: GestureDetector(
-        onTap: () => context.go('/sales/bookings'),
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: Text(_getAppBarTitle(currentUser?.role)),
+        onTap: () => context.go('/'),
+        child: Text(
+          _getAppBarTitle(currentUser?.role),
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
       ),
       actions: [
         IconButton(
-          icon: Icon(isLightTheme ? Icons.dark_mode : Icons.light_mode),
+          icon: Icon(isLightTheme ? Icons.dark_mode_outlined : Icons.light_mode_outlined),
           onPressed: () => themeNotifier?.toggleTheme(),
         ),
-        const SizedBox(width: 8),
-        if (currentUser != null)
-          PopupMenuButton<String>(
-            icon: CircleAvatar(
-              radius: 18,
-              backgroundColor: colors.primary,
-              child: Text(
-                currentUser.firstName.isNotEmpty
-                    ? currentUser.firstName[0].toUpperCase()
-                    : currentUser.email[0].toUpperCase(),
-                style: TextStyle(
-                  color: colors.onPrimary,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                enabled: false,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(currentUser.fullName,
-                        style: const TextStyle(fontWeight: FontWeight.bold)),
-                    Text(
-                      currentUser.role.displayName,
-                      style: TextStyle(
-                          fontSize: 12, color: colors.onSurfaceVariant),
-                    ),
-                  ],
-                ),
-              ),
-              const PopupMenuDivider(),
-              const PopupMenuItem(
-                value: 'logout',
-                child: Row(
-                  children: [
-                    Icon(Icons.logout, size: 20, color: Colors.red),
-                    SizedBox(width: 12),
-                    Text('Logout', style: TextStyle(color: Colors.red)),
-                  ],
-                ),
-              ),
-            ],
-            onSelected: (value) {
-              if (value == 'logout') {
-                authService.logout();
-                context.go('/');
-              }
-            },
-          ),
+        if (currentUser != null) _buildUserAvatar(context, currentUser, authService),
         const SizedBox(width: 16),
       ],
     );
   }
 
-  Widget _buildDrawer(BuildContext context, UserModel? currentUser) {
-    return Drawer(
-      child: _buildMenuContent(
-        context,
-        currentUser,
-        collapsed: false,
-        onClose: () => Navigator.of(context).pop(),
-      ),
+  Widget _buildSidebarContent(
+    BuildContext context,
+    UserModel? currentUser, {
+    required bool collapsed,
+  }) {
+    if (currentUser == null) return const SizedBox.shrink();
+
+    final colors = Theme.of(context).colorScheme;
+    final currentPath = GoRouterState.of(context).uri.path;
+    final menuItems = currentUser.role.menuItems;
+
+    return Column(
+      children: [
+        // AIRLINE BOX - ВИПРАВЛЕНО: ТЕПЕР БЕЗ OVERFLOW
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 16, 8, 16),
+          child: collapsed
+              ? Center(
+                  child: InkWell(
+                    onTap: _toggleSidebar,
+                    child: _buildAirlineLogo(currentUser, size: 36),
+                  ),
+                )
+              : SingleChildScrollView( // ДОЗВОЛЯЄ ТЕКСТУ ТА КНОПЦІ НЕ ВИДАВАТИ ПОМИЛКУ
+                  scrollDirection: Axis.horizontal,
+                  physics: const NeverScrollableScrollPhysics(),
+                  child: SizedBox(
+                    width: _expandedWidth - 20, // Фіксований простір для Row
+                    child: Row(
+                      children: [
+                        _buildAirlineLogo(currentUser, size: 36),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            currentUser.airlineName?.toUpperCase() ?? "AIRLINE",
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w900,
+                              color: colors.primary,
+                              letterSpacing: 0.5,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.fade,
+                            softWrap: false,
+                          ),
+                        ),
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          icon: const Icon(Icons.menu_open, size: 20),
+                          onPressed: _toggleSidebar,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+        ),
+        
+        const Divider(height: 1, indent: 12, endIndent: 12),
+        const SizedBox(height: 8),
+
+        // MENU ITEMS - ТЕЖ ЗАХИЩЕНІ ВІД OVERFLOW
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            children: menuItems.map((item) => _SidebarItem(
+              icon: item.icon,
+              title: item.title,
+              isActive: currentPath == item.route,
+              collapsed: collapsed,
+              onTap: () {
+                if (Navigator.canPop(context)) Navigator.pop(context);
+                context.go(item.route);
+              },
+            )).toList(),
+          ),
+        ),
+
+        if (collapsed)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: IconButton(
+              icon: const Icon(Icons.chevron_right),
+              onPressed: _toggleSidebar,
+            ),
+          ),
+      ],
     );
   }
 
-  Widget _buildSidebar(BuildContext context, UserModel? currentUser) {
-    final colors = Theme.of(context).colorScheme;
-
+  Widget _buildAirlineLogo(UserModel user, {required double size}) {
     return Container(
-      color: colors.surfaceContainerHigh,
-      child: SingleChildScrollView(
-        physics: const NeverScrollableScrollPhysics(),
-        child: _buildMenuContent(
-          context,
-          currentUser,
-          collapsed: _sidebarCollapsed,
-          onClose: _toggleSidebar,
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.white,
+        border: Border.all(color: Colors.grey.withOpacity(0.15)),
+      ),
+      child: ClipOval(
+        child: Padding(
+          padding: const EdgeInsets.all(5.0),
+          child: user.airlineLogoUrl != null
+              ? Image.network(
+                  user.airlineLogoUrl!,
+                  fit: BoxFit.contain,
+                  errorBuilder: (c, e, s) => const Icon(Icons.flight_takeoff, size: 16),
+                )
+              : const Icon(Icons.flight_takeoff, size: 16, color: Colors.grey),
         ),
       ),
     );
   }
 
-  Widget _buildMenuContent(
-    BuildContext context,
-    UserModel? currentUser, {
-    required bool collapsed,
-    VoidCallback? onClose,
-  }) {
-    if (currentUser == null) return _buildGuestMenu(context, collapsed: collapsed);
-
-    final currentPath = GoRouterState.of(context).uri.path;
-    final menuItems = currentUser.role.menuItems;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (!collapsed) ...[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 8, 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          currentUser.role.displayName.toUpperCase(),
-                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1.2,
-                              ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          currentUser.fullName,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurface,
-                                fontWeight: FontWeight.w500,
-                              ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Tooltip(
-                    message: 'Collapse sidebar',
-                    // onClose handles both drawer close and sidebar collapse
-                    child: InkWell(
-                      onTap: onClose,
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(8),
-                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                        ),
-                        child: Icon(
-                          Icons.chevron_left,
-                          size: 18,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Divider(
-              height: 1,
-              thickness: 1,
-              color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.5),
-            ),
-            const SizedBox(height: 8),
-          ] else ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Center(
-                child: Tooltip(
-                  message: 'Expand sidebar',
-                  child: InkWell(
-                    onTap: onClose,
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                      ),
-                      child: Icon(
-                        Icons.chevron_right,
-                        size: 18,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-          ...menuItems.map((item) => _SidebarItem(
-                icon: item.icon,
-                title: item.title,
-                isActive: currentPath == item.route,
-                collapsed: collapsed,
-                onTap: () {
-                  if (Navigator.canPop(context)) Navigator.pop(context);
-                  context.go(item.route);
-                },
-              )),
-        ],
+  Widget _buildUserAvatar(BuildContext context, UserModel user, AuthService authService) {
+    final colors = Theme.of(context).colorScheme;
+    return PopupMenuButton<String>(
+      offset: const Offset(0, 45),
+      child: CircleAvatar(
+        radius: 16,
+        backgroundColor: colors.primary,
+        child: Text(
+          user.firstName.isNotEmpty 
+              ? user.firstName[0].toUpperCase() 
+              : (user.email.isNotEmpty ? user.email[0].toUpperCase() : '?'),
+          style: TextStyle(
+            color: colors.onPrimary, 
+            fontSize: 13, 
+            fontWeight: FontWeight.bold
+          ),
+        ),
       ),
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          enabled: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(user.fullName, style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text(user.role.displayName, style: TextStyle(fontSize: 12, color: colors.outline)),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        const PopupMenuItem(
+          value: 'logout',
+          child: Row(
+            children: [
+              Icon(Icons.logout, size: 18, color: Colors.red),
+              SizedBox(width: 8),
+              Text('Logout', style: TextStyle(color: Colors.red)),
+            ],
+          ),
+        ),
+      ],
+      onSelected: (val) {
+        if (val == 'logout') {
+          authService.logout();
+          context.go('/');
+        }
+      },
     );
   }
 
-  Widget _buildGuestMenu(BuildContext context, {required bool collapsed}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _SidebarItem(
-            icon: Icons.search,
-            title: 'Search Flights',
-            collapsed: collapsed,
-            onTap: () {
-              if (Navigator.canPop(context)) Navigator.pop(context);
-              context.go('/');
-            },
-          ),
-        ],
+  Widget _buildDrawer(BuildContext context, UserModel? currentUser) {
+    return Drawer(
+      width: _expandedWidth,
+      child: SafeArea(
+        child: _buildSidebarContent(context, currentUser, collapsed: false),
       ),
     );
   }
@@ -339,103 +319,64 @@ class _ResponsiveLayoutState extends State<ResponsiveLayout>
   }
 }
 
-// ─────────────────────────────────────────────
-// Sidebar item — Linear/Notion style
-// ─────────────────────────────────────────────
-class _SidebarItem extends StatefulWidget {
+class _SidebarItem extends StatelessWidget {
   final IconData icon;
   final String title;
-  final VoidCallback onTap;
   final bool isActive;
   final bool collapsed;
+  final VoidCallback onTap;
 
   const _SidebarItem({
     required this.icon,
     required this.title,
+    required this.isActive,
+    required this.collapsed,
     required this.onTap,
-    this.isActive = false,
-    this.collapsed = false,
   });
-
-  @override
-  State<_SidebarItem> createState() => _SidebarItemState();
-}
-
-class _SidebarItemState extends State<_SidebarItem> {
-  bool _hovered = false;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final active  = widget.isActive;
-    final collapsed = widget.collapsed;
-
-    final bgColor = active
-        ? colors.primary.withOpacity(0.08)
-        : _hovered
-            ? colors.onSurface.withOpacity(0.05)
-            : Colors.transparent;
-
-    final iconColor  = active ? colors.primary : colors.onSurfaceVariant;
-    final textColor  = active ? colors.primary : colors.onSurface;
-    final fontWeight = active ? FontWeight.w600 : FontWeight.w400;
-
-    final child = MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit:  (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
+    
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
         child: Container(
-          margin: EdgeInsets.symmetric(
-            horizontal: collapsed ? 6 : 8,
-            vertical:   2,
-          ),
+          padding: EdgeInsets.symmetric(vertical: 10, horizontal: collapsed ? 0 : 12),
           decoration: BoxDecoration(
-            color: bgColor,
-            borderRadius: BorderRadius.circular(6),
-            border: Border(
-              left: BorderSide(
-                color: active ? colors.primary : Colors.transparent,
-                width: 2,
-              ),
-            ),
+            color: isActive ? colors.primary.withOpacity(0.08) : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
           ),
           child: collapsed
               ? Tooltip(
-                  message: widget.title,
-                  preferBelow: false,
-                  child: SizedBox(
-                    height: 40,
-                    child: Center(
-                      child: Icon(widget.icon, size: 20, color: iconColor),
-                    ),
-                  ),
+                  message: title, 
+                  child: Center(child: Icon(icon, color: isActive ? colors.primary : colors.onSurfaceVariant, size: 22))
                 )
-              : Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 10),
-                  child: Row(
-                    children: [
-                      Icon(widget.icon, size: 18, color: iconColor),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          widget.title,
+              : SingleChildScrollView( // ЗАХИСТ ВІД OVERFLOW ПРИ АНІМАЦІЇ ПУНКТІВ МЕНЮ
+                  scrollDirection: Axis.horizontal,
+                  physics: const NeverScrollableScrollPhysics(),
+                  child: SizedBox(
+                    width: 200, // Фіксована ширина для внутрішнього тексту
+                    child: Row(
+                      children: [
+                        Icon(icon, size: 20, color: isActive ? colors.primary : colors.onSurfaceVariant),
+                        const SizedBox(width: 12),
+                        Text(
+                          title,
                           style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: fontWeight,
-                            color: textColor,
+                            fontSize: 14,
+                            fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                            color: isActive ? colors.primary : colors.onSurface,
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
         ),
       ),
     );
-
-    return child;
   }
 }

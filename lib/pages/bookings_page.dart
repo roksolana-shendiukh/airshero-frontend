@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../widgets/flight_search_form.dart';
+import '../widgets/booking/segment_date_form.dart';
 import '../widgets/responsive_layout.dart';
 import '../widgets/animation/animated_flight_progress.dart';
+import '../widgets/custom/custom_input_field.dart';
+import '../widgets/custom/custom_date_range_picker.dart';
+import '../widgets/custom/custom_button.dart';
+import '../widgets/passenger_selector.dart';
 import '../config/routes.dart';
 import '../services/recent_searches_service.dart';
+import '../models/flight_alternatives_model.dart';
+import '../models/booking_group_draft.dart';
 
 class BookingsPage extends StatefulWidget {
   const BookingsPage({super.key});
@@ -19,10 +26,40 @@ class _BookingsPageState extends State<BookingsPage> {
   final _recentSearchesService = RecentSearchesService();
   void Function(Offset position)? _closeFormOverlays;
 
+  final GlobalKey<FlightSearchFormState> _formKey =
+      GlobalKey<FlightSearchFormState>();
+
+  bool _routeExists = true;
+  FlightAlternatives? _alternatives;
+
+  _HubSelection? _selectedHub;
+  DateTime? _leg1Date;
+  DateTime? _leg2Date;
+  MainFormData? _mainFormData;
+
+  OverlayEntry? _segmentCalendarOverlay;
+  int? _activeSegmentIndex;
+
+  OverlayEntry? _passengerOverlay;
+  bool _isPassengerOpen = false;
+  final GlobalKey _passengerFieldKey = GlobalKey();
+  Map<String, int> _passengers = {
+    'adults': 1,
+    'children': 0,
+    'infants': 0,
+  };
+
   @override
   void initState() {
     super.initState();
     _tryRestoreLastSearch();
+  }
+
+  @override
+  void dispose() {
+    _segmentCalendarOverlay?.remove();
+    _passengerOverlay?.remove();
+    super.dispose();
   }
 
   Future<void> _tryRestoreLastSearch() async {
@@ -48,9 +85,8 @@ class _BookingsPageState extends State<BookingsPage> {
             toCityId: toCityId,
             toCity: toCity,
             departDate: departDate,
-            returnDate: returnDateStr != null
-                ? DateTime.tryParse(returnDateStr)
-                : null,
+            returnDate:
+                returnDateStr != null ? DateTime.tryParse(returnDateStr) : null,
             passengers: {
               'adults': adults,
               'children': children,
@@ -129,6 +165,223 @@ class _BookingsPageState extends State<BookingsPage> {
     }
   }
 
+  void _handleMultiSegmentSearch() async {
+    final hub = _selectedHub;
+    final mainData = _mainFormData;
+    if (hub == null ||
+        mainData == null ||
+        _leg1Date == null ||
+        _leg2Date == null) return;
+
+    setState(() => _isSearching = true);
+
+    try {
+      await Future.delayed(const Duration(seconds: 3));
+
+      if (!mounted) return;
+      setState(() => _isSearching = false);
+
+      final draft = BookingGroupDraft(
+        segments: [],
+        passengers: _passengers,
+        finalDestinationCityId: mainData.toCityId,
+        finalDestinationCity: mainData.toCity,
+      );
+
+      context.push(
+        buildSearchResultsUrl(
+          fromCityId: mainData.fromCityId,
+          fromCity: mainData.fromCity,
+          toCityId: hub.cityId,
+          toCity: hub.cityName,
+          departDate: _leg1Date!,
+          passengers: _passengers,
+        ),
+        extra: SearchResultsArguments(
+          fromCityId: mainData.fromCityId,
+          fromCity: mainData.fromCity,
+          toCityId: hub.cityId,
+          toCity: hub.cityName,
+          departDate: _leg1Date!,
+          passengers: _passengers,
+          bookingGroupDraft: draft,
+          leg2Date: _leg2Date,
+        ),
+      );
+    } catch (error) {
+      if (mounted) {
+        setState(() => _isSearching = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Search failed: $error')),
+        );
+      }
+    }
+  }
+
+  bool get _canSearchMultiSegment =>
+      _selectedHub != null &&
+      _mainFormData != null &&
+      _leg1Date != null &&
+      _leg2Date != null &&
+      !_leg2Date!.isBefore(_leg1Date!);
+
+  void _clearHub() {
+    _closeSegmentCalendar();
+    _closePassengerSelector();
+    setState(() {
+      _selectedHub = null;
+      _leg1Date = null;
+      _leg2Date = null;
+      _passengers = {'adults': 1, 'children': 0, 'infants': 0};
+    });
+  }
+
+  void _openSegmentCalendar({
+    required GlobalKey fieldKey,
+    required List<String> availableDates,
+    required DateTime? current,
+    required void Function(DateTime?) onSelected,
+    required int segmentIndex,
+  }) {
+    if (_activeSegmentIndex == segmentIndex &&
+        _segmentCalendarOverlay != null) {
+      _closeSegmentCalendar();
+      return;
+    }
+
+    _closeSegmentCalendar();
+    _closePassengerSelector();
+
+    final availableDatesNotifier = ValueNotifier(availableDates);
+
+    _segmentCalendarOverlay = OverlayEntry(
+      builder: (_) {
+        final box =
+            fieldKey.currentContext?.findRenderObject() as RenderBox?;
+        final pos =
+            box != null ? box.localToGlobal(Offset.zero) : Offset.zero;
+        final fieldHeight = box?.size.height ?? 56.0;
+        final screenHeight = MediaQuery.of(context).size.height;
+        const calendarHeight = 360.0;
+
+        final top =
+            (pos.dy + fieldHeight + 8 + calendarHeight > screenHeight)
+                ? pos.dy - calendarHeight - 8
+                : pos.dy + fieldHeight + 8;
+
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: _closeSegmentCalendar,
+              ),
+            ),
+            Positioned(
+              left: pos.dx,
+              top: top,
+              width: 400,
+              child: Material(
+                elevation: 8,
+                borderRadius: BorderRadius.circular(12),
+                child: ValueListenableBuilder<List<String>>(
+                  valueListenable: availableDatesNotifier,
+                  builder: (context, dates, _) {
+                    return CustomDateRangePicker(
+                      departDate: current,
+                      returnDate: null,
+                      availableDates: dates,
+                      returnAvailableDates: const [],
+                      isSelectingReturn: false,
+                      onDatesSelected: (date, _) {
+                        onSelected(date);
+                        _closeSegmentCalendar();
+                      },
+                      onClose: _closeSegmentCalendar,
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    Overlay.of(context).insert(_segmentCalendarOverlay!);
+    setState(() => _activeSegmentIndex = segmentIndex);
+  }
+
+  void _closeSegmentCalendar() {
+    _segmentCalendarOverlay?.remove();
+    _segmentCalendarOverlay = null;
+    if (mounted) setState(() => _activeSegmentIndex = null);
+  }
+
+  void _openPassengerSelector() {
+    if (_passengerOverlay != null) return;
+    if (_passengerFieldKey.currentContext == null) return;
+
+    _closeSegmentCalendar();
+
+    _passengerOverlay = OverlayEntry(
+      builder: (_) {
+        final box = _passengerFieldKey.currentContext?.findRenderObject()
+            as RenderBox?;
+        final pos =
+            box != null ? box.localToGlobal(Offset.zero) : Offset.zero;
+        final fieldHeight = box?.size.height ?? 56.0;
+        final screenHeight = MediaQuery.of(context).size.height;
+        const selectorHeight = 320.0;
+        final top =
+            (pos.dy + fieldHeight + 8 + selectorHeight > screenHeight)
+                ? pos.dy - selectorHeight - 8
+                : pos.dy + fieldHeight + 8;
+
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: _closePassengerSelector,
+              ),
+            ),
+            Positioned(
+              left: pos.dx,
+              top: top,
+              child: Material(
+                elevation: 8,
+                borderRadius: BorderRadius.circular(8),
+                child: PassengerSelector(
+                  initialPassengers: _passengers,
+                  onChanged: (data) {
+                    setState(() => _passengers = data);
+                    _passengerOverlay?.markNeedsBuild();
+                  },
+                  onClose: _closePassengerSelector,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    Overlay.of(context).insert(_passengerOverlay!);
+    setState(() => _isPassengerOpen = true);
+  }
+
+  void _closePassengerSelector() {
+    _passengerOverlay?.remove();
+    _passengerOverlay = null;
+    if (mounted) setState(() => _isPassengerOpen = false);
+  }
+
+  String _formatPassengers() {
+    final total = _passengers.values.reduce((a, b) => a + b);
+    return '$total passenger${total > 1 ? 's' : ''}';
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isRestoringSearch) {
@@ -145,100 +398,565 @@ class _BookingsPageState extends State<BookingsPage> {
         },
         child: SingleChildScrollView(
           child: Column(
-          children: [
-            FlightSearchForm(
-              onOverlayControllerReady: (closeOverlaysIfOutside) {
-                _closeFormOverlays = closeOverlaysIfOutside;
-              },
-              onSearch: ({
-                required int fromCityId,
-                required String fromLocation,
-                required int toCityId,
-                required String toLocation,
-                required DateTime departDate,
-                DateTime? returnDate,
-                required Map<String, int> passengers,
-              }) {
-                _handleSearch(
-                  fromCityId: fromCityId,
-                  fromLocation: fromLocation,
-                  toCityId: toCityId,
-                  toLocation: toLocation,
-                  departDate: departDate,
-                  returnDate: returnDate,
-                  passengers: passengers,
-                );
-              },
+            children: [
+              FlightSearchForm(
+                key: _formKey,
+                hideDateAndPassengers: _selectedHub != null,
+                onOverlayControllerReady: (closeOverlaysIfOutside) {
+                  _closeFormOverlays = closeOverlaysIfOutside;
+                },
+                onRouteStatusChanged: (routeExists, alternatives) {
+                  setState(() {
+                    _routeExists = routeExists;
+                    _alternatives = alternatives;
+                    if (routeExists) _clearHub();
+                  });
+                },
+                onSearch: _selectedHub == null
+                    ? ({
+                        required int fromCityId,
+                        required String fromLocation,
+                        required int toCityId,
+                        required String toLocation,
+                        required DateTime departDate,
+                        DateTime? returnDate,
+                        required Map<String, int> passengers,
+                      }) {
+                        _handleSearch(
+                          fromCityId: fromCityId,
+                          fromLocation: fromLocation,
+                          toCityId: toCityId,
+                          toLocation: toLocation,
+                          departDate: departDate,
+                          returnDate: returnDate,
+                          passengers: passengers,
+                        );
+                      }
+                    : null,
+              ),
+
+              const SizedBox(height: 16),
+
+              if (!_routeExists && !_isSearching)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: _selectedHub == null
+                      ? _buildAlternativesSection(context)
+                      : _buildMultiSegmentSection(context),
+                ),
+
+              if (_isSearching)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: AnimatedFlightProgress(
+                    isSearching: _isSearching,
+                    onComplete: () {},
+                  ),
+                ),
+
+              const SizedBox(height: 48),
+
+              if (!_isSearching && _routeExists)
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.flight,
+                        size: 120,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(height: 24),
+                      Text(
+                        'Welcome to AirShero',
+                        style: Theme.of(context).textTheme.displayMedium,
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Your journey starts here',
+                        style: Theme.of(context).textTheme.bodyLarge,
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAlternativesSection(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(4),
+        border: Border(
+          left: BorderSide(color: colors.primary, width: 3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'No direct flights available',
+                  style: textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'The following routing options are available for this route.',
+                  style: textTheme.bodySmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ),
+          ),
 
-            const SizedBox(height: 24),
-
-            if (_isSearching)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: AnimatedFlightProgress(
-                  isSearching: _isSearching,
-                  onComplete: () {},
+          if (_alternatives == null ||
+              (_alternatives!.nearbyCities.isEmpty &&
+                  _alternatives!.connectingHubs.isEmpty))
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+              child: Text(
+                'No alternative routes found. Please select different cities.',
+                style: textTheme.bodySmall?.copyWith(
+                  color: colors.onSurfaceVariant,
                 ),
               ),
-
-            const SizedBox(height: 48),
-
-            if (!_isSearching)
+            )
+          else ...[
+            if (_alternatives!.connectingHubs.isNotEmpty) ...[
+              _buildSectionDivider(context),
               Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+                child: Row(
                   children: [
-                    Icon(
-                      Icons.flight,
-                      size: 120,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                    const SizedBox(height: 24),
                     Text(
-                      'Welcome to AirShero',
-                      style: Theme.of(context).textTheme.displayMedium,
+                      'VIA CONNECTING CITY',
+                      style: textTheme.labelSmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                        letterSpacing: 1.2,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Your journey starts here',
-                      style: Theme.of(context).textTheme.bodyLarge,
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: colors.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      child: Text(
+                        '2 bookings required',
+                        style: textTheme.labelSmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                          fontSize: 10,
+                        ),
+                      ),
                     ),
                   ],
                 ),
               ),
-
-            if (_isSearching)
               Padding(
-                padding: const EdgeInsets.all(32),
-                child: Column(
-                  children: [
-                    Text(
-                      'Searching for flights...',
-                      style: Theme.of(context)
-                          .textTheme
-                          .headlineSmall
-                          ?.copyWith(
-                            color: Theme.of(context).colorScheme.primary,
-                            fontWeight: FontWeight.bold,
-                          ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Finding the best deals for you',
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurfaceVariant,
-                          ),
-                    ),
-                  ],
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _alternatives!.connectingHubs.map((hub) {
+                    return _ConnectingHubButton(
+                      cityName: hub.cityName,
+                      onTap: () {
+                        final formState = _formKey.currentState;
+                        if (formState != null) {
+                          setState(() {
+                            _selectedHub = _HubSelection(
+                              cityId: hub.cityId,
+                              cityName: hub.cityName,
+                            );
+                            _mainFormData = formState.currentFormData;
+                          });
+                        }
+                      },
+                    );
+                  }).toList(),
                 ),
               ),
+            ],
+
+            if (_alternatives!.nearbyCities.isNotEmpty) ...[
+              _buildSectionDivider(context),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+                child: Text(
+                  'NEARBY AIRPORTS',
+                  style: textTheme.labelSmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                    letterSpacing: 1.2,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _alternatives!.nearbyCities.map((city) {
+                    return _NearbyAirportButton(
+                      cityName: city.cityName,
+                      distanceKm: city.distanceKm,
+                      onTap: () {
+                        _formKey.currentState?.applyAlternativeCity(
+                            city.cityId, city.cityName);
+                      },
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionDivider(BuildContext context) {
+    return Divider(
+      height: 1,
+      thickness: 1,
+      color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.5),
+    );
+  }
+
+  Widget _buildMultiSegmentSection(BuildContext context) {
+    final hub = _selectedHub!;
+    final mainData = _mainFormData;
+    if (mainData == null) return const SizedBox.shrink();
+    final colors = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: colors.surfaceContainerLow,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(4),
+              topRight: Radius.circular(4),
+            ),
+            border: Border(
+              left: BorderSide(color: colors.primary, width: 3),
+              top: BorderSide(
+                  color: colors.outlineVariant.withOpacity(0.5)),
+              right: BorderSide(
+                  color: colors.outlineVariant.withOpacity(0.5)),
+              bottom: BorderSide(
+                  color: colors.outlineVariant.withOpacity(0.5)),
+            ),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'CONNECTING ROUTE',
+                      style: textTheme.labelSmall?.copyWith(
+                        color: colors.primary,
+                        letterSpacing: 1.2,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${mainData.fromCity}  →  ${hub.cityName}  →  ${mainData.toCity}',
+                      style: textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              TextButton(
+                onPressed: _clearHub,
+                style: TextButton.styleFrom(
+                  foregroundColor: colors.onSurfaceVariant,
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 8),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(
+                  'Change route',
+                  style: textTheme.labelSmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        SegmentDateForm(
+          fromCityId: mainData.fromCityId,
+          fromCity: mainData.fromCity,
+          toCityId: hub.cityId,
+          toCity: hub.cityName,
+          isCalendarOpen: _activeSegmentIndex == 0,
+          onDateChanged: (date) => setState(() => _leg1Date = date),
+          onRemove: _clearHub,
+          onOpenCalendar: (fieldKey, availableDates, current, onSelected) {
+            _openSegmentCalendar(
+              fieldKey: fieldKey,
+              availableDates: availableDates,
+              current: current,
+              onSelected: onSelected,
+              segmentIndex: 0,
+            );
+          },
+        ),
+
+        const SizedBox(height: 8),
+
+        Row(
+          children: [
+            const SizedBox(width: 16),
+            Container(
+              width: 1,
+              height: 16,
+              color: colors.outlineVariant,
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 8),
+
+        SegmentDateForm(
+          fromCityId: hub.cityId,
+          fromCity: hub.cityName,
+          toCityId: mainData.toCityId,
+          toCity: mainData.toCity,
+          isCalendarOpen: _activeSegmentIndex == 1,
+          onDateChanged: (date) => setState(() => _leg2Date = date),
+          onRemove: _clearHub,
+          onOpenCalendar: (fieldKey, availableDates, current, onSelected) {
+            _openSegmentCalendar(
+              fieldKey: fieldKey,
+              availableDates: availableDates,
+              current: current,
+              onSelected: onSelected,
+              segmentIndex: 1,
+            );
+          },
+        ),
+
+        if (_leg1Date != null &&
+            _leg2Date != null &&
+            _leg2Date!.isBefore(_leg1Date!))
+          Padding(
+            padding: const EdgeInsets.only(top: 8, left: 4),
+            child: Text(
+              'Second departure date must be on or after the first flight date.',
+              style: textTheme.bodySmall?.copyWith(color: colors.error),
+            ),
+          ),
+
+        const SizedBox(height: 16),
+
+        CustomInputField(
+          key: _passengerFieldKey,
+          label: 'Passengers',
+          value: _formatPassengers(),
+          icon: Icons.person_outline,
+          readOnly: true,
+          isSelected: _isPassengerOpen,
+          onTap: () {
+            if (_isPassengerOpen) {
+              _closePassengerSelector();
+            } else {
+              _openPassengerSelector();
+            }
+          },
+        ),
+
+        const SizedBox(height: 16),
+
+        SizedBox(
+          width: double.infinity,
+          child: CustomButton(
+            label: 'Search flights',
+            onPressed:
+                _canSearchMultiSegment ? _handleMultiSegmentSearch : null,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Окремі класи поза _BookingsPageState ────────────────────────────────────
+
+class _HubSelection {
+  final int cityId;
+  final String cityName;
+  const _HubSelection({required this.cityId, required this.cityName});
+}
+
+class _ConnectingHubButton extends StatefulWidget {
+  final String cityName;
+  final VoidCallback onTap;
+
+  const _ConnectingHubButton({
+    required this.cityName,
+    required this.onTap,
+  });
+
+  @override
+  State<_ConnectingHubButton> createState() => _ConnectingHubButtonState();
+}
+
+class _ConnectingHubButtonState extends State<_ConnectingHubButton> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: _hovered
+                ? colors.primary.withOpacity(0.08)
+                : colors.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: _hovered ? colors.primary : colors.outlineVariant,
+              width: _hovered ? 1.5 : 1,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'via',
+                style: textTheme.bodySmall?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                widget.cityName,
+                style: textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: _hovered ? colors.primary : colors.onSurface,
+                  letterSpacing: -0.2,
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 }
+
+class _NearbyAirportButton extends StatefulWidget {
+  final String cityName;
+  final int distanceKm;
+  final VoidCallback onTap;
+
+  const _NearbyAirportButton({
+    required this.cityName,
+    required this.distanceKm,
+    required this.onTap,
+  });
+
+  @override
+  State<_NearbyAirportButton> createState() => _NearbyAirportButtonState();
+}
+
+class _NearbyAirportButtonState extends State<_NearbyAirportButton> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: _hovered
+                ? colors.primary.withOpacity(0.06)
+                : colors.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: _hovered ? colors.primary : colors.outlineVariant,
+              width: _hovered ? 1.5 : 1,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                widget.cityName,
+                style: textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: _hovered ? colors.primary : colors.onSurface,
+                  letterSpacing: -0.2,
+                ),
+              ),
+              Text(
+                '${widget.distanceKm} km from destination',
+                style: textTheme.labelSmall?.copyWith(
+                  color: colors.onSurfaceVariant,
+                  fontSize: 10,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+

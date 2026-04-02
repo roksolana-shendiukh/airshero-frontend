@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import '../../services/passenger_api_service.dart';
+import '../../services/checkin_api_service.dart';
 import '../../services/auth_service.dart';
 
 class CheckInDocumentSearchField extends StatefulWidget {
   final AuthService authService;
-  final ValueChanged<String> onChanged;
-  final String value;
+  final String flightNumber;
+  final DateTime departsDate;
+  final Function(String) onDocumentSelected;
+  final TextEditingController controller;
 
   const CheckInDocumentSearchField({
     super.key,
     required this.authService,
-    required this.onChanged,
-    required this.value,
+    required this.flightNumber,
+    required this.departsDate,
+    required this.onDocumentSelected,
+    required this.controller,
   });
 
   @override
@@ -22,75 +25,85 @@ class CheckInDocumentSearchField extends StatefulWidget {
 
 class _CheckInDocumentSearchFieldState
     extends State<CheckInDocumentSearchField> {
-  late TextEditingController _controller;
   final _focusNode = FocusNode();
   final _layerLink = LayerLink();
 
-  final ValueNotifier<List<Map<String, dynamic>>> _suggestions = ValueNotifier([]);
-  final ValueNotifier<bool> _isSearching = ValueNotifier(false);
+  final ValueNotifier<List<Map<String, dynamic>>> _suggestionsNotifier =
+      ValueNotifier([]);
+  final ValueNotifier<bool> _isSearchingNotifier = ValueNotifier(false);
 
   OverlayEntry? _overlayEntry;
 
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController(text: widget.value);
     _focusNode.addListener(_onFocusChanged);
   }
 
   void _onFocusChanged() {
     setState(() {});
     if (_focusNode.hasFocus) {
-      if (_suggestions.value.isNotEmpty || _isSearching.value) _showOverlay();
+      if (_suggestionsNotifier.value.isNotEmpty ||
+          _isSearchingNotifier.value) {
+        _showOverlay();
+      }
     } else {
       Future.delayed(const Duration(milliseconds: 200), _hideOverlay);
     }
   }
 
   Future<void> _onChanged(String value) async {
-    final upper = value.toUpperCase();
-    _controller.value = TextEditingValue(
-      text: upper,
-      selection: TextSelection.collapsed(offset: upper.length),
-    );
-    widget.onChanged(upper);
+    widget.controller.text = value.toUpperCase();
 
-    if (upper.trim().length < 2) {
-      _suggestions.value = [];
-      _isSearching.value = false;
+    if (value.trim().length < 2) {
+      _suggestionsNotifier.value = [];
+      _isSearchingNotifier.value = false;
       _hideOverlay();
       return;
     }
 
-    _isSearching.value = true;
+    _isSearchingNotifier.value = true;
     _showOverlay();
 
-    final api = PassengerApiService(widget.authService);
-    final results = await api.getDocumentSuggestions(upper.trim());
+    try {
+      final api = CheckInApiService(widget.authService);
+      final results = await api.getFlightPassengerSuggestions(
+        query:        value.trim().toUpperCase(),
+        flightNumber: widget.flightNumber,
+        departsDate:  widget.departsDate,
+      );
 
-    if (!mounted) return;
-    _suggestions.value = results;
-    _isSearching.value = false;
-    if (results.isEmpty) _hideOverlay();
+      if (!mounted) return;
+
+      _suggestionsNotifier.value = results;
+      _isSearchingNotifier.value = false;
+
+      if (results.isEmpty) {
+        _hideOverlay();
+      } else {
+        _showOverlay();
+      }
+    } catch (_) {
+      if (!mounted) return;
+      _isSearchingNotifier.value = false;
+      _hideOverlay();
+    }
   }
 
   void _selectSuggestion(Map<String, dynamic> suggestion) {
-    final docNumber = (suggestion['document_number'] as String? ?? '').toUpperCase();
-    _controller.value = TextEditingValue(
-      text: docNumber,
-      selection: TextSelection.collapsed(offset: docNumber.length),
-    );
-    widget.onChanged(docNumber);
+    final doc = (suggestion['document_number'] as String? ?? '').toUpperCase();
+    widget.controller.text = doc;
+    widget.onDocumentSelected(doc);
     _hideOverlay();
     _focusNode.unfocus();
   }
 
   void _clear() {
-    _controller.clear();
-    widget.onChanged('');
-    _suggestions.value = [];
-    _isSearching.value = false;
+    widget.controller.clear();
+    _suggestionsNotifier.value = [];
+    _isSearchingNotifier.value = false;
     _hideOverlay();
+    setState(() {});
   }
 
   void _showOverlay() {
@@ -102,30 +115,31 @@ class _CheckInDocumentSearchFieldState
 
     _overlayEntry = OverlayEntry(
       builder: (ctx) => CompositedTransformFollower(
-        link: _layerLink,
+        link:             _layerLink,
         showWhenUnlinked: false,
-        offset: const Offset(0, 56),
+        offset:           const Offset(0, 56),
         child: Align(
           alignment: Alignment.topLeft,
           child: SizedBox(
             width: width,
             child: Material(
-              color: Theme.of(ctx).colorScheme.surface,
+              color:        Theme.of(ctx).colorScheme.surface,
               borderRadius: BorderRadius.circular(8),
-              elevation: 4,
+              elevation:    4,
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxHeight: 280),
                 child: SingleChildScrollView(
                   child: ValueListenableBuilder<bool>(
-                    valueListenable: _isSearching,
+                    valueListenable: _isSearchingNotifier,
                     builder: (_, isSearching, __) {
                       return ValueListenableBuilder<List<Map<String, dynamic>>>(
-                        valueListenable: _suggestions,
+                        valueListenable: _suggestionsNotifier,
                         builder: (_, suggestions, __) {
                           if (isSearching) {
                             return const Padding(
                               padding: EdgeInsets.all(16),
-                              child: Center(child: CircularProgressIndicator()),
+                              child: Center(
+                                  child: CircularProgressIndicator()),
                             );
                           }
 
@@ -140,10 +154,13 @@ class _CheckInDocumentSearchFieldState
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: filtered
-                                .map((s) => _CheckInSuggestionTile(
-                                      documentNumber: s['document_number'] as String,
-                                      firstName: s['first_name'] as String? ?? '',
-                                      lastName: s['last_name'] as String? ?? '',
+                                .map((s) => _SuggestionTile(
+                                      documentNumber:
+                                          s['document_number'] as String,
+                                      firstName:
+                                          s['first_name'] as String? ?? '',
+                                      lastName:
+                                          s['last_name'] as String? ?? '',
                                       onTap: () => _selectSuggestion(s),
                                     ))
                                 .toList(),
@@ -172,16 +189,15 @@ class _CheckInDocumentSearchFieldState
   void dispose() {
     _focusNode.removeListener(_onFocusChanged);
     _hideOverlay();
-    _suggestions.dispose();
-    _isSearching.dispose();
-    _controller.dispose();
+    _suggestionsNotifier.dispose();
+    _isSearchingNotifier.dispose();
     _focusNode.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final colors   = Theme.of(context).colorScheme;
     final isActive = _focusNode.hasFocus;
 
     return CompositedTransformTarget(
@@ -189,38 +205,38 @@ class _CheckInDocumentSearchFieldState
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         decoration: BoxDecoration(
-          color: colors.primaryContainer.withValues(alpha: isActive ? 0.3 : 0.1),
+          color: colors.primaryContainer
+              .withValues(alpha: isActive ? 0.3 : 0.1),
           borderRadius: BorderRadius.circular(6),
         ),
         child: TextField(
-          controller: _controller,
-          focusNode: _focusNode,
-          onChanged: _onChanged,
+          controller:      widget.controller,
+          focusNode:       _focusNode,
+          onChanged:       _onChanged,
           textInputAction: TextInputAction.search,
-          style: TextStyle(color: colors.onSurface),
-          cursorColor: colors.primary,
-          inputFormatters: [
-            FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9]')),
-            LengthLimitingTextInputFormatter(10),
-          ],
+          style:           TextStyle(color: colors.onSurface),
+          cursorColor:     colors.primary,
           decoration: InputDecoration(
-            prefixIcon: Icon(Icons.contact_page_outlined, color: colors.primary),
-            suffixIcon: _controller.text.isNotEmpty
+            prefixIcon: Icon(
+              Icons.contact_page_outlined,
+              color: colors.primary,
+            ),
+            suffixIcon: widget.controller.text.isNotEmpty
                 ? IconButton(
                     icon: Icon(Icons.close, color: colors.primary),
                     onPressed: _clear,
                   )
                 : null,
-            labelText: 'Document Number',
+            labelText:  'Document Number',
             labelStyle: TextStyle(color: colors.onSurfaceVariant),
-            border: InputBorder.none,
+            border:        InputBorder.none,
             enabledBorder: InputBorder.none,
             focusedBorder: InputBorder.none,
-            fillColor: Colors.transparent,
-            isDense: true,
+            fillColor:     Colors.transparent,
+            isDense:       true,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
-              vertical: 16,
+              vertical:   16,
             ),
           ),
         ),
@@ -229,13 +245,13 @@ class _CheckInDocumentSearchFieldState
   }
 }
 
-class _CheckInSuggestionTile extends StatefulWidget {
-  final String documentNumber;
-  final String firstName;
-  final String lastName;
+class _SuggestionTile extends StatefulWidget {
+  final String       documentNumber;
+  final String       firstName;
+  final String       lastName;
   final VoidCallback onTap;
 
-  const _CheckInSuggestionTile({
+  const _SuggestionTile({
     required this.documentNumber,
     required this.firstName,
     required this.lastName,
@@ -243,10 +259,10 @@ class _CheckInSuggestionTile extends StatefulWidget {
   });
 
   @override
-  State<_CheckInSuggestionTile> createState() => _CheckInSuggestionTileState();
+  State<_SuggestionTile> createState() => _SuggestionTileState();
 }
 
-class _CheckInSuggestionTileState extends State<_CheckInSuggestionTile> {
+class _SuggestionTileState extends State<_SuggestionTile> {
   bool _isHovered = false;
 
   @override
@@ -257,21 +273,24 @@ class _CheckInSuggestionTileState extends State<_CheckInSuggestionTile> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       child: MouseRegion(
         onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
+        onExit:  (_) => setState(() => _isHovered = false),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 120),
           decoration: BoxDecoration(
-            color: colors.primaryContainer.withValues(alpha: _isHovered ? 0.3 : 0.1),
+            color: colors.primaryContainer
+                .withValues(alpha: _isHovered ? 0.3 : 0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: InkWell(
-            onTap: widget.onTap,
+            onTap:        widget.onTap,
             borderRadius: BorderRadius.circular(8),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 16, vertical: 10),
               child: Row(
                 children: [
-                  Icon(Icons.contact_page_outlined, color: colors.primary, size: 20),
+                  Icon(Icons.contact_page_outlined,
+                      color: colors.primary, size: 20),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Row(
@@ -280,14 +299,14 @@ class _CheckInSuggestionTileState extends State<_CheckInSuggestionTile> {
                           widget.documentNumber,
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
-                            color: colors.onSurface,
+                            color:      colors.onSurface,
                           ),
                         ),
                         const SizedBox(width: 8),
                         Text(
                           '— ${widget.firstName} ${widget.lastName}',
                           style: TextStyle(
-                            color: colors.onSurfaceVariant,
+                            color:    colors.onSurfaceVariant,
                             fontSize: 13,
                           ),
                         ),

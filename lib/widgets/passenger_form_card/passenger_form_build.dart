@@ -13,6 +13,7 @@ extension PassengerFormBuild on _PassengerFormCardState {
   }
 
   Widget _buildAddDocumentFlow(BuildContext context, ColorScheme colors) {
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -26,12 +27,14 @@ extension PassengerFormBuild on _PassengerFormCardState {
           onAddDocument: _onAddDocument,
           onSearched: () => setState(() => _documentSearched = true),
           onTextChanged: widget.onSearchDocumentChanged,
+          passengerType: widget.passengerType.toLowerCase(),
+          departDate: widget.departDate,
         ),
         const SizedBox(height: 12),
 
         _buildEditDocumentSection(context, colors),
 
-        if (_isSaved || _isPassengerSaved) ...[
+        if (_passengerSearchVisible) ...[
           const SizedBox(height: 12),
           PassengerNameSearchBar(
             key: ValueKey('name_search_${widget.passengerIndex}'),
@@ -50,12 +53,15 @@ extension PassengerFormBuild on _PassengerFormCardState {
   }
 
   Widget _buildEditDocumentSection(BuildContext context, ColorScheme colors) {
-    final hasChanges =
-        _documentNumberController.text != (_editOriginalDocumentNumber ?? '') ||
-        _documentIssue  != _editOriginalDocumentIssue  ||
-        _documentExpire != _editOriginalDocumentExpire ||
-        _selectedCitizenshipId  != _editOriginalCitizenshipId ||
-        _selectedDocumentTypeId != _editOriginalDocumentTypeId;
+    final hasChanges = _isSaved
+      ? (
+          _documentNumberController.text != (_editOriginalDocumentNumber ?? '') ||
+          _documentIssue  != _editOriginalDocumentIssue  ||
+          _documentExpire != _editOriginalDocumentExpire ||
+          _selectedCitizenshipId  != _editOriginalCitizenshipId ||
+          _selectedDocumentTypeId != _editOriginalDocumentTypeId
+        )
+      : _validateDocumentFields();
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -93,7 +99,7 @@ extension PassengerFormBuild on _PassengerFormCardState {
             child: _isSaving
                 ? const Center(child: CircularProgressIndicator())
                 : CustomButton(
-                    label: 'Update Document',
+                    label: _isSaved ? 'Update Document' : 'Save Document',
                     onPressed: hasChanges && _validateDocumentFields()
                         ? _handleSaveDocumentEdit
                         : null,
@@ -102,6 +108,15 @@ extension PassengerFormBuild on _PassengerFormCardState {
         ],
       ),
     );
+  }
+
+  bool _validatePassengerOnly() {
+    if (_ageMismatchMessage != null) return false;
+    if (_firstNameController.text.length < 3) return false;
+    if (_lastNameController.text.length < 3) return false;
+    if (_dateOfBirth == null) return false;
+    if (_selectedSexId == null) return false;
+    return true;
   }
 
   Widget _buildPassengerCard(BuildContext context, ColorScheme colors) {
@@ -202,6 +217,8 @@ extension PassengerFormBuild on _PassengerFormCardState {
           onAddDocument: _onAddDocument,
           onSearched: () => setState(() => _documentSearched = true),
           onTextChanged: widget.onSearchDocumentChanged,
+          passengerType: widget.passengerType.toLowerCase(),
+          departDate: widget.departDate,
         ),
         const SizedBox(height: 16),
 
@@ -323,8 +340,8 @@ extension PassengerFormBuild on _PassengerFormCardState {
                             ? 'Save Document'
                             : _isSaved ? 'Update' : 'Save',
                         onPressed: _validateForm() && (!_isSaved || _hasChanges)
-                            ? _handleSave
-                            : null,
+                          ? _handleSave
+                          : null,
                       ),
                 ),
                 if (!_validateForm()) ...[

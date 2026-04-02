@@ -785,8 +785,6 @@ class _DurationBadge extends StatelessWidget {
 }
 
 
-// ── Action Button ──────────────────────────────────────────────────────────────
-
 class _ActionButton extends StatelessWidget {
   final String        label;
   final VoidCallback? onPressed;

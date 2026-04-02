@@ -68,4 +68,92 @@ class CheckInApiService {
     }
   }
   
+  Future<List<Map<String, dynamic>>> getActiveFlights() async {
+    try {
+      final uri = Uri.parse('${AppConfig.baseUrl}/checkin/active-flights');
+      final response = await http.get(uri, headers: await _headers());
+
+      if (response.statusCode == 200) {
+        debugPrint('ACTIVE FLIGHTS: ${response.body}');
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.cast<Map<String, dynamic>>();
+      } else {
+        debugPrint('Active flights error: ${response.statusCode} ${response.body}');
+        return [];
+      }
+    } catch (e) {
+      debugPrint('Network error (getActiveFlights): $e');
+      rethrow;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getFlightPassengerSuggestions({
+    required String query,
+    required String flightNumber,
+    required DateTime departsDate,
+  }) async {
+    final uri = Uri.parse('${AppConfig.baseUrl}/checkin/flight-passengers/suggestions').replace(
+      queryParameters: {
+        'q': query,
+        'flight_number': flightNumber,
+        'departs_date': departsDate.toIso8601String().split('T')[0],
+      },
+    );
+
+    final response = await http.get(uri, headers: await _headers());
+    if (response.statusCode == 200) {
+      return List<Map<String, dynamic>>.from(jsonDecode(response.body));
+    }
+    return [];
+  }
+
+  Future<Map<String, dynamic>> getBaggageInfo(int bookingItemId) async {
+    final uri = Uri.parse(
+        '${AppConfig.baseUrl}/checkin/baggage-info/$bookingItemId');
+    final response = await http.get(uri, headers: await _headers());
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception('Failed to load baggage info');
+  }
+
+  Future<List<Map<String, dynamic>>> getBaggageTypes() async {
+    final uri = Uri.parse('${AppConfig.baseUrl}/checkin/baggage-types');
+    final response = await http.get(uri, headers: await _headers());
+    if (response.statusCode == 200) {
+      return List<Map<String, dynamic>>.from(jsonDecode(response.body));
+    }
+    return [];
+  }
+
+  Future<Map<String, dynamic>> calculateBaggageSurcharge({
+    required int bookingItemId,
+    required List<double> bagWeights,
+  }) async {
+    try {
+      final uri = Uri.parse(
+        '${AppConfig.baseUrl}/checkin/baggage/$bookingItemId/calculate',
+      );
+
+      final response = await http.post(
+        uri,
+        headers: await _headers(),
+        body: jsonEncode({
+          'bagWeights': bagWeights,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        debugPrint('BAGGAGE CALCULATION RESULT: ${response.body}');
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      } else {
+        debugPrint('Baggage calculation error: ${response.statusCode} ${response.body}');
+        throw Exception('Failed to calculate baggage: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('Network error (calculateBaggageSurcharge): $e');
+      rethrow;
+    }
+  }
+
 }
