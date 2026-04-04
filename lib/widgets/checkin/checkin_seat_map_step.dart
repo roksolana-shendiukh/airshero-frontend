@@ -34,10 +34,15 @@ class _CheckInSeatMapStepState extends State<CheckInSeatMapStep> {
 
   static const _classColors = {
     0: Color(0xFF00BCD4),
-    1: Color(0xFF2196F3), 
-    2: Color(0xFFFF6B9D), 
-    3: Color(0xFFFFD700), 
+    1: Color(0xFF2196F3),
+    2: Color(0xFFFF6B9D),
+    3: Color(0xFFFFD700),
   };
+
+  static const double _seatSize    = 32.0;
+  static const double _seatSpacing = 6.0;
+  static const double _aisleGap    = 16.0;
+  static const double _headerH     = 36.0;
 
   Color _baseColor(int classId) =>
       _classColors[classId] ?? const Color(0xFF9E9E9E);
@@ -78,7 +83,7 @@ class _CheckInSeatMapStepState extends State<CheckInSeatMapStep> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error     = 'Failed to load seat map. Please try again.';
+        _error     = 'Failed to load seat map.';
         _isLoading = false;
       });
     }
@@ -98,9 +103,7 @@ class _CheckInSeatMapStepState extends State<CheckInSeatMapStep> {
 
   Map<String, dynamic>? _seatAt(int row, String col) {
     try {
-      return _seats.firstWhere(
-        (s) => s['row'] == row && s['column'] == col,
-      );
+      return _seats.firstWhere((s) => s['row'] == row && s['column'] == col);
     } catch (_) {
       return null;
     }
@@ -108,42 +111,16 @@ class _CheckInSeatMapStepState extends State<CheckInSeatMapStep> {
 
   bool _isAisleBefore(String col) {
     final cols = _columns;
-    return cols.indexOf(col) == cols.length ~/ 2;
-  }
-
-  int _rowClassId(int row) {
-    try {
-      return _seats.firstWhere((s) => s['row'] == row)['classId'] as int;
-    } catch (_) {
-      return 0;
-    }
-  }
-
-  bool _isClassBoundary(int rowIndex) {
-    final rows = _rows;
-    if (rowIndex == 0) return false;
-    return _rowClassId(rows[rowIndex]) != _rowClassId(rows[rowIndex - 1]);
+    final idx  = cols.indexOf(col);
+    return idx > 0 && idx == cols.length ~/ 2;
   }
 
   bool _rowHasEmergencyExit(int row) =>
-      _seats.any((s) =>
-          s['row'] == row && (s['isEmergencyExit'] as bool? ?? false));
-
-  bool _isEmergencyExit(Map<String, dynamic> seat) =>
-      seat['isEmergencyExit'] as bool? ?? false;
+      _seats.any((s) => s['row'] == row && (s['isEmergencyExit'] as bool? ?? false));
 
   String _classNameById(int classId) {
-    const names = {
-      0: 'Economy',
-      1: 'Premium Economy',
-      2: 'Business',
-      3: 'First',
-    };
+    const names = {0: 'Economy', 1: 'Premium Economy', 2: 'Business', 3: 'First'};
     return names[classId] ?? 'Unknown';
-  }
-
-  double _columnHeight(List<String> cols) {
-    return cols.length * 40.0 + (cols.length ~/ 2) * 16.0;
   }
 
   @override
@@ -160,7 +137,6 @@ class _CheckInSeatMapStepState extends State<CheckInSeatMapStep> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-
           Row(
             children: [
               Icon(Icons.airline_seat_recline_normal_outlined,
@@ -175,21 +151,17 @@ class _CheckInSeatMapStepState extends State<CheckInSeatMapStep> {
               ),
             ],
           ),
-
           const SizedBox(height: 16),
-
           if (_isLoading)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.all(32),
-                child: CircularProgressIndicator(),
-              ),
-            )
+            const Center(child: Padding(
+              padding: EdgeInsets.all(32),
+              child: CircularProgressIndicator(),
+            ))
           else if (_error != null)
             _buildError()
           else ...[
             _buildLegend(),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             _buildSeatMap(),
             const SizedBox(height: 20),
             _buildConfirmButton(),
@@ -201,291 +173,233 @@ class _CheckInSeatMapStepState extends State<CheckInSeatMapStep> {
 
   Widget _buildLegend() {
     final colors = Theme.of(context).colorScheme;
-
     return Wrap(
       spacing: 12,
       runSpacing: 8,
       children: [
-
         _LegendItem(
-          color:      _baseColor(widget.passengerClassId),
-          label:      '${_classNameById(widget.passengerClassId)} (your class)',
-          isActive:   true,
-          isOnFlight: true,
+          color:    _baseColor(widget.passengerClassId),
+          label:    '${_classNameById(widget.passengerClassId)} (your class)',
+          isActive: true,
         ),
-
-        if (_flightClassIds.any((id) => id != widget.passengerClassId))
-          const _LegendItem(
-            color:      Color(0xFF9E9E9E),
-            label:      'Other class',
-            isActive:   false,
-            isOnFlight: true,
-          ),
-
-        if (_classColors.keys.any((id) => !_flightClassIds.contains(id)))
-          const _LegendItem(
-            color:      Color(0xFF9E9E9E),
-            label:      'Not on this flight',
-            isActive:   false,
-            isOnFlight: false,
-          ),
-
+        const _LegendItem(
+          color:      Color(0xFF9E9E9E),
+          label:      'Other class',
+          isActive:   false,
+        ),
         _LegendItem(
-          color:      colors.primary,
-          label:      'Selected',
-          isActive:   true,
-          isOnFlight: true,
+          color:    colors.primary,
+          label:    'Selected',
+          isActive: true,
           isSelected: true,
         ),
-
         const _LegendItem(
           color:      Color(0xFF9E9E9E),
           label:      'Occupied',
           isActive:   false,
-          isOnFlight: true,
           isOccupied: true,
         ),
-
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.change_history,
-              size:  14,
-              color: Colors.orange.withValues(alpha: 0.85),
-            ),
+            Icon(Icons.change_history, size: 14,
+              color: Colors.orange.withValues(alpha: 0.85)),
             const SizedBox(width: 5),
-            Text(
-              'Emergency exit row',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontSize: 11,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-            ),
+            Text('Emergency exit',
+                style: Theme.of(context).textTheme.bodySmall
+                    ?.copyWith(fontSize: 11)),
           ],
         ),
       ],
     );
   }
 
-  
   Widget _buildSeatMap() {
-    final cols = _columns;
-    final rows = _rows;
+    final colors = Theme.of(context).colorScheme;
+    final rows   = _rows;
+    final cols   = _columns;
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
+    return Container(
+      decoration: BoxDecoration(
+        color:        colors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(12),
+        border:       Border.all(color: colors.outline.withValues(alpha: 0.2)),
+      ),
+      padding: const EdgeInsets.all(12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-
-          Padding(
-            padding: const EdgeInsets.only(top: 20),
-            child: Column(
-              children: cols.map((col) => Column(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              SizedBox(height: _headerH + 8),
+              ...cols.map((col) => Column(
                 children: [
-                  if (_isAisleBefore(col)) const SizedBox(height: 16),
-                  SizedBox(
-                    width:  20,
-                    height: 36,
-                    child: Center(
-                      child: Text(
-                        col,
-                        style: TextStyle(
-                          fontSize:   11,
-                          fontWeight: FontWeight.w600,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurfaceVariant,
-                        ),
+                  if (_isAisleBefore(col)) SizedBox(height: _aisleGap),
+                  Container(
+                    width:  24,
+                    height: _seatSize,
+                    margin: const EdgeInsets.only(bottom: _seatSpacing),
+                    alignment: Alignment.center,
+                    child: Text(
+                      col,
+                      style: TextStyle(
+                        fontSize:   12,
+                        fontWeight: FontWeight.w600,
+                        color:      colors.onSurfaceVariant,
                       ),
                     ),
                   ),
-                  const SizedBox(height: 4),
                 ],
-              )).toList(),
-            ),
+              )),
+            ],
           ),
 
-          const SizedBox(width: 4),
+          const SizedBox(width: 8),
 
-          ...rows.asMap().entries.map((entry) {
-            final rowIndex    = entry.key;
-            final row         = entry.value;
-            final isEmergency = _rowHasEmergencyExit(row);
-            final prevIsEmergency = rowIndex > 0
-                ? _rowHasEmergencyExit(rows[rowIndex - 1])
-                : false;
-            final nextIsEmergency = rowIndex < rows.length - 1
-                ? _rowHasEmergencyExit(rows[rowIndex + 1])
-                : false;
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: rows.asMap().entries.map((entry) {
+                      final rowIndex    = entry.key;
+                      final row         = entry.value;
+                      final isEmergency = _rowHasEmergencyExit(row);
+                      final prevIsEmergency = rowIndex > 0
+                          ? _rowHasEmergencyExit(rows[rowIndex - 1])
+                          : false;
+                      final gapBefore = isEmergency && !prevIsEmergency;
+                      final gapAfter  = !isEmergency && rowIndex > 0 && prevIsEmergency;
 
-            final gapBefore = isEmergency && !prevIsEmergency;
-            final gapAfter  = isEmergency && !nextIsEmergency;
-
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-
-                if (_isClassBoundary(rowIndex))
-                  Container(
-                    width:  1,
-                    margin: const EdgeInsets.only(right: 6, top: 20),
-                    height: _columnHeight(cols),
-                    color:  Theme.of(context)
-                        .colorScheme
-                        .outline
-                        .withValues(alpha: 0.2),
-                  ),
-
-                Column(
-                  children: [
-
-                    if (gapBefore)
-                      SizedBox(
-                        width:  36,
-                        height: 14,
-                        child: Center(
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.arrow_forward,
-                                size:  10,
-                                color: Colors.orange.withValues(alpha: 0.7),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    SizedBox(
-                      width:  36,
-                      height: 20,
-                      child: Center(
-                        child: Row(
-                          mainAxisSize:      MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            if (isEmergency)
-                              Padding(
-                                padding: const EdgeInsets.only(right: 2),
-                                child: Icon(
-                                  Icons.warning_amber_rounded,
-                                  size:  10,
-                                  color: Colors.orange
-                                      .withValues(alpha: 0.85),
-                                ),
-                              ),
-                            Text(
-                              '$row',
-                              style: TextStyle(
-                                fontSize:   10,
-                                fontWeight: isEmergency
-                                    ? FontWeight.w600
-                                    : FontWeight.normal,
-                                color: isEmergency
-                                    ? Colors.orange.withValues(alpha: 0.85)
-                                    : Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    ...cols.map((col) {
-                      final seat = _seatAt(row, col);
-                      return Column(
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          if (_isAisleBefore(col))
-                            const SizedBox(height: 16),
-                          _buildSeat(seat),
-                          const SizedBox(height: 4),
+                          if (gapBefore) SizedBox(width: _seatSpacing * 2),
+                          Container(
+                            width:  _seatSize,
+                            height: _headerH,
+                            margin: EdgeInsets.only(
+                              right: _seatSpacing + (gapAfter ? _seatSpacing * 2 : 0),
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                if (isEmergency)
+                                  Icon(Icons.warning_amber_rounded,
+                                      size: 12,
+                                      color: Colors.orange.withValues(alpha: 0.85)),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '$row',
+                                  style: TextStyle(
+                                    fontSize:   10,
+                                    fontWeight: isEmergency
+                                        ? FontWeight.w600
+                                        : FontWeight.normal,
+                                    color: isEmergency
+                                        ? Colors.orange.withValues(alpha: 0.85)
+                                        : colors.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ],
                       );
-                    }),
+                    }).toList(),
+                  ),
 
-                    if (gapAfter)
-                      Container(
-                        width:  36,
-                        height: 10,
-                        margin: const EdgeInsets.only(top: 2),
-                        child: Center(
-                          child: Container(
-                            height: 1.5,
-                            color: Colors.orange.withValues(alpha: 0.4),
-                          ),
-                        ),
+                  const SizedBox(height: 8),
+
+                  ...cols.map((col) => Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (_isAisleBefore(col)) SizedBox(height: _aisleGap),
+                      Row(
+                        children: rows.asMap().entries.map((entry) {
+                          final rowIndex    = entry.key;
+                          final row         = entry.value;
+                          final seat        = _seatAt(row, col);
+                          final isEmergency = _rowHasEmergencyExit(row);
+                          final prevIsEmergency = rowIndex > 0
+                              ? _rowHasEmergencyExit(rows[rowIndex - 1])
+                              : false;
+                          final gapBefore = isEmergency && !prevIsEmergency;
+                          final gapAfter  = !isEmergency && rowIndex > 0 && prevIsEmergency;
+
+                          return Row(
+                            children: [
+                              if (gapBefore) SizedBox(width: _seatSpacing * 2),
+                              Container(
+                                margin: EdgeInsets.only(
+                                  right:  _seatSpacing + (gapAfter ? _seatSpacing * 2 : 0),
+                                  bottom: _seatSpacing,
+                                ),
+                                child: seat == null
+                                    ? SizedBox(width: _seatSize, height: _seatSize)
+                                    : _buildSeat(seat),
+                              ),
+                            ],
+                          );
+                        }).toList(),
                       ),
-                  ],
-                ),
-
-                const SizedBox(width: 4),
-              ],
-            );
-          }),
+                    ],
+                  )),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildSeat(Map<String, dynamic>? seat) {
-    if (seat == null) return const SizedBox(width: 36, height: 36);
-
-    final colors             = Theme.of(context).colorScheme;
-    final isOccupied         = seat['isOccupied']      as bool;
-    final classId            = seat['classId']          as int;
-    final seatPosition       = seat['seatPosition']     as String;
-    final seatLayoutId       = seat['seatLayoutId']     as int;
-    final isPassengerClass   = classId == widget.passengerClassId;
-    final isOnFlight         = _flightClassIds.contains(classId);
-    final isSelected         = _selectedPosition == seatPosition;
-    final isEmergency        = _isEmergencyExit(seat);
+  Widget _buildSeat(Map<String, dynamic> seat) {
+    final colors           = Theme.of(context).colorScheme;
+    final isOccupied       = seat['isOccupied']    as bool;
+    final classId          = seat['classId']        as int;
+    final seatPosition     = seat['seatPosition']   as String;
+    final seatLayoutId     = seat['seatLayoutId']   as int;
+    final isPassengerClass = classId == widget.passengerClassId;
+    final isEmergency      = seat['isEmergencyExit'] as bool? ?? false;
     final isBlockedEmergency = isEmergency && !_passengerIsAdult;
-    final isDisabled         = isOccupied || !isPassengerClass || isBlockedEmergency;
+    final isDisabled       = isOccupied || !isPassengerClass || isBlockedEmergency;
+    final isSelected       = _selectedPosition == seatPosition;
 
     final base = _baseColor(classId);
 
-    Color bgColor;
-    Color borderColor;
+    Color fill;
+    Color border;
 
     if (isSelected) {
-      bgColor     = colors.primary;
-      borderColor = colors.primary;
+      fill   = colors.primary;
+      border = colors.primary;
     } else if (isOccupied) {
-      bgColor     = Colors.grey.withValues(alpha: 0.12);
-      borderColor = Colors.grey.withValues(alpha: 0.20);
-    } else if (!isOnFlight) {
-      bgColor     = base.withValues(alpha: 0.04);
-      borderColor = base.withValues(alpha: 0.08);
+      fill   = Colors.grey.withValues(alpha: 0.12);
+      border = Colors.grey.withValues(alpha: 0.20);
     } else if (!isPassengerClass) {
-      bgColor     = Colors.grey.withValues(alpha: 0.08);
-      borderColor = Colors.grey.withValues(alpha: 0.18);
+      fill   = Colors.grey.withValues(alpha: 0.08);
+      border = Colors.grey.withValues(alpha: 0.18);
     } else if (isBlockedEmergency) {
-      bgColor     = Colors.orange.withValues(alpha: 0.08);
-      borderColor = Colors.orange.withValues(alpha: 0.25);
+      fill   = Colors.orange.withValues(alpha: 0.08);
+      border = Colors.orange.withValues(alpha: 0.25);
     } else {
-      bgColor     = base.withValues(alpha: 0.22);
-      borderColor = base.withValues(alpha: 0.85);
+      fill   = base.withValues(alpha: 0.20);
+      border = base.withValues(alpha: 0.85);
     }
 
-    String tooltipMsg = '';
-    if (isBlockedEmergency) {
-      tooltipMsg = 'Emergency exit — passenger must be 18+';
-    } else if (!isPassengerClass && isOnFlight) {
-      tooltipMsg = '${_classNameById(classId)} — not available for this passenger';
-    } else if (!isOnFlight) {
-      tooltipMsg = '${_classNameById(classId)} — not available on this flight';
-    }
+    String tooltip = '';
+    if (isBlockedEmergency)      tooltip = 'Emergency exit — must be 18+';
+    else if (!isPassengerClass)  tooltip = '${_classNameById(classId)}';
 
     return MouseRegion(
-      cursor: isDisabled
-          ? SystemMouseCursors.basic
-          : SystemMouseCursors.click,
+      cursor: isDisabled ? SystemMouseCursors.basic : SystemMouseCursors.click,
       child: Tooltip(
-        message: tooltipMsg,
+        message: tooltip,
         child: GestureDetector(
           onTap: isDisabled ? null : () {
             setState(() {
@@ -500,37 +414,37 @@ class _CheckInSeatMapStepState extends State<CheckInSeatMapStep> {
           },
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 120),
-            width:  36,
-            height: 36,
+            width:  _seatSize,
+            height: _seatSize,
             decoration: BoxDecoration(
-              color: bgColor,
+              color: fill,
               borderRadius: const BorderRadius.only(
-                topLeft:     Radius.circular(6),
-                topRight:    Radius.circular(6),
+                topLeft:     Radius.circular(3),
                 bottomLeft:  Radius.circular(3),
-                bottomRight: Radius.circular(3),
+                topRight:    Radius.circular(8),
+                bottomRight: Radius.circular(8),
               ),
               border: Border.all(
-                color: borderColor,
+                color: border,
                 width: isSelected ? 2 : 0.5,
               ),
             ),
             child: isOccupied
                 ? Center(
-                    child: Icon(
-                      Icons.close,
-                      size:  14,
-                      color: Colors.grey.withValues(alpha: 0.4),
-                    ),
+                    child: Icon(Icons.close, size: 14,
+                        color: Colors.grey.withValues(alpha: 0.4)),
                   )
                 : isEmergency
                     ? Center(
-                        child: Icon(
-                          Icons.change_history,
-                          size:  12,
-                          color: isSelected
-                              ? Colors.white.withValues(alpha: 0.8)
-                              : Colors.orange.withValues(alpha: 0.7),
+                        child: RotatedBox(
+                          quarterTurns: 0,
+                          child: Icon(
+                            Icons.change_history,
+                            size: 12,
+                            color: isSelected
+                                ? Colors.white.withValues(alpha: 0.8)
+                                : Colors.orange.withValues(alpha: 0.7),
+                          ),
                         ),
                       )
                     : const SizedBox.shrink(),
@@ -548,10 +462,7 @@ class _CheckInSeatMapStepState extends State<CheckInSeatMapStep> {
             ? 'Confirm seat $_selectedPosition'
             : 'Select a seat',
         onPressed: _selectedPosition != null
-            ? () => widget.onSeatSelected(
-                _selectedPosition!,
-                _selectedLayoutId!,
-              )
+            ? () => widget.onSeatSelected(_selectedPosition!, _selectedLayoutId!)
             : null,
       ),
     );
@@ -570,13 +481,9 @@ class _CheckInSeatMapStepState extends State<CheckInSeatMapStep> {
           Icon(Icons.info_outline, size: 16, color: colors.error),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              _error!,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: colors.error),
-            ),
+            child: Text(_error!,
+                style: Theme.of(context).textTheme.bodySmall
+                    ?.copyWith(color: colors.error)),
           ),
         ],
       ),
@@ -588,7 +495,6 @@ class _LegendItem extends StatelessWidget {
   final Color  color;
   final String label;
   final bool   isActive;
-  final bool   isOnFlight;
   final bool   isOccupied;
   final bool   isSelected;
 
@@ -596,61 +502,45 @@ class _LegendItem extends StatelessWidget {
     required this.color,
     required this.label,
     required this.isActive,
-    required this.isOnFlight,
     this.isOccupied = false,
     this.isSelected = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final dimmed      = !isOnFlight;
-    final bgAlpha     = isSelected ? 1.0
-        : isOccupied  ? 0.12
-        : isActive    ? 0.22
-        : dimmed      ? 0.04
-        : 0.08;
-    final borderAlpha = isSelected ? 1.0
-        : isOccupied  ? 0.20
-        : isActive    ? 0.85
-        : dimmed      ? 0.08
-        : 0.18;
+    final bgAlpha     = isSelected ? 1.0 : isOccupied ? 0.12 : isActive ? 0.20 : 0.08;
+    final borderAlpha = isSelected ? 1.0 : isOccupied ? 0.20 : isActive ? 0.85 : 0.18;
 
-    return Opacity(
-      opacity: dimmed ? 0.4 : 1.0,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width:  14,
-            height: 14,
-            decoration: BoxDecoration(
-              color:        color.withValues(alpha: bgAlpha),
-              borderRadius: BorderRadius.circular(3),
-              border: Border.all(
-                color: color.withValues(alpha: borderAlpha),
-                width: isActive ? 1.5 : 0.5,
-              ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width:  14,
+          height: 14,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: bgAlpha),
+            borderRadius: const BorderRadius.only(
+              topLeft:     Radius.circular(2),
+              bottomLeft:  Radius.circular(2),
+              topRight:    Radius.circular(5),
+              bottomRight: Radius.circular(5),
             ),
-            child: isOccupied
-                ? Center(
-                    child: Icon(
-                      Icons.close,
-                      size:  9,
-                      color: Colors.grey.withValues(alpha: 0.5),
-                    ),
-                  )
-                : null,
+            border: Border.all(
+              color: color.withValues(alpha: borderAlpha),
+              width: isActive ? 1.5 : 0.5,
+            ),
           ),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  fontSize: 11,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-          ),
-        ],
-      ),
+          child: isOccupied
+              ? Center(
+                  child: Icon(Icons.close, size: 9,
+                      color: Colors.grey.withValues(alpha: 0.5)))
+              : null,
+        ),
+        const SizedBox(width: 5),
+        Text(label,
+            style: Theme.of(context).textTheme.bodySmall
+                ?.copyWith(fontSize: 11)),
+      ],
     );
   }
 }

@@ -31,7 +31,6 @@ class BaggageApiService {
       final response = await http.get(uri, headers: await _headers());
 
       if (response.statusCode == 200) {
-        debugPrint('BAGGAGE OPTIONS: ${response.body}');
         final List<dynamic> data = jsonDecode(response.body);
         return data
             .map((e) => BaggagePricingInFlight.fromJson(e as Map<String, dynamic>))

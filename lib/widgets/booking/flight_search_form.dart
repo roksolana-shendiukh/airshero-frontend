@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import 'custom/custom_input_field.dart';
-import 'custom/custom_date_range_picker.dart';
-import 'custom/custom_button.dart';
-import 'passenger_selector.dart';
-import '../services/recent_searches_service.dart';
-import '../models/city_model.dart';
-import '../services/booking_api_service.dart';
-import '../services/auth_service.dart';
-import '../models/flight_alternatives_model.dart';
+import '../custom/custom_input_field.dart';
+import '../custom/custom_date_range_picker.dart';
+import '../custom/custom_button.dart';
+import '../passenger_selector.dart';
+import '../../services/recent_searches_service.dart';
+import '../../models/city_model.dart';
+import '../../services/booking_api_service.dart';
+import '../../services/auth_service.dart';
+import '../../models/flight_alternatives_model.dart';
 
 typedef SearchCallback = void Function({
   required int fromCityId,

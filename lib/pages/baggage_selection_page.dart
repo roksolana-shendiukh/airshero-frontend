@@ -2,16 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../widgets/responsive_layout.dart';
-import '../widgets/baggage_option_card.dart';
+import '../widgets/booking/baggage_option_card.dart';
 import '../widgets/passenger_form_card/passenger_form_card.dart';
 import '/widgets/custom/custom_button.dart';
 import '../models/baggage_models.dart';
-import '../widgets/booking_progress_header.dart';
-import '../widgets/price_summary_card.dart';
+import '../widgets/booking/booking_progress_header.dart';
+import '../widgets/booking/price_summary_card.dart';
 import '../services/auth_service.dart';
 import '../services/baggage_api_service.dart';
 import '../models/booking_group_draft.dart';
-import '../config/routes.dart';
 
 class BaggageSelectionPage extends StatefulWidget {
   final String fromCity;
@@ -35,6 +34,14 @@ class BaggageSelectionPage extends StatefulWidget {
   final BookingGroupDraft? bookingGroupDraft;
   final int segmentIndex;
   final Map<int, Map<String, dynamic>>? initialPassengerData;
+  final int? bookingId;
+  final String? bookingNumber;
+  final int? bookingId2;
+  final String? bookingNumber2;
+  final DateTime? expiresAt;
+  final int? leg2FlightClassId;
+  final String? leg2FromCity;
+  final String? leg2ToCity;
 
 
   const BaggageSelectionPage({
@@ -60,6 +67,14 @@ class BaggageSelectionPage extends StatefulWidget {
     this.bookingGroupDraft,
     this.segmentIndex = 0,
     this.initialPassengerData,
+    this.bookingId,
+    this.bookingNumber,
+    this.bookingId2,
+    this.bookingNumber2,
+    this.expiresAt,
+    this.leg2FlightClassId,
+    this.leg2FromCity,
+    this.leg2ToCity,
   });
 
   @override
@@ -80,6 +95,9 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
   bool _baggageLoading = true;
   String? _baggageError;
 
+  List<BaggagePricingInFlight> _leg2BaggageOptions = [];
+  Map<int, Map<int, int>> _passengerLeg2BaggageSelections = {};
+
   final Map<int, String> _searchDocumentNumbers = {};
 
   String get _classLabel {
@@ -92,6 +110,8 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
   @override
   void initState() {
     super.initState();
+    debugPrint('leg2FlightClassId: ${widget.leg2FlightClassId}');
+    debugPrint('bookingGroupDraft: ${widget.bookingGroupDraft}');
 
     _sessionId = 'booking_${widget.fromAirportCode}_${widget.toAirportCode}'
         '_${widget.departDate.millisecondsSinceEpoch}';
@@ -99,6 +119,7 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
     final totalPassengers = widget.passengers.values.reduce((a, b) => a + b);
     for (int i = 0; i < totalPassengers; i++) {
       _passengerBaggageSelections[i] = {};
+      _passengerLeg2BaggageSelections[i] = {};
       _passengerData[i] = {};
     }
 
@@ -121,14 +142,30 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
     try {
       final authService = context.read<AuthService>();
       final service = BaggageApiService(authService);
-      final options = await service.getBaggageOptions(
-        flightClassId: widget.outboundFlightClassId,
-      );
-      if (!mounted) return;
-      setState(() {
-        _baggageOptions = options;
-        _baggageLoading = false;
-      });
+
+      final isMultiSegment = widget.leg2FlightClassId != null;
+
+      if (isMultiSegment) {
+        final results = await Future.wait([
+          service.getBaggageOptions(flightClassId: widget.outboundFlightClassId),
+          service.getBaggageOptions(flightClassId: widget.leg2FlightClassId!),
+        ]);
+        if (!mounted) return;
+        setState(() {
+          _baggageOptions = results[0];
+          _leg2BaggageOptions = results[1];
+          _baggageLoading = false;
+        });
+      } else {
+        final options = await service.getBaggageOptions(
+          flightClassId: widget.outboundFlightClassId,
+        );
+        if (!mounted) return;
+        setState(() {
+          _baggageOptions = options;
+          _baggageLoading = false;
+        });
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -274,10 +311,11 @@ int _getFirstActiveIndex() {
 
   bool _isFormValid() {
     if (!_hasAdultPassenger()) return false;
-
+    debugPrint('=== _isFormValid ===');
     for (int i = 0; i < _totalPassengers; i++) {
       if (_removedPassengerIndices.contains(i)) continue;
       final data = _passengerData[i];
+      debugPrint('Passenger $i: isSaved=${data?['isSaved']}, data=$data');
 
       if (data == null || data.isEmpty) return false;
 
@@ -335,49 +373,12 @@ int _getFirstActiveIndex() {
   void _navigateToPayment() {
     setState(() => _hasVisitedPayment = true);
 
-    debugPrint('segmentIndex: ${widget.segmentIndex}');
-    debugPrint('bookingGroupDraft: ${widget.bookingGroupDraft}');
-    debugPrint('secondSegment: ${widget.bookingGroupDraft?.secondSegment}');
-
-    if (widget.bookingGroupDraft != null && widget.segmentIndex == 0) {
-      final updatedDraft = widget.bookingGroupDraft!.withBaggageForSegment(
-        0,
-        _passengerBaggageSelections,
+    if (widget.bookingGroupDraft != null && widget.leg2FlightClassId != null) {
+      var updatedDraft = widget.bookingGroupDraft!.withBaggageForSegment(
+        0, _passengerBaggageSelections,
       );
-
-      final seg2 = updatedDraft.secondSegment!;
-
-      final args = BaggageSelectionArguments(
-        fromCity: seg2.fromCity,
-        toCity: seg2.toCity,
-        departDate: seg2.departDate,
-        passengers: widget.passengers,
-        passengerClassLabels: seg2.passengerClassLabels,
-        airlineName: seg2.airlineName,
-        airlineLogoUrl: seg2.airlineLogoUrl,
-        fromAirportCode: seg2.fromAirportCode,
-        toAirportCode: seg2.toAirportCode,
-        departureTime: seg2.departureTime,
-        arrivalTime: seg2.arrivalTime,
-        duration: seg2.duration,
-        basePrice: seg2.basePrice,
-        isRoundTrip: false,
-        outboundAssignments: seg2.assignments,
-        outboundFlightId: seg2.flightId,
-        outboundFlightClassId: seg2.flightClassId,
-        bookingGroupDraft: updatedDraft,
-        segmentIndex: 1,
-        initialPassengerData: _passengerData,
-      );
-
-      context.push('/baggage-selection/leg-2', extra: args);
-      return;
-    }
-
-    if (widget.bookingGroupDraft != null && widget.segmentIndex == 1) {
-      final updatedDraft = widget.bookingGroupDraft!.withBaggageForSegment(
-        1,
-        _passengerBaggageSelections,
+      updatedDraft = updatedDraft.withBaggageForSegment(
+        1, _passengerLeg2BaggageSelections,
       );
 
       final seg1 = updatedDraft.firstSegment;
@@ -407,6 +408,11 @@ int _getFirstActiveIndex() {
         'removedPassengerIndices': _removedPassengerIndices.toList(),
         'bookingGroupDraft': updatedDraft,
         'isMultiSegment': true,
+        'bookingId': widget.bookingId,
+        'bookingNumber': widget.bookingNumber,
+        'bookingId2': widget.bookingId2,
+        'bookingNumber2': widget.bookingNumber2,
+        'expiresAt': widget.expiresAt?.toIso8601String(),
       });
       return;
     }
@@ -434,8 +440,14 @@ int _getFirstActiveIndex() {
       'outboundAssignments': widget.outboundAssignments,
       'returnAssignments': widget.returnAssignments,
       'removedPassengerIndices': _removedPassengerIndices.toList(),
+      'bookingId': widget.bookingId,
+      'bookingNumber': widget.bookingNumber,
+      'bookingId2': widget.bookingId2,
+      'bookingNumber2': widget.bookingNumber2,
+      'expiresAt': widget.expiresAt?.toIso8601String(),
     });
   }
+
 
   bool _hasAdultPassenger() {
     for (int i = 0; i < _totalPassengers; i++) {
@@ -483,6 +495,8 @@ int _getFirstActiveIndex() {
         currentStep: 'baggage',
         airlineName: widget.airlineName,
         baggageCount: _totalBaggageCount > 0 ? _totalBaggageCount : null,
+        expiresAt: widget.expiresAt,
+        onExpired: () => context.go('/sales/bookings'),
         onBack: () {
           if (context.canPop()) {
             context.pop();
@@ -593,241 +607,305 @@ int _getFirstActiveIndex() {
   }
 
   Widget _buildBaggageOptions(BuildContext context) {
-    if (_baggageLoading) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 32),
-        child: Center(child: CircularProgressIndicator()),
-      );
-    }
+  if (_baggageLoading) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 32),
+      child: Center(child: CircularProgressIndicator()),
+    );
+  }
 
-    if (_baggageError != null) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Column(
-          children: [
-            Text(
-              _baggageError!,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
-            const SizedBox(height: 8),
-            TextButton(
-              onPressed: _loadBaggageOptions,
-              child: const Text('Try again'),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (_baggageOptions.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Text(
-          'No baggage options available for this flight.',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-        ),
-      );
-    }
-
+  if (_baggageError != null) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        children: _baggageOptions.map((option) {
-          final currentQuantity =
-              _passengerBaggageSelections[_currentPassengerIndex]?[option.id] ?? 0;
-          return BaggageOptionCard(
-            option: option,
-            quantity: currentQuantity,
-            isDisabled: false,
-            onCardTap: () {
-              if (currentQuantity > 0) return;
-              setState(() {
-                _passengerBaggageSelections[_currentPassengerIndex]?.clear();
-                _passengerBaggageSelections[_currentPassengerIndex] ??= {};
-                _passengerBaggageSelections[_currentPassengerIndex]![option.id] = 1;
-              });
-            },
-            onIncrement: () {
-              if (currentQuantity > 0 && currentQuantity < 3) {
-                setState(() =>
-                    _passengerBaggageSelections[_currentPassengerIndex]![option.id] =
-                        currentQuantity + 1);
-              }
-            },
-            onDecrement: () {
-              if (currentQuantity > 0) {
-                setState(() {
-                  final newQty = currentQuantity - 1;
-                  if (newQty == 0) {
-                    _passengerBaggageSelections[_currentPassengerIndex]
-                        ?.remove(option.id);
-                  } else {
-                    _passengerBaggageSelections[_currentPassengerIndex]![option.id] =
-                        newQty;
+      child: Column(
+        children: [
+          Text(_baggageError!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          const SizedBox(height: 8),
+          TextButton(onPressed: _loadBaggageOptions, child: const Text('Try again')),
+        ],
+      ),
+    );
+  }
+
+  final isMultiSegment = widget.leg2FlightClassId != null;
+
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Leg 1 або звичайний рейс
+        if (isMultiSegment) ...[
+          _buildSegmentLabel(context, 'LEG 1  ${widget.fromCity} → ${widget.toCity}'),
+          const SizedBox(height: 12),
+        ],
+        if (_baggageOptions.isEmpty)
+          Text('No baggage options available.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant))
+        else
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: _baggageOptions.map((option) {
+              final qty = _passengerBaggageSelections[_currentPassengerIndex]?[option.id] ?? 0;
+              return BaggageOptionCard(
+                option: option,
+                quantity: qty,
+                isDisabled: false,
+                onCardTap: () {
+                  if (qty > 0) return;
+                  setState(() {
+                    _passengerBaggageSelections[_currentPassengerIndex]?.clear();
+                    _passengerBaggageSelections[_currentPassengerIndex] ??= {};
+                    _passengerBaggageSelections[_currentPassengerIndex]![option.id] = 1;
+                  });
+                },
+                onIncrement: () {
+                  if (qty > 0 && qty < 3) {
+                    setState(() => _passengerBaggageSelections[_currentPassengerIndex]![option.id] = qty + 1);
                   }
-                });
-              }
-            },
-          );
-        }).toList(),
-      ),
-    );
-  }
+                },
+                onDecrement: () {
+                  if (qty > 0) {
+                    setState(() {
+                      final newQty = qty - 1;
+                      if (newQty == 0) {
+                        _passengerBaggageSelections[_currentPassengerIndex]?.remove(option.id);
+                      } else {
+                        _passengerBaggageSelections[_currentPassengerIndex]![option.id] = newQty;
+                      }
+                    });
+                  }
+                },
+              );
+            }).toList(),
+          ),
 
-  Widget _buildPassengerSelector(BuildContext context) {
-    return SizedBox(
-      height: 88,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: _totalPassengers,
-        itemBuilder: (context, index) {
-          if (_removedPassengerIndices.contains(index)) return const SizedBox.shrink();
-
-          final isSelected = index == _currentPassengerIndex;
-          final isHovered = _hoveredPassengerIndex == index;
-          final baggageCount = _getTotalBaggageForPassenger(index);
-          final hasPassengerData = _passengerData[index]?.isNotEmpty ?? false;
-          
-          final label = _getPassengerLabel(index);
-          final type = _getPassengerType(index); // Отримуємо тип пасажира (Adult/Child/Infant)
-          final classLabel = widget.passengerClassLabels[label] ?? '';
-          
-          String passengerName = label;
-          if (hasPassengerData &&
-              _passengerData[index]!['firstName']?.toString().isNotEmpty == true) {
-            passengerName = _passengerData[index]!['firstName'].toString();
-          }
-
-          final subtitleText = classLabel.isNotEmpty ? '$type • $classLabel' : type;
-
-          final IconData passengerIcon = hasPassengerData ? Icons.person : Icons.person_outline;
-
-          return Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: MouseRegion(
-              onEnter: (_) => setState(() => _hoveredPassengerIndex = index),
-              onExit: (_) => setState(() => _hoveredPassengerIndex = null),
-              child: Stack(
-                clipBehavior: Clip.none,
-                children:[
-                  InkWell(
-                    onTap: () => setState(() => _currentPassengerIndex = index),
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                      constraints: const BoxConstraints(maxHeight: 84),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? Theme.of(context).colorScheme.primaryContainer
-                            : Theme.of(context).colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isSelected
-                              ? Theme.of(context).colorScheme.primary
-                              : Colors.transparent,
-                          width: 2,
-                        ),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children:[
-                          Icon(
-                            passengerIcon,
-                            size: 20,
-                            color: isSelected
-                                ? Theme.of(context).colorScheme.onPrimaryContainer
-                                : Theme.of(context).colorScheme.onSurface,
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            passengerName,
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  fontWeight: isSelected
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
-                                  color: isSelected
-                                      ? Theme.of(context).colorScheme.onPrimaryContainer
-                                      : Theme.of(context).colorScheme.onSurface,
-                                ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 2),
-                          // Виводимо підзаголовок з типом (Adult/Child/Infant) та класом
-                          Text(
-                            subtitleText,
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  fontSize: 10,
-                                  color: isSelected
-                                      ? Theme.of(context).colorScheme.onPrimaryContainer
-                                      : Theme.of(context).colorScheme.primary,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          if (baggageCount > 0) ...[
-                            const SizedBox(height: 2),
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children:[
-                                Icon(Icons.luggage,
-                                    size: 10,
-                                    color: Theme.of(context).colorScheme.primary),
-                                const SizedBox(width: 2),
-                                Text(
-                                  '$baggageCount',
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                        fontSize: 10,
-                                        color: Theme.of(context).colorScheme.primary,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                  if (isHovered)
-                    Positioned(
-                      top: -6,
-                      right: 6,
-                      child: GestureDetector(
-                        onTap: () => _removePassenger(index),
-                        child: Container(
-                          width: 18,
-                          height: 18,
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.error,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.close,
-                            size: 12,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
+        // Leg 2
+        if (isMultiSegment) ...[
+          const SizedBox(height: 24),
+          _buildSegmentLabel(context, 'LEG 2  ${widget.leg2FromCity} → ${widget.leg2ToCity}'),
+          const SizedBox(height: 12),
+          if (_leg2BaggageOptions.isEmpty)
+            Text('No baggage options available.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant))
+          else
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: _leg2BaggageOptions.map((option) {
+                final qty = _passengerLeg2BaggageSelections[_currentPassengerIndex]?[option.id] ?? 0;
+                return BaggageOptionCard(
+                  option: option,
+                  quantity: qty,
+                  isDisabled: false,
+                  onCardTap: () {
+                    if (qty > 0) return;
+                    setState(() {
+                      _passengerLeg2BaggageSelections[_currentPassengerIndex]?.clear();
+                      _passengerLeg2BaggageSelections[_currentPassengerIndex] ??= {};
+                      _passengerLeg2BaggageSelections[_currentPassengerIndex]![option.id] = 1;
+                    });
+                  },
+                  onIncrement: () {
+                    if (qty > 0 && qty < 3) {
+                      setState(() => _passengerLeg2BaggageSelections[_currentPassengerIndex]![option.id] = qty + 1);
+                    }
+                  },
+                  onDecrement: () {
+                    if (qty > 0) {
+                      setState(() {
+                        final newQty = qty - 1;
+                        if (newQty == 0) {
+                          _passengerLeg2BaggageSelections[_currentPassengerIndex]?.remove(option.id);
+                        } else {
+                          _passengerLeg2BaggageSelections[_currentPassengerIndex]![option.id] = newQty;
+                        }
+                      });
+                    }
+                  },
+                );
+              }).toList(),
             ),
-          );
-        },
+        ],
+      ],
+    ),
+  );
+}
+
+  Widget _buildSegmentLabel(BuildContext context, String label) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: colors.primaryContainer.withOpacity(0.4),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: colors.primary,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.5,
+        ),
       ),
     );
   }
 
-  Widget _buildPriceSummary(BuildContext context) {
+
+    Widget _buildPassengerSelector(BuildContext context) {
+      return SizedBox(
+        height: 88,
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          itemCount: _totalPassengers,
+          itemBuilder: (context, index) {
+            if (_removedPassengerIndices.contains(index)) return const SizedBox.shrink();
+
+            final isSelected = index == _currentPassengerIndex;
+            final isHovered = _hoveredPassengerIndex == index;
+            final baggageCount = _getTotalBaggageForPassenger(index);
+            final hasPassengerData = _passengerData[index]?.isNotEmpty ?? false;
+            
+            final label = _getPassengerLabel(index);
+            final type = _getPassengerType(index); 
+            final classLabel = widget.passengerClassLabels[label] ?? '';
+            
+            String passengerName = label;
+            if (hasPassengerData &&
+                _passengerData[index]!['firstName']?.toString().isNotEmpty == true) {
+              passengerName = _passengerData[index]!['firstName'].toString();
+            }
+
+            final subtitleText = classLabel.isNotEmpty ? '$type • $classLabel' : type;
+
+            final IconData passengerIcon = hasPassengerData ? Icons.person : Icons.person_outline;
+
+            return Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: MouseRegion(
+                onEnter: (_) => setState(() => _hoveredPassengerIndex = index),
+                onExit: (_) => setState(() => _hoveredPassengerIndex = null),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children:[
+                    InkWell(
+                      onTap: () => setState(() => _currentPassengerIndex = index),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                        constraints: const BoxConstraints(maxHeight: 84),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? Theme.of(context).colorScheme.primaryContainer
+                              : Theme.of(context).colorScheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isSelected
+                                ? Theme.of(context).colorScheme.primary
+                                : Colors.transparent,
+                            width: 2,
+                          ),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children:[
+                            Icon(
+                              passengerIcon,
+                              size: 20,
+                              color: isSelected
+                                  ? Theme.of(context).colorScheme.onPrimaryContainer
+                                  : Theme.of(context).colorScheme.onSurface,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              passengerName,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                    color: isSelected
+                                        ? Theme.of(context).colorScheme.onPrimaryContainer
+                                        : Theme.of(context).colorScheme.onSurface,
+                                  ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              subtitleText,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    fontSize: 10,
+                                    color: isSelected
+                                        ? Theme.of(context).colorScheme.onPrimaryContainer
+                                        : Theme.of(context).colorScheme.primary,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (baggageCount > 0) ...[
+                              const SizedBox(height: 2),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children:[
+                                  Icon(Icons.luggage,
+                                      size: 10,
+                                      color: Theme.of(context).colorScheme.primary),
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    '$baggageCount',
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                          fontSize: 10,
+                                          color: Theme.of(context).colorScheme.primary,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (isHovered)
+                      Positioned(
+                        top: -6,
+                        right: 6,
+                        child: GestureDetector(
+                          onTap: () => _removePassenger(index),
+                          child: Container(
+                            width: 18,
+                            height: 18,
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.error,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.close,
+                              size: 12,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      );
+    }
+
+    Widget _buildPriceSummary(BuildContext context) {
     final List<PassengerPriceItem> passengerPrices = [];
+    final isMultiSegment = widget.leg2FlightClassId != null;
 
     for (int i = 0; i < _totalPassengers; i++) {
       if (_removedPassengerIndices.contains(i)) continue;
@@ -835,6 +913,7 @@ int _getFirstActiveIndex() {
       double passengerFlightPrice = widget.basePrice / _totalPassengers;
 
       double passengerBaggagePrice = 0;
+
       final baggageMap = _passengerBaggageSelections[i] ?? {};
       baggageMap.forEach((baggageId, quantity) {
         if (_baggageOptions.isNotEmpty) {
@@ -845,8 +924,24 @@ int _getFirstActiveIndex() {
           passengerBaggagePrice += option.price * quantity;
         }
       });
-      final baggageCount =
-          baggageMap.values.fold<int>(0, (sum, qty) => sum + qty);
+
+      if (isMultiSegment) {
+        final leg2BaggageMap = _passengerLeg2BaggageSelections[i] ?? {};
+        leg2BaggageMap.forEach((baggageId, quantity) {
+          if (_leg2BaggageOptions.isNotEmpty) {
+            final option = _leg2BaggageOptions.firstWhere(
+              (opt) => opt.id == baggageId,
+              orElse: () => _leg2BaggageOptions.first,
+            );
+            passengerBaggagePrice += option.price * quantity;
+          }
+        });
+      }
+
+      final baggageCount = baggageMap.values.fold<int>(0, (sum, qty) => sum + qty)
+          + (isMultiSegment
+              ? (_passengerLeg2BaggageSelections[i] ?? {}).values.fold<int>(0, (sum, qty) => sum + qty)
+              : 0);
 
       passengerPrices.add(PassengerPriceItem(
         passengerType: passengerLabel,
@@ -864,4 +959,5 @@ int _getFirstActiveIndex() {
       showDetailedBaggage: true,
     );
   }
+
 }

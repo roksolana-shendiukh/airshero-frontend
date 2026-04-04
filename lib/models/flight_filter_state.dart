@@ -82,6 +82,7 @@ class FlightFilterState {
 
   final SortOrder sortOrder;
 
+ 
   const FlightFilterState({
     required this.passengerClasses,
     required this.returnPassengerClasses,
@@ -109,6 +110,7 @@ class FlightFilterState {
   factory FlightFilterState.fromCombos({
     required List<FlightCombo> combos,
     required Map<int, Class> passengerClasses,
+    List<FlightCombo> leg2Combos = const [],
   }) {
     if (combos.isEmpty) {
       return FlightFilterState(
@@ -159,6 +161,15 @@ class FlightFilterState {
         if (a.assignedClass.isNotEmpty) returnClasses.add(a.assignedClass);
       }
     }
+
+    if (leg2Combos.isNotEmpty) {
+      for (final combo in leg2Combos) {
+        for (final a in combo.outboundAssignments) {
+          if (a.assignedClass.isNotEmpty) returnClasses.add(a.assignedClass);
+        }
+      }
+    }
+
 
     final depSlots = <TimeSlot>{};
     final retSlots = <TimeSlot>{};

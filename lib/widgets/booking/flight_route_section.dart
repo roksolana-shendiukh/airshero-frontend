@@ -10,6 +10,8 @@ class FlightRouteSection extends StatelessWidget {
   final String arrivalTime;
   final String duration;
   final bool isReturn;
+  final bool showInfoButton;
+  final String? directionLabel;
 
   const FlightRouteSection({
     super.key,
@@ -22,6 +24,8 @@ class FlightRouteSection extends StatelessWidget {
     required this.arrivalTime,
     required this.duration,
     this.isReturn = false,
+    this.showInfoButton = false,
+    this.directionLabel,
   });
 
   @override
@@ -75,24 +79,14 @@ class FlightRouteSection extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    '${isReturn ? 'Return' : 'Outbound'} • $flightClass',
+                    '${directionLabel ?? (isReturn ? 'Return' : 'Outbound')} • $flightClass',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ],
               ),
-            ),
-            
-            IconButton(
-              icon: Icon(
-                Icons.info_outline,
-                size: 20,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              onPressed: () {
-              },
-            ),
+            ),          
           ],
         ),
         

@@ -156,4 +156,65 @@ class CheckInApiService {
     }
   }
 
+  Future<List<Map<String, dynamic>>> getPaymentMethods() async {
+    final uri = Uri.parse('${AppConfig.baseUrl}/checkin/payment-methods');
+    final response = await http.get(uri, headers: await _headers());
+    if (response.statusCode == 200) {
+      return List<Map<String, dynamic>>.from(jsonDecode(response.body));
+    }
+    return [];
+  }
+
+  Future<Map<String, dynamic>> issueWithBaggage({
+    required int bookingItemId,
+    required int seatLayoutId,
+    required int flightOperationId,
+    required List<Map<String, dynamic>> bags,
+    int? paymentMethodId,
+    double totalSurcharge = 0.0,
+    required String status,
+  }) async {
+    final uri = Uri.parse(
+      '${AppConfig.baseUrl}/checkin/issue-with-baggage',
+    ).replace(queryParameters: {'flight_operation_id': flightOperationId.toString()});
+
+    final response = await http.post(
+      uri,
+      headers: await _headers(),
+      body: jsonEncode({
+        'booking_item_id':   bookingItemId,
+        'seat_layout_id':    seatLayoutId,
+        'bags':              bags,
+        'payment_method_id': paymentMethodId,
+        'total_surcharge':   totalSurcharge,
+        'status':            status,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception('Failed to issue boarding pass: ${response.body}');
+  }
+
+  Future<Map<String, dynamic>> checkAlreadyCheckedIn(int bookingItemId) async {
+    final uri = Uri.parse('${AppConfig.baseUrl}/checkin/check-already-checked-in/$bookingItemId');
+    final response = await http.get(uri, headers: await _headers());
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    return {'alreadyCheckedIn': false};
+  }
+
+  Future<Map<String, dynamic>> getCheckedBaggageWeight(int flightOperationId) async {
+    final uri = Uri.parse(
+      '${AppConfig.baseUrl}/checkin/checked-baggage-weight/$flightOperationId',
+    );
+    final response = await http.get(uri, headers: await _headers());
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    return {'totalCheckedWeightKg': 0.0};
+  }
+
 }

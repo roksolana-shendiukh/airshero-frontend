@@ -8,6 +8,8 @@ class CustomButton extends StatelessWidget {
   final double borderRadius;
   final IconData? icon;
   final bool isIconAfterLabel;
+  final Color? backgroundColor;
+  final Color? foregroundColor;
 
   const CustomButton({
     super.key,
@@ -18,6 +20,8 @@ class CustomButton extends StatelessWidget {
     this.borderRadius = 6,
     this.icon,
     this.isIconAfterLabel = true,
+    this.backgroundColor,
+    this.foregroundColor,
   });
 
   @override
@@ -59,6 +63,8 @@ class CustomButton extends StatelessWidget {
     return ElevatedButton(
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
+        backgroundColor: backgroundColor,
+        foregroundColor: foregroundColor,
         padding: EdgeInsets.symmetric(
           vertical: verticalPadding,
           horizontal: horizontalPadding,

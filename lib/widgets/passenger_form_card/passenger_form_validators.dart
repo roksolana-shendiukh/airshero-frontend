@@ -85,7 +85,6 @@ extension PassengerFormValidators on _PassengerFormCardState {
     if (_documentNumberInvalid) return false;
     if (!_isDocumentNumberValid(_documentNumberController.text)) return false;
 
-    // В режимі "Save Document" перевіряємо тільки поля документа
     final documentOnly = _isAddingNewDocument && !_passengerSearchVisible;
 
     if (!documentOnly) {
@@ -93,6 +92,10 @@ extension PassengerFormValidators on _PassengerFormCardState {
       if (_firstNameController.text.length < 3) return false;
       if (_lastNameController.text.length < 3) return false;
     }
+
+    final isAdult = widget.passengerType.toLowerCase() == 'adult';
+    if (isAdult && _emailController.text.isEmpty) return false;
+    if (_emailInvalid) return false;
 
     final documentValid =
         _documentNumberController.text.isNotEmpty &&

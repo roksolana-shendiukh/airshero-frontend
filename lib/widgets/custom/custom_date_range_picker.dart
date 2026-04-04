@@ -141,7 +141,7 @@ class _CustomDateRangePickerState extends State<CustomDateRangePicker> {
                 Color? textColor;
 
                 if (isDisabled) {
-                  textColor = Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.3);
+                  textColor = Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.3);
                 } else if (isSelected) {
                   bgColor = Theme.of(context).colorScheme.primary;
                   textColor = Theme.of(context).colorScheme.onPrimary;
@@ -196,7 +196,7 @@ class _CustomDateRangePickerState extends State<CustomDateRangePicker> {
         borderRadius: BorderRadius.circular(12),
         boxShadow:[
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),

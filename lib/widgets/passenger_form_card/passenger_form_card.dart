@@ -6,7 +6,6 @@ import 'dart:async';
 import '../../models/passenger_model.dart';
 import '../../services/reference_api_service.dart';
 import '../../services/auth_service.dart';
-import '../../services/local_passenger_service.dart';
 import '../../services/passenger_api_service.dart';
 import '../custom/custom_input_field.dart';
 import '../custom/custom_select_field.dart';
@@ -70,6 +69,9 @@ class _PassengerFormCardState extends State<PassengerFormCard> {
   late TextEditingController _dateOfBirthController;
   late TextEditingController _documentIssueController;
   late TextEditingController _documentExpireController;
+  late TextEditingController _emailController;
+  bool _emailInvalid = false;
+  bool _emailTouched = false;
 
   bool _dateOfBirthInvalid        = false;
   bool _documentNumberInvalid     = false;
@@ -123,6 +125,7 @@ class _PassengerFormCardState extends State<PassengerFormCard> {
   bool    _isAddingNewDocument  = false;
   int?    _originalCitizenshipId;
   int?    _originalDocumentTypeId;
+  PassengerModel? _existingPassengerFound;
 
   final LayerLink _dateOfBirthLayerLink    = LayerLink();
   final LayerLink _documentIssueLayerLink  = LayerLink();
@@ -147,7 +150,9 @@ class _PassengerFormCardState extends State<PassengerFormCard> {
     _selectedDocumentTypeId   != widget.initialData?['documentTypeId']     ||
     _documentNumberController.text != (widget.initialData?['documentNumber'] ?? '') ||
     _documentIssue            != widget.initialData?['documentIssue']      ||
-    _documentExpire           != widget.initialData?['documentExpire'];
+    _documentExpire           != widget.initialData?['documentExpire'] ||
+    _emailController.text     != (widget.initialData?['email'] ?? '');  
+    
 
   bool get _documentFieldsLocked =>
       (_documentSearched || _foundPassengerId != null) && !_isAddingNewDocument;
@@ -289,9 +294,10 @@ class _PassengerFormCardState extends State<PassengerFormCard> {
       text: _documentExpire != null ? DateFormat('dd.MM.yyyy').format(_documentExpire!) : '',
     );
 
-    _firstNameController.addListener(_onFormChanged);
-    _lastNameController.addListener(_onFormChanged);
-    _documentNumberController.addListener(_onDocumentNumberChanged);
+    _firstNameController      = TextEditingController(text: widget.initialData?['firstName'] ?? '');
+    _lastNameController       = TextEditingController(text: widget.initialData?['lastName'] ?? '');
+    _documentNumberController = TextEditingController(text: widget.initialData?['documentNumber'] ?? '');
+    _emailController          = TextEditingController(text: widget.initialData?['email'] ?? ''); 
     _dateOfBirthController.addListener(_handleDateOfBirthInput);
     _documentIssueController.addListener(_handleDocumentIssueInput);
     _documentExpireController.addListener(_handleDocumentExpireInput);
@@ -406,6 +412,9 @@ class _PassengerFormCardState extends State<PassengerFormCard> {
         _passengerSearchVisible = widget.initialData?['passengerSearchVisible'] ?? false;
         _editingDocument        = widget.initialData?['editingDocument'] ?? false;
         _changingDocumentOnly   = widget.initialData?['changingDocumentOnly'] ?? false;
+        _emailController.text = widget.initialData?['email'] ?? '';
+        _emailInvalid = false;
+        _emailTouched = false;
 
         _dateOfBirthTouched     = false;
         _documentIssueTouched   = false;
@@ -462,6 +471,7 @@ class _PassengerFormCardState extends State<PassengerFormCard> {
     _documentNumberController.dispose();
     _documentIssueController.dispose();
     _documentExpireController.dispose();
+    _emailController.dispose();
 
     _firstNameFocusNode.dispose();
     _lastNameFocusNode.dispose();

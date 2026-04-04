@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
-import '../models/class.dart';
-import '../models/flight_filter_state.dart';
+import '../../models/class.dart';
+import '../../models/flight_filter_state.dart';
 
 class FlightFilterForm extends StatefulWidget {
   final FlightFilterState filterState;
   final Map<String, int> passengers;
   final bool isRoundTrip;
   final ValueChanged<FlightFilterState> onChanged;
+  final bool isMultiSegment;
 
   const FlightFilterForm({
     super.key,
@@ -14,6 +15,7 @@ class FlightFilterForm extends StatefulWidget {
     required this.passengers,
     required this.isRoundTrip,
     required this.onChanged,
+    this.isMultiSegment = false,
   });
 
   @override
@@ -28,7 +30,7 @@ class _FlightFilterFormState extends State<FlightFilterForm>
   void initState() {
     super.initState();
     _classTabController = TabController(
-      length: widget.isRoundTrip ? 2 : 1,
+      length: (widget.isRoundTrip || widget.isMultiSegment) ? 2 : 1,
       vsync: this,
     );
   }
@@ -141,19 +143,15 @@ class _FlightFilterFormState extends State<FlightFilterForm>
         _SectionTitle('Flight class'),
         const SizedBox(height: 8),
 
-        if (widget.isRoundTrip) ...[
+        if (widget.isRoundTrip || widget.isMultiSegment) ...[
           TabBar(
             controller: _classTabController,
-            labelColor: cs.primary,
-            unselectedLabelColor: cs.onSurfaceVariant,
-            indicatorColor: cs.primary,
-            indicatorSize: TabBarIndicatorSize.tab,
-            dividerColor: cs.outlineVariant,
-            tabs: const [
-              Tab(text: 'Outbound'),
-              Tab(text: 'Return'),
+            tabs: [
+              Tab(text: widget.isMultiSegment ? 'Leg 1' : 'Outbound'),
+              Tab(text: widget.isMultiSegment ? 'Leg 2' : 'Return'),
             ],
           ),
+
           const SizedBox(height: 12),
           AnimatedBuilder(
             animation: _classTabController,
@@ -498,9 +496,9 @@ class _Chip extends StatelessWidget {
 
     if (disabled) {
       bgColor = cs.surfaceContainerLowest;
-      borderColor = cs.outlineVariant.withOpacity(0.4);
-      textColor = cs.onSurface.withOpacity(0.3);
-      iconColor = cs.onSurface.withOpacity(0.3);
+      borderColor = cs.outlineVariant.withValues(alpha: 0.4);
+      textColor = cs.onSurface.withValues(alpha: 0.3);
+      iconColor = cs.onSurface.withValues(alpha: 0.3);
     } else if (selected) {
       bgColor = cs.primary;
       borderColor = cs.primary;

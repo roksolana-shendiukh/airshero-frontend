@@ -16,6 +16,7 @@ extension PassengerFormHandlers on _PassengerFormCardState {
     if (_isSaved) setState(() => _isSaved = false);
     final number = _documentNumberController.text;
     setState(() {
+      _documentNumberExistsError = false; 
       if (number.isEmpty) {
         _documentNumberInvalid = false;
       } else {
@@ -32,7 +33,6 @@ extension PassengerFormHandlers on _PassengerFormCardState {
     final expireChanged = _documentExpire?.toIso8601String().split('T')[0] != _originalDocumentExpire;
     final citizenshipChanged = _selectedCitizenshipId != _originalCitizenshipId;
     final docTypeChanged = _selectedDocumentTypeId != _originalDocumentTypeId;
-
     final changed = numberChanged || expireChanged || citizenshipChanged || docTypeChanged;
     setState(() => _documentChanged = changed);
   }
@@ -40,27 +40,26 @@ extension PassengerFormHandlers on _PassengerFormCardState {
   void _notifyParent() {
     Future.microtask(() {
       if (!mounted) return;
-
       final data = {
-        'firstName':        _firstNameController.text,
-        'lastName':         _lastNameController.text,
-        'sexId':            _selectedSexId,
-        'sex':              _sexIdToName(_selectedSexId),
-        'dateOfBirth':      _dateOfBirth,
-        'citizenshipId':    _selectedCitizenshipId,
-        'documentTypeId':   _selectedDocumentTypeId,
-        'documentNumber':   _documentNumberController.text,
-        'documentIssue':    _documentIssue,
-        'documentExpire':   _documentExpire,
-        'isSaved':          _isSaved,
-        'foundPassengerId': _foundPassengerId,
-        'documentChanged':  _documentChanged,
+        'firstName':              _firstNameController.text,
+        'lastName':               _lastNameController.text,
+        'sexId':                  _selectedSexId,
+        'sex':                    _sexIdToName(_selectedSexId),
+        'dateOfBirth':            _dateOfBirth,
+        'citizenshipId':          _selectedCitizenshipId,
+        'documentTypeId':         _selectedDocumentTypeId,
+        'documentNumber':         _documentNumberController.text,
+        'documentIssue':          _documentIssue,
+        'documentExpire':         _documentExpire,
+        'isSaved': _isSaved || _isPassengerSaved,
+        'foundPassengerId':       _foundPassengerId,
+        'documentChanged':        _documentChanged,
         'isAddingNewDocument':    _isAddingNewDocument,
         'passengerSearchVisible': _passengerSearchVisible,
         'changingDocumentOnly':   _changingDocumentOnly,
         'editingDocument':        _editingDocument,
+        'email':                  _emailController.text,
       };
-
       widget.onDataChanged(data);
     });
   }
@@ -166,47 +165,15 @@ extension PassengerFormHandlers on _PassengerFormCardState {
     try {
       final api = PassengerApiService(widget.authService);
       final passenger = await api.searchPassengerByDocument(number);
-
       if (!mounted || passenger == null) return;
       if (_foundPassengerId != null && passenger.passengerId == _foundPassengerId) return;
 
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => AlertDialog(
-          icon: const Icon(Icons.info_outline, color: Colors.blue),
-          title: const Text('Document already exists'),
-          content: Text(
-            'Document number "$number" is already registered.\n'
-            'Would you like to fill the form with the existing passenger data?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                setState(() {
-                  _documentNumberInvalid     = true;
-                  _documentNumberExistsError = true;
-                });
-              },
-              child: const Text('Keep current'),
-            ),
-            FilledButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _fillFromPassenger(passenger);
-              },
-              child: const Text('Fill from existing'),
-            ),
-          ],
-        ),
-      );
+      setState(() => _documentNumberExistsError = true);
     } catch (_) {}
   }
 
   void _fillFromPassenger(PassengerModel passenger) {
     final doc = passenger.document;
-
     setState(() {
       _firstNameController.text = passenger.firstName;
       _lastNameController.text  = passenger.lastName;
@@ -223,6 +190,9 @@ extension PassengerFormHandlers on _PassengerFormCardState {
       }
 
       _selectedSexId = _sexNameToId(passenger.sex) ?? _selectedSexId;
+      _emailController.text = passenger.email ?? '';
+      _emailInvalid = false;
+      _emailTouched = false;
 
       if (doc != null) {
         _documentNumberController.text = doc.documentNumber ?? '';
@@ -282,7 +252,6 @@ extension PassengerFormHandlers on _PassengerFormCardState {
       _documentChanged           = false;
       _isSaved                   = true;
       _isAddingNewDocument       = false;
-
       _dateOfBirthInvalid        = false;
       _documentNumberInvalid     = false;
       _firstNameInvalid          = false;
@@ -293,15 +262,11 @@ extension PassengerFormHandlers on _PassengerFormCardState {
       _lastNameEdited            = false;
       _documentNumberExistsError = false;
     });
-
     _notifyParent();
   }
 
   void _fillFromPassengerOnly(PassengerModel passenger) {
-    debugPrint('_fillFromPassengerOnly: _isSaved=$_isSaved, _isPassengerSaved=$_isPassengerSaved, _isAddingNewDocument=$_isAddingNewDocument');
-    
-    final wasDocumentSaved = _isSaved; 
-
+    final wasDocumentSaved = _isSaved;
     setState(() {
       _firstNameController.text = passenger.firstName;
       _lastNameController.text  = passenger.lastName;
@@ -318,6 +283,9 @@ extension PassengerFormHandlers on _PassengerFormCardState {
       }
 
       _selectedSexId = _sexNameToId(passenger.sex) ?? _selectedSexId;
+      _emailController.text = passenger.email ?? '';
+      _emailInvalid = false;
+      _emailTouched = false;
 
       if (!_passengerSearchVisible) {
         _documentNumberController.text = '';
@@ -329,9 +297,8 @@ extension PassengerFormHandlers on _PassengerFormCardState {
         _originalDocumentExpire        = null;
       }
 
-      _foundPassengerId    = passenger.passengerId;
-      _isAddingNewDocument = true;
-
+      _foundPassengerId          = passenger.passengerId;
+      _isAddingNewDocument       = true;
       _documentChanged           = false;
       _isPassengerSaved          = false;
       _dateOfBirthInvalid        = false;
@@ -343,13 +310,11 @@ extension PassengerFormHandlers on _PassengerFormCardState {
       _firstNameEdited           = false;
       _lastNameEdited            = false;
       _documentNumberExistsError = false;
-      
-      _isSaved = wasDocumentSaved; 
+      _isSaved                   = wasDocumentSaved;
     });
-
     _notifyParent();
   }
-  
+
   void _onChangeDocument() {
     setState(() {
       _isAddingNewDocument           = true;
@@ -381,41 +346,39 @@ extension PassengerFormHandlers on _PassengerFormCardState {
       _documentNumberController.clear();
       _documentIssueController.clear();
       _documentExpireController.clear();
-      _documentIssue                 = null;
-      _documentExpire                = null;
-      _originalDocumentNumber        = null;
-      _originalDocumentExpire        = null;
-      _originalCitizenshipId         = null;
-      _originalDocumentTypeId        = null;
+      _documentIssue              = null;
+      _documentExpire             = null;
+      _originalDocumentNumber     = null;
+      _originalDocumentExpire     = null;
+      _originalCitizenshipId      = null;
+      _originalDocumentTypeId     = null;
 
       _firstNameController.clear();
       _lastNameController.clear();
       _dateOfBirthController.clear();
-      _dateOfBirth          = null;
-      _selectedSexId        = _sexes.isNotEmpty ? _sexes.first['id'].toString() : null;
-      _foundPassengerId     = null;
-      
-      _isPassengerSaved              = false;
-      _firstNameInvalid              = false;
-      _lastNameInvalid               = false;
-      _firstNameTouched              = false;
-      _lastNameTouched               = false;
-      _firstNameEdited               = false;
-      _lastNameEdited                = false;
-      _dateOfBirthTouched            = false;
-      _dateOfBirthInvalid            = false;
-      _passengerSearchVisible = false;
+      _dateOfBirth      = null;
+      _selectedSexId    = _sexes.isNotEmpty ? _sexes.first['id'].toString() : null;
+      _foundPassengerId = null;
 
-      _documentChanged               = false;
-      _documentNumberInvalid         = false;
-      _documentIssueInvalid          = false;
-      _documentIssueTouched          = false;
-      _documentExpireTouched         = false;
-      _documentNumberTouched         = false;
-      _documentNumberExistsError     = false;
-      
-      _isSaved                       = false; 
-      _isAddingNewDocument           = true;
+      _isPassengerSaved          = false;
+      _firstNameInvalid          = false;
+      _lastNameInvalid           = false;
+      _firstNameTouched          = false;
+      _lastNameTouched           = false;
+      _firstNameEdited           = false;
+      _lastNameEdited            = false;
+      _dateOfBirthTouched        = false;
+      _dateOfBirthInvalid        = false;
+      _passengerSearchVisible    = false;
+      _documentChanged           = false;
+      _documentNumberInvalid     = false;
+      _documentIssueInvalid      = false;
+      _documentIssueTouched      = false;
+      _documentExpireTouched     = false;
+      _documentNumberTouched     = false;
+      _documentNumberExistsError = false;
+      _isSaved                   = false;
+      _isAddingNewDocument       = true;
     });
     _notifyParent();
   }
@@ -439,14 +402,14 @@ extension PassengerFormHandlers on _PassengerFormCardState {
       _documentNumberController.clear();
       _documentIssueController.clear();
       _documentExpireController.clear();
-      _documentIssue              = null;
-      _documentExpire             = null;
-      _documentNumberInvalid      = false;
-      _documentIssueInvalid       = false;
-      _documentIssueTouched       = false;
-      _documentExpireTouched      = false;
-      _documentNumberTouched      = false;
-      _documentNumberExistsError  = false;
+      _documentIssue             = null;
+      _documentExpire            = null;
+      _documentNumberInvalid     = false;
+      _documentIssueInvalid      = false;
+      _documentIssueTouched      = false;
+      _documentExpireTouched     = false;
+      _documentNumberTouched     = false;
+      _documentNumberExistsError = false;
     });
   }
 
@@ -458,6 +421,7 @@ extension PassengerFormHandlers on _PassengerFormCardState {
       _dateOfBirthController.clear();
       _documentIssueController.clear();
       _documentExpireController.clear();
+      _emailController.clear();
 
       _selectedSexId          = _sexes.isNotEmpty ? _sexes.first['id'].toString() : null;
       _selectedCitizenshipId  = _citizenships.isNotEmpty ? _citizenships.first['citizenshipId'] as int : null;
@@ -494,6 +458,8 @@ extension PassengerFormHandlers on _PassengerFormCardState {
       _documentTypeTouched       = false;
       _documentNumberTouched     = false;
       _documentIssueInvalid      = false;
+      _emailInvalid              = false;
+      _emailTouched              = false;
     });
     _notifyParent();
   }
@@ -503,20 +469,21 @@ extension PassengerFormHandlers on _PassengerFormCardState {
       _firstNameController.clear();
       _lastNameController.clear();
       _dateOfBirthController.clear();
-      _dateOfBirth          = null;
-      _selectedSexId        = _sexes.isNotEmpty ? _sexes.first['id'].toString() : null;
-      _foundPassengerId     = null;
-      
-      _isPassengerSaved     = false; 
-      
-      _firstNameInvalid     = false;
-      _lastNameInvalid      = false;
-      _firstNameTouched     = false;
-      _lastNameTouched      = false;
-      _firstNameEdited      = false;
-      _lastNameEdited       = false;
-      _dateOfBirthTouched   = false;
-      _dateOfBirthInvalid   = false;
+      _emailController.clear();
+      _dateOfBirth      = null;
+      _selectedSexId    = _sexes.isNotEmpty ? _sexes.first['id'].toString() : null;
+      _foundPassengerId = null;
+      _isPassengerSaved = false;
+      _firstNameInvalid = false;
+      _lastNameInvalid  = false;
+      _firstNameTouched = false;
+      _lastNameTouched  = false;
+      _firstNameEdited  = false;
+      _lastNameEdited   = false;
+      _dateOfBirthTouched = false;
+      _dateOfBirthInvalid = false;
+      _emailInvalid = false;
+      _emailTouched = false;
     });
     _notifyParent();
   }
@@ -526,19 +493,19 @@ extension PassengerFormHandlers on _PassengerFormCardState {
       _documentNumberController.clear();
       _documentIssueController.clear();
       _documentExpireController.clear();
-      _documentIssue              = null;
-      _documentExpire             = null;
-      _selectedCitizenshipId      = _citizenships.isNotEmpty
+      _documentIssue          = null;
+      _documentExpire         = null;
+      _selectedCitizenshipId  = _citizenships.isNotEmpty
           ? _citizenships.first['citizenshipId'] as int : null;
-      _selectedDocumentTypeId     = _documentTypes.isNotEmpty
+      _selectedDocumentTypeId = _documentTypes.isNotEmpty
           ? _documentTypes.first['documentTypeId'] as int : null;
-      _documentNumberInvalid      = false;
-      _documentIssueInvalid       = false;
-      _documentIssueTouched       = false;
-      _documentExpireTouched      = false;
-      _documentNumberTouched      = false;
-      _documentNumberExistsError  = false;
-      _isSaved                    = false;
+      _documentNumberInvalid     = false;
+      _documentIssueInvalid      = false;
+      _documentIssueTouched      = false;
+      _documentExpireTouched     = false;
+      _documentNumberTouched     = false;
+      _documentNumberExistsError = false;
+      _isSaved                   = false;
     });
   }
 
@@ -560,6 +527,7 @@ extension PassengerFormHandlers on _PassengerFormCardState {
         _lastNameInvalid    = _lastNameController.text.isEmpty || _lastNameController.text.length < 3;
         _dateOfBirthTouched = true;
         _sexTouched         = true;
+        _emailTouched       = true;
       }
     });
 
@@ -567,67 +535,71 @@ extension PassengerFormHandlers on _PassengerFormCardState {
       _showErrorDialog(_ageMismatchMessage!);
       return;
     }
-    if (!_validateForm()) {
-      _showErrorDialog('Please fill in all required fields correctly.');
-      return;
+
+    final passengerCardOnly = _isAddingNewDocument && _passengerSearchVisible;
+
+    if (passengerCardOnly) {
+      if (!_validatePassengerOnly()) {
+        _showErrorDialog('Please fill in all required fields correctly.');
+        return;
+      }
+    } else {
+      if (!_validateForm()) {
+        _showErrorDialog('Please fill in all required fields correctly.');
+        return;
+      }
     }
 
-    if (_isSaved) {
-      final hasChanges =
-          _firstNameController.text != (widget.initialData?['firstName'] ?? '') ||
-          _lastNameController.text  != (widget.initialData?['lastName'] ?? '')  ||
-          _dateOfBirth              != widget.initialData?['dateOfBirth']        ||
-          _selectedSexId            != widget.initialData?['sexId']?.toString()  ||
-          _selectedCitizenshipId    != widget.initialData?['citizenshipId']      ||
-          _selectedDocumentTypeId   != widget.initialData?['documentTypeId']     ||
-          _documentNumberController.text != (widget.initialData?['documentNumber'] ?? '') ||
-          _documentIssue            != widget.initialData?['documentIssue']      ||
-          _documentExpire           != widget.initialData?['documentExpire'];
-
-      if (!hasChanges) {
+    if (_isSaved && !passengerCardOnly) {
+      if (!_hasChanges) {
         _showErrorDialog('No changes to update.');
         return;
       }
     }
 
-    setState(() {
-      if (_isAddingNewDocument) {
-        _isPassengerSaved = true;
-      } else {
-        _isSaved = true;
-      }
-    });
+    setState(() => _isSaving = true);
 
     try {
-      final data = {
-        'firstName':              _firstNameController.text,
-        'lastName':               _lastNameController.text,
-        'sexId':                  _selectedSexId,
-        'sex':                    _sexIdToName(_selectedSexId),
-        'dateOfBirth':            _dateOfBirth,
-        'citizenshipId':          _selectedCitizenshipId,
-        'documentTypeId':         _selectedDocumentTypeId,
-        'documentNumber':         _documentNumberController.text,
-        'documentIssue':          _documentIssue,
-        'documentExpire':         _documentExpire,
-        'isSaved':                true,
-        'foundPassengerId':       _foundPassengerId,
-        'documentChanged':        _documentChanged,
-        'isAddingNewDocument':    _isAddingNewDocument,
-        'passengerSearchVisible': _passengerSearchVisible,
-        'editingDocument':        _editingDocument,
-        'changingDocumentOnly':   _changingDocumentOnly,
-      };
+      final api = PassengerApiService(widget.authService);
+      final sex = _sexIdToName(_selectedSexId);
+      final email = _emailController.text.isNotEmpty ? _emailController.text : null;
 
-      await LocalPassengerService.savePassenger(
-        widget.sessionId,
-        widget.passengerIndex,
-        data,
-      );
+      if (_foundPassengerId != null && !_documentChanged) {
+        await api.updatePassenger(
+          _foundPassengerId!,
+          firstName: _firstNameController.text,
+          lastName: _lastNameController.text,
+          sex: sex,
+          email: email,
+          dateOfBirth: _dateOfBirth,
+          citizenshipId: _selectedCitizenshipId,
+          documentTypeId: _selectedDocumentTypeId,
+          documentNumber: _documentNumberController.text,
+          documentDateOfIssue: _documentIssue,
+          documentDateOfExpire: _documentExpire,
+        );
+      } else {
+        final result = await api.createPassenger(
+          firstName: _firstNameController.text,
+          lastName: _lastNameController.text,
+          sex: sex,
+          email: email,
+          dateOfBirth: _dateOfBirth,
+          citizenshipId: _selectedCitizenshipId,
+          documentTypeId: _selectedDocumentTypeId,
+          documentNumber: _documentNumberController.text,
+          documentDateOfIssue: _documentIssue,
+          documentDateOfExpire: _documentExpire,
+        );
+        if (result != null) {
+          setState(() => _foundPassengerId = result.passengerId);
+        }
+      }
 
       setState(() {
         _isSaved = true;
         if (_isAddingNewDocument) {
+          _isPassengerSaved            = true;
           _editOriginalDocumentNumber  = _documentNumberController.text;
           _editOriginalDocumentIssue   = _documentIssue;
           _editOriginalDocumentExpire  = _documentExpire;
@@ -635,6 +607,7 @@ extension PassengerFormHandlers on _PassengerFormCardState {
           _editOriginalDocumentTypeId  = _selectedDocumentTypeId;
         }
       });
+
       _notifyParent();
     } catch (e) {
       if (mounted) _showErrorDialog(e.toString());
@@ -661,17 +634,6 @@ extension PassengerFormHandlers on _PassengerFormCardState {
   }
 
   Future<void> _handleSaveDocumentEdit() async {
-    setState(() {
-      _editingDocument        = false;
-      _passengerSearchVisible = true;
-      _isSaved                = true;
-      _editOriginalDocumentNumber  = _documentNumberController.text;
-      _editOriginalDocumentIssue   = _documentIssue;
-      _editOriginalDocumentExpire  = _documentExpire;
-      _editOriginalCitizenshipId   = _selectedCitizenshipId;
-      _editOriginalDocumentTypeId  = _selectedDocumentTypeId;
-    });
-
     if (_documentDatesMismatchMessage != null ||
         _documentNumberInvalid ||
         _documentNumberController.text.isEmpty ||
@@ -681,12 +643,51 @@ extension PassengerFormHandlers on _PassengerFormCardState {
       return;
     }
 
-    setState(() {
-      _editingDocument        = false;
-      _passengerSearchVisible = true;
-      _isSaved                = true;
-    });
-    _notifyParent();
-  }
+    setState(() => _isSaving = true);
 
+    try {
+      final api = PassengerApiService(widget.authService);
+      if (_foundPassengerId != null) {
+        await api.updatePassenger(
+          _foundPassengerId!,
+          citizenshipId: _selectedCitizenshipId,
+          documentTypeId: _selectedDocumentTypeId,
+          documentNumber: _documentNumberController.text,
+          documentDateOfIssue: _documentIssue,
+          documentDateOfExpire: _documentExpire,
+        );
+      } else {
+        final result = await api.createPassenger(
+          firstName: _firstNameController.text,
+          lastName: _lastNameController.text,
+          sex: _sexIdToName(_selectedSexId),
+          citizenshipId: _selectedCitizenshipId,
+          documentTypeId: _selectedDocumentTypeId,
+          documentNumber: _documentNumberController.text,
+          documentDateOfIssue: _documentIssue,
+          documentDateOfExpire: _documentExpire,
+        );
+        if (result != null) {
+          setState(() => _foundPassengerId = result.passengerId);
+        }
+      }
+
+      setState(() {
+        _editingDocument             = false;
+        _passengerSearchVisible      = true;
+        _isSaved                     = true;
+        _editOriginalDocumentNumber  = _documentNumberController.text;
+        _editOriginalDocumentIssue   = _documentIssue;
+        _editOriginalDocumentExpire  = _documentExpire;
+        _editOriginalCitizenshipId   = _selectedCitizenshipId;
+        _editOriginalDocumentTypeId  = _selectedDocumentTypeId;
+      });
+
+      _notifyParent();
+    } catch (e) {
+      if (mounted) _showErrorDialog(e.toString());
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
 }

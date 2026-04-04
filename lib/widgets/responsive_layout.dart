@@ -42,12 +42,11 @@ class _ResponsiveLayoutState extends State<ResponsiveLayout> {
           drawer: isLargeScreen ? null : _buildDrawer(context, currentUser),
           body: Column(
             children: [
-              // HEADER (З НИЖНЬОЮ ЛІНІЄЮ)
               Container(
                 decoration: BoxDecoration(
                   border: Border(
                     bottom: BorderSide(
-                      color: colors.outlineVariant.withOpacity(0.5),
+                      color: colors.outlineVariant.withValues(alpha: 0.5),
                       width: 1,
                     ),
                   ),
@@ -58,7 +57,6 @@ class _ResponsiveLayoutState extends State<ResponsiveLayout> {
               Expanded(
                 child: Row(
                   children: [
-                    // SIDEBAR (З КЛІПУВАННЯМ ТА ПРАВОЮ ЛІНІЄЮ)
                     if (isLargeScreen)
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 250),
@@ -68,17 +66,15 @@ class _ResponsiveLayoutState extends State<ResponsiveLayout> {
                           color: colors.surfaceContainerLow,
                           border: Border(
                             right: BorderSide(
-                              color: colors.outlineVariant.withOpacity(0.5),
+                              color: colors.outlineVariant.withValues(alpha: 0.5),
                             ),
                           ),
                         ),
-                        // Кліпування контенту під час анімації
                         child: ClipRect(
                           child: _buildSidebarContent(context, currentUser, collapsed: _sidebarCollapsed),
                         ),
                       ),
                     
-                    // MAIN BODY
                     Expanded(
                       child: Column(
                         children: [
@@ -148,7 +144,6 @@ class _ResponsiveLayoutState extends State<ResponsiveLayout> {
 
     return Column(
       children: [
-        // AIRLINE BOX - ВИПРАВЛЕНО: ТЕПЕР БЕЗ OVERFLOW
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 16, 8, 16),
           child: collapsed
@@ -158,11 +153,11 @@ class _ResponsiveLayoutState extends State<ResponsiveLayout> {
                     child: _buildAirlineLogo(currentUser, size: 36),
                   ),
                 )
-              : SingleChildScrollView( // ДОЗВОЛЯЄ ТЕКСТУ ТА КНОПЦІ НЕ ВИДАВАТИ ПОМИЛКУ
+              : SingleChildScrollView( 
                   scrollDirection: Axis.horizontal,
                   physics: const NeverScrollableScrollPhysics(),
                   child: SizedBox(
-                    width: _expandedWidth - 20, // Фіксований простір для Row
+                    width: _expandedWidth - 20, 
                     child: Row(
                       children: [
                         _buildAirlineLogo(currentUser, size: 36),
@@ -231,7 +226,7 @@ class _ResponsiveLayoutState extends State<ResponsiveLayout> {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: Colors.white,
-        border: Border.all(color: Colors.grey.withOpacity(0.15)),
+        border: Border.all(color: Colors.grey.withValues(alpha: 0.15)),
       ),
       child: ClipOval(
         child: Padding(
@@ -346,7 +341,7 @@ class _SidebarItem extends StatelessWidget {
         child: Container(
           padding: EdgeInsets.symmetric(vertical: 10, horizontal: collapsed ? 0 : 12),
           decoration: BoxDecoration(
-            color: isActive ? colors.primary.withOpacity(0.08) : Colors.transparent,
+            color: isActive ? colors.primary.withValues(alpha: 0.08) : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
           ),
           child: collapsed
@@ -354,11 +349,11 @@ class _SidebarItem extends StatelessWidget {
                   message: title, 
                   child: Center(child: Icon(icon, color: isActive ? colors.primary : colors.onSurfaceVariant, size: 22))
                 )
-              : SingleChildScrollView( // ЗАХИСТ ВІД OVERFLOW ПРИ АНІМАЦІЇ ПУНКТІВ МЕНЮ
+              : SingleChildScrollView( 
                   scrollDirection: Axis.horizontal,
                   physics: const NeverScrollableScrollPhysics(),
                   child: SizedBox(
-                    width: 200, // Фіксована ширина для внутрішнього тексту
+                    width: 200, 
                     child: Row(
                       children: [
                         Icon(icon, size: 20, color: isActive ? colors.primary : colors.onSurfaceVariant),

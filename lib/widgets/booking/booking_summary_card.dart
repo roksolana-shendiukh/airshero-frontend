@@ -313,7 +313,7 @@ class BookingSummaryCard extends StatelessWidget {
                     angle: isReturn ? 4.71239 : 1.5708,
                     child: Icon(
                       Icons.flight,
-                      color: colors.primary.withOpacity(0.5),
+                      color: colors.primary.withValues(alpha: 0.5),
                       size: 22,
                     ),
                   ),

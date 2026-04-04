@@ -13,7 +13,6 @@ extension PassengerFormBuild on _PassengerFormCardState {
   }
 
   Widget _buildAddDocumentFlow(BuildContext context, ColorScheme colors) {
-    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -54,23 +53,19 @@ extension PassengerFormBuild on _PassengerFormCardState {
 
   Widget _buildEditDocumentSection(BuildContext context, ColorScheme colors) {
     final hasChanges = _isSaved
-      ? (
-          _documentNumberController.text != (_editOriginalDocumentNumber ?? '') ||
-          _documentIssue  != _editOriginalDocumentIssue  ||
-          _documentExpire != _editOriginalDocumentExpire ||
-          _selectedCitizenshipId  != _editOriginalCitizenshipId ||
-          _selectedDocumentTypeId != _editOriginalDocumentTypeId
-        )
-      : _validateDocumentFields();
+        ? (_documentNumberController.text != (_editOriginalDocumentNumber ?? '') ||
+            _documentIssue != _editOriginalDocumentIssue ||
+            _documentExpire != _editOriginalDocumentExpire ||
+            _selectedCitizenshipId != _editOriginalCitizenshipId ||
+            _selectedDocumentTypeId != _editOriginalDocumentTypeId)
+        : _validateDocumentFields();
 
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: colors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: colors.outline.withValues(alpha: 0.2),
-        ),
+        border: Border.all(color: colors.outline.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -79,10 +74,11 @@ extension PassengerFormBuild on _PassengerFormCardState {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Edit Document',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                _isSaved ? 'Edit Document' : 'Add Document',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.bold),
               ),
               TextButton(
                 onPressed: _clearDocumentFieldsOnly,
@@ -99,7 +95,7 @@ extension PassengerFormBuild on _PassengerFormCardState {
             child: _isSaving
                 ? const Center(child: CircularProgressIndicator())
                 : CustomButton(
-                    label: _isSaved ? 'Update Document' : 'Save Document',
+                    label: _isSaved ? 'Update' : 'Save',
                     onPressed: hasChanges && _validateDocumentFields()
                         ? _handleSaveDocumentEdit
                         : null,
@@ -116,11 +112,16 @@ extension PassengerFormBuild on _PassengerFormCardState {
     if (_lastNameController.text.length < 3) return false;
     if (_dateOfBirth == null) return false;
     if (_selectedSexId == null) return false;
+    final isAdult = widget.passengerType.toLowerCase() == 'adult';
+    if (isAdult && _emailController.text.isEmpty) return false;
+    if (_emailInvalid) return false;
     return true;
   }
 
   Widget _buildPassengerCard(BuildContext context, ColorScheme colors) {
     final ageMismatch = _ageMismatchMessage;
+    final isAdult = widget.passengerType.toLowerCase() == 'adult';
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -141,14 +142,16 @@ extension PassengerFormBuild on _PassengerFormCardState {
             children: [
               Text(
                 'Passenger',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.bold),
               ),
               Row(
                 children: [
                   if (_isPassengerSaved) ...[
-                    Icon(Icons.check_circle_outline, size: 18, color: colors.primary),
+                    Icon(Icons.check_circle_outline,
+                        size: 18, color: colors.primary),
                     const SizedBox(width: 6),
                     Text(
                       'Saved',
@@ -162,7 +165,8 @@ extension PassengerFormBuild on _PassengerFormCardState {
                   TextButton(
                     onPressed: _clearPassengerFields,
                     child: const Text('Clear',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                        style: TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w500)),
                   ),
                 ],
               ),
@@ -183,27 +187,33 @@ extension PassengerFormBuild on _PassengerFormCardState {
             children: [
               Expanded(child: _buildSexField(colors)),
               const SizedBox(width: 12),
-              Expanded(child: _buildDateOfBirthField(context, colors, ageMismatch)),
+              Expanded(
+                  child: _buildDateOfBirthField(context, colors, ageMismatch)),
             ],
           ),
+          const SizedBox(height: 16),
+          _buildEmailField(context, colors, isAdult: isAdult),
           const SizedBox(height: 24),
           SizedBox(
             width: double.infinity,
             child: _isSaving
                 ? const Center(child: CircularProgressIndicator())
-                :CustomButton(
-                    label: _isPassengerSaved  ? 'Update' : 'Save',
-                    onPressed: _validateForm() && (!_isSaved || _hasChanges)
+                : CustomButton(
+                    label: _isPassengerSaved ? 'Update' : 'Save',
+                    onPressed: _validatePassengerOnly() && !_isPassengerSaved
                         ? _handleSave
                         : null,
                   ),
-          ),          
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildFullForm(BuildContext context, ColorScheme colors, String? ageMismatch) {
+  Widget _buildFullForm(
+      BuildContext context, ColorScheme colors, String? ageMismatch) {
+    final isAdult = widget.passengerType.toLowerCase() == 'adult';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -224,14 +234,16 @@ extension PassengerFormBuild on _PassengerFormCardState {
 
         if (_documentChanged) ...[
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               color: colors.tertiaryContainer,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
               children: [
-                Icon(Icons.warning_amber_outlined, color: colors.tertiary, size: 18),
+                Icon(Icons.warning_amber_outlined,
+                    color: colors.tertiary, size: 18),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -269,18 +281,23 @@ extension PassengerFormBuild on _PassengerFormCardState {
                   children: [
                     Text(
                       '${widget.passengerType} ${widget.passengerIndex + 1}',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleLarge
+                          ?.copyWith(fontWeight: FontWeight.bold),
                     ),
                     Row(
                       children: [
                         if (_isSaved) ...[
-                          Icon(Icons.check_circle_outline, size: 18, color: colors.primary),
+                          Icon(Icons.check_circle_outline,
+                              size: 18, color: colors.primary),
                           const SizedBox(width: 6),
                           Text(
                             'Saved',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(
                                   color: colors.primary,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -290,16 +307,21 @@ extension PassengerFormBuild on _PassengerFormCardState {
                         if (_documentFieldsLocked) ...[
                           TextButton.icon(
                             onPressed: _onChangeDocument,
-                            icon: const Icon(Icons.add_card_outlined, size: 16),
+                            icon: const Icon(Icons.add_card_outlined,
+                                size: 16),
                             label: const Text('Change Document',
-                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                                style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500)),
                           ),
                           const SizedBox(width: 4),
                         ],
                         TextButton(
                           onPressed: _clearForm,
                           child: const Text('Clear',
-                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                              style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500)),
                         ),
                       ],
                     ),
@@ -325,43 +347,110 @@ extension PassengerFormBuild on _PassengerFormCardState {
                     children: [
                       Expanded(child: _buildSexField(colors)),
                       const SizedBox(width: 12),
-                      Expanded(child: _buildDateOfBirthField(context, colors, ageMismatch)),
+                      Expanded(
+                          child: _buildDateOfBirthField(
+                              context, colors, ageMismatch)),
                     ],
                   ),
+                  const SizedBox(height: 16),
+                  _buildEmailField(context, colors, isAdult: isAdult),
                   const SizedBox(height: 24),
                 ],
 
-                SizedBox(
-                  width: double.infinity,
-                  child: _isSaving
-                      ? const Center(child: CircularProgressIndicator())
-                      :CustomButton(
-                        label: _isAddingNewDocument && !_passengerSearchVisible
-                            ? 'Save Document'
-                            : _isSaved ? 'Update' : 'Save',
-                        onPressed: _validateForm() && (!_isSaved || _hasChanges)
-                          ? _handleSave
-                          : null,
-                      ),
-                ),
-                if (!_validateForm()) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    _documentDatesMismatchMessage ??
-                        (_ageMismatchMessage ?? 'Please fill in all required fields'),
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                      fontSize: 12,
-                    ),
-                    textAlign: TextAlign.center,
+                Tooltip(
+                  message: !_validateForm()
+                      ? (_documentDatesMismatchMessage ??
+                          _ageMismatchMessage ??
+                          'Please fill in all required fields')
+                      : '',
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: _isSaving
+                        ? const Center(child: CircularProgressIndicator())
+                        : CustomButton(
+                            label: _isAddingNewDocument && !_passengerSearchVisible
+                                ? 'Save Document'
+                                : _isSaved ? 'Update' : 'Save',
+                            onPressed: _validateForm() && (!_isSaved || _hasChanges)
+                                ? _handleSave
+                                : null,
+                          ),
                   ),
-                ],
+                ),       
               ],
             ),
           ),
         ),
       ],
     );
+  }
+
+  Widget _buildEmailField(
+    BuildContext context,
+    ColorScheme colors, {
+    required bool isAdult,
+  }) {
+    final FocusNode emailFocusNode = FocusNode();
+
+    return StatefulBuilder(
+      builder: (context, setLocalState) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Focus(
+              focusNode: emailFocusNode,
+              onFocusChange: (hasFocus) {
+                if (!hasFocus) {
+                  setState(() {
+                    _emailTouched = true;
+                    _emailInvalid = _emailController.text.isNotEmpty &&
+                        !_isValidEmail(_emailController.text);
+                  });
+                }
+                setLocalState(() {});
+              },
+              child: CustomInputField(
+                label: isAdult ? 'Email *' : 'Email (optional)',
+                value: _emailController.text,
+                icon: Icons.email_outlined,
+                keyboardType: TextInputType.emailAddress,
+                onChanged: (v) {
+                  _emailController.text = v;
+                  setState(() {
+                    _emailInvalid = v.isNotEmpty && !_isValidEmail(v);
+                  });
+                  _notifyParent();
+                },
+              ),
+            ),
+            if (emailFocusNode.hasFocus ||
+                _emailInvalid ||
+                (_emailTouched && isAdult && _emailController.text.isEmpty)) ...[
+              const SizedBox(height: 4),
+              Text(
+                _emailInvalid
+                    ? 'Invalid email format'
+                    : (_emailTouched && isAdult && _emailController.text.isEmpty)
+                        ? 'Required field'
+                        : 'Format: example@domain.com',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: (_emailInvalid ||
+                              (_emailTouched &&
+                                  isAdult &&
+                                  _emailController.text.isEmpty))
+                          ? colors.error
+                          : colors.onSurfaceVariant,
+                    ),
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  bool _isValidEmail(String email) {
+    return RegExp(r'^[\w\.-]+@[\w\.-]+\.\w+$').hasMatch(email);
   }
 
   Widget _buildDocumentFields(BuildContext context, ColorScheme colors) {
@@ -374,22 +463,28 @@ extension PassengerFormBuild on _PassengerFormCardState {
                 label: 'Citizenship',
                 icon: Icons.flag_outlined,
                 value: _selectedCitizenshipId?.toString() ?? '',
-                items: _citizenships.map((c) => c['citizenshipId'].toString()).toList(),
-                itemLabels: _citizenships.map((c) => c['citizenshipName'] as String).toList(),
+                items: _citizenships
+                    .map((c) => c['citizenshipId'].toString())
+                    .toList(),
+                itemLabels: _citizenships
+                    .map((c) => c['citizenshipName'] as String)
+                    .toList(),
                 searchable: true,
                 onSearch: (query) async {
                   final ref = ReferenceApiService(widget.authService);
                   final results = await ref.getCitizenships(query: query);
                   setState(() => _citizenships = results);
                 },
-                errorText: (_citizenshipTouched && _selectedCitizenshipId == null)
-                    ? 'Required field'
-                    : null,
+                errorText:
+                    (_citizenshipTouched && _selectedCitizenshipId == null)
+                        ? 'Required field'
+                        : null,
                 onChanged: _documentFieldsLocked
                     ? (_) {}
                     : (value) {
                         _clearDocumentFields();
-                        setState(() => _selectedCitizenshipId = int.tryParse(value ?? ''));
+                        setState(() => _selectedCitizenshipId =
+                            int.tryParse(value ?? ''));
                         _checkDocumentChanged();
                         _notifyParent();
                       },
@@ -405,17 +500,23 @@ extension PassengerFormBuild on _PassengerFormCardState {
                       label: 'Document Type *',
                       icon: Icons.badge_outlined,
                       value: _selectedDocumentTypeId?.toString() ?? '',
-                      items: _documentTypes.map((d) => d['documentTypeId'].toString()).toList(),
-                      itemLabels:
-                          _documentTypes.map((d) => d['documentTypeName'] as String).toList(),
-                      errorText: (_documentTypeTouched && _selectedDocumentTypeId == null)
-                          ? 'Required field'
-                          : null,
+                      items: _documentTypes
+                          .map((d) => d['documentTypeId'].toString())
+                          .toList(),
+                      itemLabels: _documentTypes
+                          .map((d) => d['documentTypeName'] as String)
+                          .toList(),
+                      errorText:
+                          (_documentTypeTouched &&
+                                  _selectedDocumentTypeId == null)
+                              ? 'Required field'
+                              : null,
                       onChanged: _documentFieldsLocked
                           ? (_) {}
                           : (value) {
                               _clearDocumentFields();
-                              setState(() => _selectedDocumentTypeId = int.tryParse(value ?? ''));
+                              setState(() => _selectedDocumentTypeId =
+                                  int.tryParse(value ?? ''));
                               _checkDocumentChanged();
                               _notifyParent();
                             },
@@ -440,8 +541,8 @@ extension PassengerFormBuild on _PassengerFormCardState {
                               _documentNumberController.text = v;
                               setState(() {
                                 _documentNumberExistsError = false;
-                                _documentNumberInvalid =
-                                    v.isNotEmpty && !_isDocumentNumberPartiallyValid(v);
+                                _documentNumberInvalid = v.isNotEmpty &&
+                                    !_isDocumentNumberPartiallyValid(v);
                               });
                             },
                     ),
@@ -449,19 +550,22 @@ extension PassengerFormBuild on _PassengerFormCardState {
                   if (_documentNumberFocusNode.hasFocus ||
                       _documentNumberInvalid ||
                       _documentNumberExistsError ||
-                      (_documentNumberTouched && _documentNumberController.text.isEmpty)) ...[
+                      (_documentNumberTouched &&
+                          _documentNumberController.text.isEmpty)) ...[
                     const SizedBox(height: 4),
                     Text(
                       _documentNumberExistsError
                           ? 'Document number already exists'
-                          : (_documentNumberTouched && _documentNumberController.text.isEmpty)
+                          : (_documentNumberTouched &&
+                                  _documentNumberController.text.isEmpty)
                               ? 'Required field'
                               : (_documentNumberFocusHint ?? ''),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: (_documentNumberInvalid ||
                                     _documentNumberExistsError ||
                                     (_documentNumberTouched &&
-                                        _documentNumberController.text.isEmpty))
+                                        _documentNumberController
+                                            .text.isEmpty))
                                 ? colors.error
                                 : colors.onSurfaceVariant,
                           ),
@@ -485,7 +589,8 @@ extension PassengerFormBuild on _PassengerFormCardState {
                     child: Focus(
                       focusNode: _documentIssueFocusNode,
                       onFocusChange: (hasFocus) {
-                        if (!hasFocus) setState(() => _documentIssueTouched = true);
+                        if (!hasFocus)
+                          setState(() => _documentIssueTouched = true);
                       },
                       child: CustomInputField(
                         label: 'Document Issue *',
@@ -502,8 +607,8 @@ extension PassengerFormBuild on _PassengerFormCardState {
                               },
                         onIconTap: _documentFieldsLocked
                             ? null
-                            : () => _showDatePicker(
-                                _documentIssueLayerLink, _DatePickerType.documentIssue),
+                            : () => _showDatePicker(_documentIssueLayerLink,
+                                _DatePickerType.documentIssue),
                       ),
                     ),
                   ),
@@ -540,7 +645,8 @@ extension PassengerFormBuild on _PassengerFormCardState {
                     child: Focus(
                       focusNode: _documentExpireFocusNode,
                       onFocusChange: (hasFocus) {
-                        if (!hasFocus) setState(() => _documentExpireTouched = true);
+                        if (!hasFocus)
+                          setState(() => _documentExpireTouched = true);
                       },
                       child: CustomInputField(
                         label: 'Document Expire *',
@@ -557,26 +663,30 @@ extension PassengerFormBuild on _PassengerFormCardState {
                               },
                         onIconTap: _documentFieldsLocked
                             ? null
-                            : () => _showDatePicker(
-                                _documentExpireLayerLink, _DatePickerType.documentExpire),
+                            : () => _showDatePicker(_documentExpireLayerLink,
+                                _DatePickerType.documentExpire),
                       ),
                     ),
                   ),
                   if (_documentExpireFocusNode.hasFocus ||
                       (_documentDatesMismatchMessage != null &&
-                          (_documentExpireTouched || _documentIssueTouched)) ||
-                      (_documentExpireTouched && _documentExpire == null)) ...[
+                          (_documentExpireTouched ||
+                              _documentIssueTouched)) ||
+                      (_documentExpireTouched &&
+                          _documentExpire == null)) ...[
                     const SizedBox(height: 4),
                     Text(
                       (_documentDatesMismatchMessage != null &&
-                              (_documentExpireTouched || _documentIssueTouched))
+                              (_documentExpireTouched ||
+                                  _documentIssueTouched))
                           ? _documentDatesMismatchMessage!
                           : (_documentExpireTouched && _documentExpire == null)
                               ? 'Required field'
                               : (_documentExpireFocusHint ?? 'DD.MM.YYYY'),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: ((_documentDatesMismatchMessage != null &&
-                                        (_documentExpireTouched || _documentIssueTouched)) ||
+                                        (_documentExpireTouched ||
+                                            _documentIssueTouched)) ||
                                     (!_documentExpireFocusNode.hasFocus &&
                                         _documentExpireTouched &&
                                         _documentExpire == null))
@@ -627,7 +737,8 @@ extension PassengerFormBuild on _PassengerFormCardState {
         if (_firstNameFocusNode.hasFocus ||
             (_firstNameTouched &&
                 !_firstNameFocusNode.hasFocus &&
-                (_firstNameController.text.isEmpty || _firstNameInvalid))) ...[
+                (_firstNameController.text.isEmpty ||
+                    _firstNameInvalid))) ...[
           const SizedBox(height: 4),
           Text(
             _firstNameHint(_firstNameController.text),
@@ -674,7 +785,8 @@ extension PassengerFormBuild on _PassengerFormCardState {
         if (_lastNameFocusNode.hasFocus ||
             (_lastNameTouched &&
                 !_lastNameFocusNode.hasFocus &&
-                (_lastNameController.text.isEmpty || _lastNameInvalid))) ...[
+                (_lastNameController.text.isEmpty ||
+                    _lastNameInvalid))) ...[
           const SizedBox(height: 4),
           Text(
             _lastNameHint(_lastNameController.text),
@@ -709,7 +821,7 @@ extension PassengerFormBuild on _PassengerFormCardState {
   }
 
   Widget _buildDateOfBirthField(
-    BuildContext context, ColorScheme colors, String? ageMismatch) {
+      BuildContext context, ColorScheme colors, String? ageMismatch) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -723,17 +835,18 @@ extension PassengerFormBuild on _PassengerFormCardState {
               icon: Icons.calendar_today_outlined,
               keyboardType: TextInputType.number,
               inputFormatters: [DateInputFormatter()],
-              readOnly: _foundPassengerId != null,
+              readOnly: _foundPassengerId != null && !_isAddingNewDocument,
               onChanged: (v) => _dateOfBirthController.text = v,
-              onIconTap: () =>
-                  _showDatePicker(_dateOfBirthLayerLink, _DatePickerType.dateOfBirth),
+              onIconTap: () => _showDatePicker(
+                  _dateOfBirthLayerLink, _DatePickerType.dateOfBirth),
             ),
           ),
         ),
-        if (_foundPassengerId != null) ...[
+        if (_foundPassengerId != null && !_isAddingNewDocument) ...[
           const SizedBox(height: 4),
           Text(
-            ageMismatch ?? 'Date of birth cannot be changed for existing passenger',
+            ageMismatch ??
+                'Date of birth cannot be changed for existing passenger',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: ageMismatch != null
                       ? colors.error
@@ -762,5 +875,4 @@ extension PassengerFormBuild on _PassengerFormCardState {
       ],
     );
   }
-
 }

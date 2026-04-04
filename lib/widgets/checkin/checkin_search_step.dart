@@ -35,6 +35,7 @@ class _CheckInSearchStepState extends State<CheckInSearchStep> {
   late TextEditingController _controller;
   final _focusNode = FocusNode();
   final _layerLink = LayerLink();
+  final _fieldKey  = GlobalKey();
 
   final ValueNotifier<List<Map<String, dynamic>>> _suggestionsNotifier =
       ValueNotifier([]);
@@ -56,8 +57,7 @@ class _CheckInSearchStepState extends State<CheckInSearchStep> {
   void _onFocusChanged() {
     setState(() {});
     if (_focusNode.hasFocus) {
-      if (_suggestionsNotifier.value.isNotEmpty ||
-          _isSearchingNotifier.value) {
+      if (_suggestionsNotifier.value.isNotEmpty || _isSearchingNotifier.value) {
         _showOverlay();
       }
     } else {
@@ -65,30 +65,24 @@ class _CheckInSearchStepState extends State<CheckInSearchStep> {
     }
   }
 
-  // ── Suggestions ───────────────────────────────────────────────────────────
-
   Future<void> _onChanged(String value) async {
     final upper = value.toUpperCase();
     _controller.value = TextEditingValue(
       text:      upper,
       selection: TextSelection.collapsed(offset: upper.length),
     );
-
     setState(() {
       _documentNumberTouched = upper.isNotEmpty;
       _apiError              = null;
     });
-
     if (upper.trim().length < 2) {
       _suggestionsNotifier.value = [];
       _isSearchingNotifier.value = false;
       _hideOverlay();
       return;
     }
-
     _isSearchingNotifier.value = true;
     _showOverlay();
-
     try {
       final api     = CheckInApiService(widget.authService);
       final results = await api.getFlightPassengerSuggestions(
@@ -119,7 +113,6 @@ class _CheckInSearchStepState extends State<CheckInSearchStep> {
   Future<void> _onSubmitted(String value) async {
     final query = value.trim().toUpperCase();
     if (query.isEmpty) return;
-
     if (_suggestionsNotifier.value.isNotEmpty) {
       await _selectSuggestion(_suggestionsNotifier.value.first);
     } else {
@@ -129,20 +122,14 @@ class _CheckInSearchStepState extends State<CheckInSearchStep> {
     }
   }
 
-  // ── Search ────────────────────────────────────────────────────────────────
-
   Future<void> _handleSearch({String? docNumber}) async {
     final doc = (docNumber ?? _controller.text).trim().toUpperCase();
-
     setState(() {
       _documentNumberTouched = true;
       _apiError              = null;
     });
-
     if (doc.isEmpty) return;
-
     setState(() => _isLoading = true);
-
     try {
       final api     = CheckInApiService(widget.authService);
       final results = await api.searchBooking(
@@ -150,15 +137,11 @@ class _CheckInSearchStepState extends State<CheckInSearchStep> {
         flightNumber:   widget.flightNumber,
         departsDate:    widget.departDate,
       );
-
       if (!mounted) return;
-
       if (results.isEmpty) {
-        setState(() =>
-            _apiError = 'Booking not found. Check the document number.');
+        setState(() => _apiError = 'Booking not found. Check the document number.');
         return;
       }
-
       widget.onSearch(
         documentNumber: doc,
         flightNumber:   widget.flightNumber,
@@ -184,12 +167,9 @@ class _CheckInSearchStepState extends State<CheckInSearchStep> {
     _hideOverlay();
   }
 
-  // ── Overlay ───────────────────────────────────────────────────────────────
-
   void _showOverlay() {
     if (_overlayEntry != null) return;
-
-    final renderBox = context.findRenderObject() as RenderBox?;
+    final renderBox = _fieldKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
     final width = renderBox.size.width;
 
@@ -197,7 +177,9 @@ class _CheckInSearchStepState extends State<CheckInSearchStep> {
       builder: (ctx) => CompositedTransformFollower(
         link:             _layerLink,
         showWhenUnlinked: false,
-        offset:           const Offset(0, 56),
+        targetAnchor:     Alignment.bottomLeft,
+        followerAnchor:   Alignment.topLeft,
+        offset:           Offset.zero,
         child: Align(
           alignment: Alignment.topLeft,
           child: SizedBox(
@@ -218,30 +200,20 @@ class _CheckInSearchStepState extends State<CheckInSearchStep> {
                           if (isSearching) {
                             return const Padding(
                               padding: EdgeInsets.all(16),
-                              child: Center(
-                                  child: CircularProgressIndicator()),
+                              child: Center(child: CircularProgressIndicator()),
                             );
                           }
-
                           final filtered = suggestions
-                              .where((s) =>
-                                  (s['document_number'] as String?)
-                                      ?.isNotEmpty ??
-                                  false)
+                              .where((s) => (s['document_number'] as String?)?.isNotEmpty ?? false)
                               .toList();
-
                           if (filtered.isEmpty) return const SizedBox.shrink();
-
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: filtered
                                 .map((s) => _SuggestionTile(
-                                      documentNumber:
-                                          s['document_number'] as String,
-                                      firstName:
-                                          s['first_name'] as String? ?? '',
-                                      lastName:
-                                          s['last_name'] as String? ?? '',
+                                      documentNumber: s['document_number'] as String,
+                                      firstName:      s['first_name'] as String? ?? '',
+                                      lastName:       s['last_name']  as String? ?? '',
                                       onTap: () => _selectSuggestion(s),
                                     ))
                                 .toList(),
@@ -257,7 +229,6 @@ class _CheckInSearchStepState extends State<CheckInSearchStep> {
         ),
       ),
     );
-
     Overlay.of(context).insert(_overlayEntry!);
   }
 
@@ -277,16 +248,14 @@ class _CheckInSearchStepState extends State<CheckInSearchStep> {
     super.dispose();
   }
 
-  // ── Build ─────────────────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
     final colors   = Theme.of(context).colorScheme;
     final isActive = _focusNode.hasFocus;
 
     return Container(
-      margin:  const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(16),
+      margin:  const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color:        colors.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(8),
@@ -294,8 +263,6 @@ class _CheckInSearchStepState extends State<CheckInSearchStep> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-
-          // ── Рейс і дата ─────────────────────────────────────
           Row(
             children: [
               Expanded(
@@ -316,17 +283,17 @@ class _CheckInSearchStepState extends State<CheckInSearchStep> {
             ],
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
 
-          // ── Поле документа з overlay ─────────────────────────
           CompositedTransformTarget(
+            key:  _fieldKey,
             link: _layerLink,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
               decoration: BoxDecoration(
                 color: colors.primaryContainer
                     .withValues(alpha: isActive ? 0.3 : 0.1),
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(8),
               ),
               child: TextField(
                 controller:      _controller,
@@ -341,10 +308,7 @@ class _CheckInSearchStepState extends State<CheckInSearchStep> {
                   LengthLimitingTextInputFormatter(10),
                 ],
                 decoration: InputDecoration(
-                  prefixIcon: Icon(
-                    Icons.contact_page_outlined,
-                    color: colors.primary,
-                  ),
+                  prefixIcon: Icon(Icons.contact_page_outlined, color: colors.primary),
                   suffixIcon: _isLoading
                       ? Padding(
                           padding: const EdgeInsets.all(12),
@@ -352,9 +316,7 @@ class _CheckInSearchStepState extends State<CheckInSearchStep> {
                             width:  20,
                             height: 20,
                             child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: colors.primary,
-                            ),
+                                strokeWidth: 2, color: colors.primary),
                           ),
                         )
                       : _controller.text.isNotEmpty
@@ -371,54 +333,34 @@ class _CheckInSearchStepState extends State<CheckInSearchStep> {
                   fillColor:     Colors.transparent,
                   isDense:       true,
                   contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical:   16,
-                  ),
+                      horizontal: 16, vertical: 16),
                 ),
               ),
             ),
           ),
 
-          // ── API error ────────────────────────────────────────
           if (_apiError != null) ...[
-            const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color:        colors.errorContainer.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: colors.error.withValues(alpha: 0.3),
-                  width: 0.5,
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline, size: 16, color: colors.error),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _apiError!,
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodySmall
-                          ?.copyWith(color: colors.error),
-                    ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Icon(Icons.info_outline, size: 14, color: colors.error),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _apiError!,
+                    style: TextStyle(color: colors.error, fontSize: 13),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ],
 
           const SizedBox(height: 16),
 
-          // ── Submit ───────────────────────────────────────────
           SizedBox(
             width: double.infinity,
             child: CustomButton(
-              label: _isLoading ? 'Searching...' : 'Find Booking',
+              label:     _isLoading ? 'Searching...' : 'Find Booking',
               onPressed: (_isFormValid && !_isLoading)
                   ? () => _handleSearch()
                   : null,
@@ -428,9 +370,8 @@ class _CheckInSearchStepState extends State<CheckInSearchStep> {
       ),
     );
   }
-}
 
-// ── Info chip ─────────────────────────────────────────────────────────────────
+}
 
 class _InfoChip extends StatelessWidget {
   final IconData icon;
@@ -447,6 +388,7 @@ class _InfoChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return Container(
+      margin:  const EdgeInsets.fromLTRB(16, 16, 16, 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color:        colors.surfaceContainerHighest,
@@ -463,16 +405,12 @@ class _InfoChip extends StatelessWidget {
                 Text(
                   label,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color:    colors.onSurfaceVariant,
-                        fontSize: 11,
-                      ),
+                        color: colors.onSurfaceVariant, fontSize: 11),
                 ),
                 Text(
                   value,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color:      colors.onSurface,
-                      ),
+                        fontWeight: FontWeight.w600, color: colors.onSurface),
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
@@ -483,8 +421,6 @@ class _InfoChip extends StatelessWidget {
     );
   }
 }
-
-// ── Suggestion tile ───────────────────────────────────────────────────────────
 
 class _SuggestionTile extends StatefulWidget {
   final String       documentNumber;
@@ -509,7 +445,6 @@ class _SuggestionTileState extends State<_SuggestionTile> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       child: MouseRegion(
@@ -526,8 +461,7 @@ class _SuggestionTileState extends State<_SuggestionTile> {
             onTap:        widget.onTap,
             borderRadius: BorderRadius.circular(8),
             child: Padding(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               child: Row(
                 children: [
                   Icon(Icons.contact_page_outlined,
@@ -539,17 +473,14 @@ class _SuggestionTileState extends State<_SuggestionTile> {
                         Text(
                           widget.documentNumber,
                           style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color:      colors.onSurface,
-                          ),
+                              fontWeight: FontWeight.w600,
+                              color:      colors.onSurface),
                         ),
                         const SizedBox(width: 8),
                         Text(
                           '— ${widget.firstName} ${widget.lastName}',
                           style: TextStyle(
-                            color:    colors.onSurfaceVariant,
-                            fontSize: 13,
-                          ),
+                              color: colors.onSurfaceVariant, fontSize: 13),
                         ),
                       ],
                     ),

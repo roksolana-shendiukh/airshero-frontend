@@ -65,6 +65,14 @@ class BaggageSelectionArguments {
   final BookingGroupDraft? bookingGroupDraft;
   final int segmentIndex;
   final Map<int, Map<String, dynamic>>? initialPassengerData;
+  final int? bookingId;
+  final String? bookingNumber;
+  final int? bookingId2;
+  final String? bookingNumber2;
+  final DateTime? expiresAt;
+  final int? leg2FlightClassId;
+  final String? leg2FromCity;
+  final String? leg2ToCity;
 
   BaggageSelectionArguments({
     required this.fromCity,
@@ -89,6 +97,14 @@ class BaggageSelectionArguments {
     this.bookingGroupDraft,
     this.segmentIndex = 0,
     this.initialPassengerData,
+    this.bookingId,
+    this.bookingNumber,
+    this.bookingId2,
+    this.bookingNumber2,
+    this.expiresAt,
+    this.leg2FlightClassId,
+    this.leg2FromCity,
+    this.leg2ToCity,
   });
 
   Map<String, dynamic> toMap() => {
@@ -112,6 +128,14 @@ class BaggageSelectionArguments {
         'outboundFlightId': outboundFlightId,
         'outboundFlightClassId': outboundFlightClassId,
         'segmentIndex': segmentIndex,
+        'bookingId': bookingId,
+        'bookingNumber': bookingNumber,
+        'bookingId2': bookingId2,
+        'bookingNumber2': bookingNumber2,
+        'expiresAt': expiresAt?.toIso8601String(),
+        'leg2FlightClassId': leg2FlightClassId,
+        'leg2FromCity': leg2FromCity,
+        'leg2ToCity': leg2ToCity,
       };
 
   static BaggageSelectionArguments? fromMap(Map<String, dynamic>? map) {
@@ -152,6 +176,16 @@ class BaggageSelectionArguments {
         outboundFlightId: (map['outboundFlightId'] as num).toInt(),
         outboundFlightClassId: (map['outboundFlightClassId'] as num).toInt(),
         segmentIndex: (map['segmentIndex'] as num?)?.toInt() ?? 0,
+        bookingId: map['bookingId'] as int?,
+        bookingNumber: map['bookingNumber'] as String?,
+        bookingId2: map['bookingId2'] as int?,
+        bookingNumber2: map['bookingNumber2'] as String?,
+        expiresAt: map['expiresAt'] != null
+            ? DateTime.parse(map['expiresAt'] as String)
+            : null,
+        leg2FlightClassId: map['leg2FlightClassId'] as int?,
+        leg2FromCity: map['leg2FromCity'] as String?,
+        leg2ToCity: map['leg2ToCity'] as String?,
       );
     } catch (e) {
       debugPrint('BaggageSelectionArguments.fromMap error: $e');
@@ -181,6 +215,10 @@ class PaymentArguments {
   final double totalPrice;
   final bool isMultiSegment;
   final BookingGroupDraft? bookingGroupDraft;
+  final int? bookingId;
+  final String? bookingNumber;
+  final int? bookingId2;
+  final String? bookingNumber2;
 
   PaymentArguments({
     required this.fromCity,
@@ -203,6 +241,10 @@ class PaymentArguments {
     required this.totalPrice,
     this.isMultiSegment = false,
     this.bookingGroupDraft,
+    this.bookingId,
+    this.bookingNumber,
+    this.bookingId2,
+    this.bookingNumber2,
   });
 }
 
@@ -422,6 +464,13 @@ class AppRouter {
             isMultiSegment: extra['isMultiSegment'] as bool? ?? false,
             bookingGroupDraft:
                 extra['bookingGroupDraft'] as BookingGroupDraft?,
+            bookingId: extra['bookingId'] as int?,          
+                bookingNumber: extra['bookingNumber'] as String?, 
+                bookingId2: extra['bookingId2'] as int?,         
+                bookingNumber2: extra['bookingNumber2'] as String?, 
+                expiresAt: extra['expiresAt'] != null            
+                    ? DateTime.parse(extra['expiresAt'] as String)
+                    : null,
           );
         },
       ),
@@ -493,8 +542,18 @@ class AppRouter {
       bookingGroupDraft: args.bookingGroupDraft,
       segmentIndex: args.segmentIndex,
       initialPassengerData: args.initialPassengerData,
+      bookingId: args.bookingId,       
+      bookingNumber: args.bookingNumber,  
+      bookingId2: args.bookingId2,       
+      bookingNumber2: args.bookingNumber2, 
+      expiresAt: args.expiresAt, 
+      leg2FlightClassId: args.leg2FlightClassId, 
+      leg2FromCity: args.leg2FromCity,           
+      leg2ToCity: args.leg2ToCity, 
     );
   }
+
+
 }
 
 class _BaggageSelectionLoader extends StatefulWidget {

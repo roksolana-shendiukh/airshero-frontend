@@ -1,15 +1,11 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'dart:convert';
 
 import '../../widgets/responsive_layout.dart';
-import '../../widgets/booking_progress_header.dart';
+import '../../widgets/booking/booking_progress_header.dart';
 import '../../services/auth_service.dart';
 import '../../services/booking_api_service.dart';
-import '../../widgets/custom/custom_input_field.dart';
-import '../../widgets/custom/custom_select_field.dart';
 import '../../widgets/custom/custom_button.dart';
 import '../../models/booking_group_draft.dart';
 import '../../widgets/booking/booking_summary_card.dart';
@@ -42,6 +38,11 @@ class PaymentPage extends StatefulWidget {
   final List<int> removedPassengerIndices;
   final bool isMultiSegment;
   final BookingGroupDraft? bookingGroupDraft;
+  final int? bookingId;
+  final String? bookingNumber;
+  final int? bookingId2;
+  final String? bookingNumber2;
+  final DateTime? expiresAt;
 
   const PaymentPage({
     super.key,
@@ -69,6 +70,11 @@ class PaymentPage extends StatefulWidget {
     this.removedPassengerIndices = const [],
     this.isMultiSegment = false,
     this.bookingGroupDraft,
+    this.bookingId,
+    this.bookingNumber,
+    this.bookingId2,
+    this.bookingNumber2,
+    this.expiresAt,
   });
 
   @override
@@ -76,196 +82,119 @@ class PaymentPage extends StatefulWidget {
 }
 
 class _PaymentPageState extends State<PaymentPage> {
-  bool _isCreatingBooking = true;
   String? _bookingError;
+  bool _isLoading = true;
+  bool _isExpired = false;
+  bool _isProcessingPayment = false;
 
   int? _bookingId;
   String? _bookingNumber;
-
   int? _bookingId1;
   int? _bookingId2;
   String? _bookingNumber1;
   String? _bookingNumber2;
 
-  DateTime? _expiresAt;
-
-  Timer? _timer;
-  Duration _timeLeft = const Duration(minutes: 10);
-  bool _isExpired = false;
-
   List<Map<String, dynamic>> _paymentMethods = [];
   int? _singlePaymentMethodId;
-  bool _isLoadingMethods = true;
-  bool _isProcessingPayment = false;
 
   bool _isPartialPayment = false;
   List<Map<String, dynamic>> _partialPayments = [
     {'amount': 0.0, 'methodId': null}
   ];
 
-  List<Map<String, dynamic>> _adultPassengers = [];
-
-  String _emailValue = '';
-  String? _emailError;
-  int? _selectedAdultIndex;
-  String? _selectedAdultName;
-
-  int get _totalPassengers => widget.passengers.values.fold(0, (a, b) => a + b);
+  int get _totalPassengers =>
+      widget.passengers.values.fold(0, (a, b) => a + b);
 
   @override
   void initState() {
     super.initState();
+
+    _bookingId = widget.bookingId;
+    _bookingNumber = widget.bookingNumber;
+    _bookingId1 = widget.bookingId;
+    _bookingId2 = widget.bookingId2;
+    _bookingNumber1 = widget.bookingNumber;
+    _bookingNumber2 = widget.bookingNumber2;
+
     _initPage();
   }
 
   Future<void> _initPage() async {
     final authService = context.read<AuthService>();
     final api = BookingApiService(authService);
-    await Future.wait([_loadPaymentMethods(api), _createBooking(api)]);
+
+    await Future.wait([
+      _loadPaymentMethods(api),
+      _updatePassengers(api),
+    ]);
+
+    if (mounted) setState(() => _isLoading = false);
   }
 
   Future<void> _loadPaymentMethods(BookingApiService api) async {
     try {
       final methods = await api.getPaymentMethods();
-      if (mounted) {
-        setState(() {
-          _paymentMethods = methods;
-          _isLoadingMethods = false;
-        });
-      }
+      if (mounted) setState(() => _paymentMethods = methods);
     } catch (e) {
-      if (mounted) setState(() => _isLoadingMethods = false);
+      debugPrint('Error loading payment methods: $e');
     }
   }
 
-  Future<void> _createBooking(BookingApiService api) async {
+  Future<void> _updatePassengers(BookingApiService api) async {
     try {
-      Map<String, dynamic> result;
-
       if (widget.isMultiSegment && widget.bookingGroupDraft != null) {
-        final body = _buildGroupBookingBody();
-        result = await api.createGroupBooking(body);
+        final draft = widget.bookingGroupDraft!;
+        final seg1 = draft.firstSegment;
+        final seg2 = draft.secondSegment!;
 
-        if (!mounted) return;
-        setState(() {
-          _bookingId1 = result['booking1']['bookingId'] as int;
-          _bookingId2 = result['booking2']['bookingId'] as int;
-          _bookingNumber1 = result['booking1']['bookingNumber'] as String;
-          _bookingNumber2 = result['booking2']['bookingNumber'] as String;
-          _expiresAt = DateTime.parse(result['expiresAt']).toLocal();
-          _isCreatingBooking = false;
-        });
+        final body1 = _buildPassengersBody(
+          assignments: seg1.assignments,
+          returnAssignments: const [],
+          baggageSelections: seg1.baggageSelections,
+          totalAmount: seg1.basePrice,
+        );
+        final body2 = _buildPassengersBody(
+          assignments: seg2.assignments,
+          returnAssignments: const [],
+          baggageSelections: seg2.baggageSelections,
+          totalAmount: seg2.basePrice,
+        );
 
-        final adults = await api.getAdultPassengers(_bookingId1!);
-        if (mounted) _applyAdultPassengers(adults);
+        await Future.wait([
+          api.updateBookingPassengers(_bookingId1!, body1),
+          api.updateBookingPassengers(_bookingId2!, body2),
+        ]);
       } else {
-        final body = _buildBookingBody();
-        result = await api.createBooking(body);
-
-        if (!mounted) return;
-        setState(() {
-          _bookingId = result['bookingId'] as int;
-          _bookingNumber = result['bookingNumber'] as String;
-          _expiresAt = DateTime.parse(result['expiresAt']).toLocal();
-          _isCreatingBooking = false;
-        });
-
-        final adults = await api.getAdultPassengers(_bookingId!);
-        if (mounted) _applyAdultPassengers(adults);
+        final body = _buildPassengersBody(
+          assignments: widget.outboundAssignments,
+          returnAssignments: widget.returnAssignments,
+          baggageSelections: widget.baggageSelections,
+          totalAmount: widget.totalPrice,
+        );
+        await api.updateBookingPassengers(_bookingId!, body);
       }
-
-      _startTimer();
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _bookingError = e.toString();
-          _isCreatingBooking = false;
-        });
-      }
+      if (mounted) setState(() => _bookingError = e.toString());
     }
   }
 
-  void _applyAdultPassengers(List<Map<String, dynamic>> adults) {
-    setState(() {
-      _adultPassengers = adults;
-      if (adults.isNotEmpty) {
-        _selectedAdultIndex = adults.first['passengerId'] as int?;
-        _selectedAdultName =
-            "${adults.first['firstName'] ?? ''} ${adults.first['lastName'] ?? ''}"
-                .trim();
-        _emailValue = adults.first['email'] ?? '';
-      }
-    });
-  }
-
-  Map<String, dynamic> _buildBookingBody() {
-    final passengers = _buildPassengerList(
-      assignments: widget.outboundAssignments,
-      returnAssignments: widget.returnAssignments,
-      baggageSelections: widget.baggageSelections,
-    );
-
-    final body = {
-      'passengers': passengers,
-      'total_amount': widget.totalPrice,
-    };
-
-    debugPrint('=== BOOKING BODY ===');
-    debugPrint(jsonEncode(body));
-    return body;
-  }
-
-  Map<String, dynamic> _buildGroupBookingBody() {
-    final draft = widget.bookingGroupDraft!;
-    final seg1 = draft.firstSegment;
-    final seg2 = draft.secondSegment!;
-
-    final passengers1 = _buildPassengerList(
-      assignments: seg1.assignments,
-      returnAssignments: const [],
-      baggageSelections: seg1.baggageSelections,
-    );
-
-    final passengers2 = _buildPassengerList(
-      assignments: seg2.assignments,
-      returnAssignments: const [],
-      baggageSelections: seg2.baggageSelections,
-    );
-
-    final body = {
-      'booking1': {
-        'passengers': passengers1,
-        'total_amount': seg1.basePrice,
-      },
-      'booking2': {
-        'passengers': passengers2,
-        'total_amount': seg2.basePrice,
-      },
-    };
-
-    debugPrint('=== GROUP BOOKING BODY ===');
-    debugPrint(jsonEncode(body));
-    return body;
-  }
-
-  List<Map<String, dynamic>> _buildPassengerList({
+  Map<String, dynamic> _buildPassengersBody({
     required List<Map<String, dynamic>> assignments,
     required List<Map<String, dynamic>> returnAssignments,
     required Map<int, Map<int, int>> baggageSelections,
+    required double totalAmount,
   }) {
-    final List<Map<String, dynamic>> passengers = [];
+    final passengers = <Map<String, dynamic>>[];
 
     for (int i = 0; i < _totalPassengers; i++) {
       if (widget.removedPassengerIndices.contains(i)) continue;
       final data = widget.passengerData[i] ?? {};
 
-      final outboundAssignment =
-          i < assignments.length ? assignments[i] : null;
-      final returnAssignment =
-          i < returnAssignments.length ? returnAssignments[i] : null;
+      final outbound = i < assignments.length ? assignments[i] : null;
+      final ret = i < returnAssignments.length ? returnAssignments[i] : null;
 
-      final flightPriceId = outboundAssignment?['flightPriceId'] as int? ?? 0;
-      final returnFlightPriceId = returnAssignment?['flightPriceId'] as int?;
+      final flightPriceId = outbound?['flightPriceId'] as int? ?? 0;
+      final returnFlightPriceId = ret?['flightPriceId'] as int?;
 
       final baggageMap = baggageSelections[i] ?? {};
       final baggageItems = baggageMap.entries
@@ -286,6 +215,7 @@ class _PaymentPageState extends State<PaymentPage> {
         'first_name': data['firstName'],
         'last_name': data['lastName'],
         'sex': data['sex'] == 'Male',
+        'email': data['email'],
         'date_of_birth': formatDate(data['dateOfBirth']),
         'citizenship_id': data['citizenshipId'],
         'document_type_id': data['documentTypeId'],
@@ -298,7 +228,10 @@ class _PaymentPageState extends State<PaymentPage> {
       });
     }
 
-    return passengers;
+    return {
+      'passengers': passengers,
+      'total_amount': totalAmount,
+    };
   }
 
   void _handleAmountChanged(int index, double amount) {
@@ -306,34 +239,13 @@ class _PaymentPageState extends State<PaymentPage> {
       _partialPayments[index]['amount'] = amount;
       _partialPayments.removeRange(index + 1, _partialPayments.length);
 
-      final totalPaid =
-          _partialPayments.fold(0.0, (sum, item) => sum + (item['amount'] as double));
+      final totalPaid = _partialPayments.fold(
+          0.0, (sum, item) => sum + (item['amount'] as double));
 
       if (totalPaid < widget.totalPrice &&
           amount > 0 &&
           (widget.totalPrice - totalPaid) > 0.01) {
         _partialPayments.add({'amount': 0.0, 'methodId': null});
-      }
-    });
-  }
-
-  void _startTimer() {
-    _timeLeft = const Duration(minutes: 10);
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-      setState(() {
-        if (_timeLeft.inSeconds <= 0) {
-          timer.cancel();
-          _isExpired = true;
-        } else {
-          _timeLeft = _timeLeft - const Duration(seconds: 1);
-        }
-      });
-      if (_timeLeft.inSeconds <= 0 && mounted) {
-        _showTimeoutDialog();
       }
     });
   }
@@ -371,14 +283,12 @@ class _PaymentPageState extends State<PaymentPage> {
       final api = BookingApiService(authService);
 
       if (widget.isMultiSegment) {
-        // Для multi-segment — платимо за обидва бронювання
-        // Сума розподіляється пропорційно між двома бронюваннями
         final draft = widget.bookingGroupDraft!;
         final seg1Price = draft.firstSegment.basePrice;
         final seg2Price = draft.secondSegment!.basePrice;
 
         if (_isPartialPayment) {
-          for (var payment in _partialPayments) {
+          for (final payment in _partialPayments) {
             if (payment['methodId'] == null || payment['amount'] <= 0) continue;
             final amount = payment['amount'] as double;
             final ratio = seg1Price / widget.totalPrice;
@@ -391,8 +301,6 @@ class _PaymentPageState extends State<PaymentPage> {
                 'paymentMethodId': payment['methodId'],
                 'status': status,
                 'amount': amount1,
-                'email': _emailValue,
-                'passengerId': _selectedAdultIndex,
               },
             );
             await api.confirmPayment(
@@ -401,8 +309,6 @@ class _PaymentPageState extends State<PaymentPage> {
                 'paymentMethodId': payment['methodId'],
                 'status': status,
                 'amount': amount2,
-                'email': _emailValue,
-                'passengerId': _selectedAdultIndex,
               },
             );
           }
@@ -413,8 +319,6 @@ class _PaymentPageState extends State<PaymentPage> {
               'paymentMethodId': _singlePaymentMethodId,
               'status': status,
               'amount': seg1Price,
-              'email': _emailValue,
-              'passengerId': _selectedAdultIndex,
             },
           );
           await api.confirmPayment(
@@ -423,15 +327,12 @@ class _PaymentPageState extends State<PaymentPage> {
               'paymentMethodId': _singlePaymentMethodId,
               'status': status,
               'amount': seg2Price,
-              'email': _emailValue,
-              'passengerId': _selectedAdultIndex,
             },
           );
         }
       } else {
-        // Звичайний флоу
         if (_isPartialPayment) {
-          for (var payment in _partialPayments) {
+          for (final payment in _partialPayments) {
             if (payment['methodId'] == null || payment['amount'] <= 0) continue;
             await api.confirmPayment(
               bookingId: _bookingId!,
@@ -439,8 +340,6 @@ class _PaymentPageState extends State<PaymentPage> {
                 'paymentMethodId': payment['methodId'],
                 'status': status,
                 'amount': payment['amount'],
-                'email': _emailValue,
-                'passengerId': _selectedAdultIndex,
               },
             );
           }
@@ -451,8 +350,6 @@ class _PaymentPageState extends State<PaymentPage> {
               'paymentMethodId': _singlePaymentMethodId,
               'status': status,
               'amount': widget.totalPrice,
-              'email': _emailValue,
-              'passengerId': _selectedAdultIndex,
             },
           );
         }
@@ -476,10 +373,14 @@ class _PaymentPageState extends State<PaymentPage> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    if (_isCreatingBooking) {
+
+    if (_isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    if (_bookingError != null) return _buildErrorState(colors);
+
+    if (_bookingError != null) {
+      return Scaffold(body: Center(child: Text(_bookingError!)));
+    }
 
     return ResponsiveLayout(
       header: BookingProgressHeader(
@@ -491,169 +392,49 @@ class _PaymentPageState extends State<PaymentPage> {
         flightClass: widget.passengerClassLabels.values.first,
         currentStep: 'payment',
         airlineName: widget.airlineName,
-        onBack: null,
+        expiresAt: widget.expiresAt,
+        onExpired: () {
+          setState(() => _isExpired = true);
+          _showTimeoutDialog();
+        },
+        onBack: () {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go('/sales/bookings');
+          }
+        },
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         child: Column(
           children: [
-            _buildTimer(colors),
-            const SizedBox(height: 24),
             BookingSummaryCard(
-                totalPrice: widget.totalPrice,
-                bookingNumber: _bookingNumber,
-                bookingNumber1: _bookingNumber1,
-                bookingNumber2: _bookingNumber2,
-                fromCity: widget.fromCity,
-                toCity: widget.toCity,
-                departDate: widget.departDate,
-                returnDate: widget.returnDate,
-                fromAirportCode: widget.fromAirportCode,
-                toAirportCode: widget.toAirportCode,
-                departureTime: widget.departureTime,
-                arrivalTime: widget.arrivalTime,
-                isRoundTrip: widget.isRoundTrip,
-                basePrice: widget.basePrice,
-                passengers: widget.passengers,
-                passengerClassLabels: widget.passengerClassLabels,
-                baggageSelections: widget.baggageSelections,
-                isMultiSegment: widget.isMultiSegment,
-                bookingGroupDraft: widget.bookingGroupDraft,
-              ),
-            const SizedBox(height: 24),
-            _buildEmailSection(colors),
+              totalPrice: widget.totalPrice,
+              bookingNumber: _bookingNumber,
+              bookingNumber1: _bookingNumber1,
+              bookingNumber2: _bookingNumber2,
+              fromCity: widget.fromCity,
+              toCity: widget.toCity,
+              departDate: widget.departDate,
+              returnDate: widget.returnDate,
+              fromAirportCode: widget.fromAirportCode,
+              toAirportCode: widget.toAirportCode,
+              departureTime: widget.departureTime,
+              arrivalTime: widget.arrivalTime,
+              isRoundTrip: widget.isRoundTrip,
+              basePrice: widget.basePrice,
+              passengers: widget.passengers,
+              passengerClassLabels: widget.passengerClassLabels,
+              baggageSelections: widget.baggageSelections,
+              isMultiSegment: widget.isMultiSegment,
+              bookingGroupDraft: widget.bookingGroupDraft,
+            ),
             const SizedBox(height: 24),
             _buildPaymentSection(colors),
             const SizedBox(height: 48),
             _buildActionButtons(colors),
             const SizedBox(height: 48),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTimer(ColorScheme colors) {
-    final isUrgent = _timeLeft.inSeconds > 0 && _timeLeft.inSeconds < 120;
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: _isExpired
-            ? colors.errorContainer
-            : isUrgent
-                ? colors.errorContainer.withOpacity(0.5)
-                : colors.primaryContainer.withOpacity(0.4),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-            color: _isExpired
-                ? colors.error
-                : isUrgent
-                    ? colors.error.withOpacity(0.5)
-                    : colors.primary.withOpacity(0.3)),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            _isExpired ? Icons.timer_off_outlined : Icons.timer_outlined,
-            color: _isExpired || isUrgent ? colors.error : colors.primary,
-            size: 28,
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _isExpired ? 'Booking Expired' : 'Time to complete payment',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: _isExpired || isUrgent
-                        ? colors.error
-                        : colors.onSurface,
-                  ),
-                ),
-                Text(
-                  _isExpired
-                      ? 'This booking has been cancelled'
-                      : 'Booking will be cancelled if not paid',
-                  style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant),
-                ),
-              ],
-            ),
-          ),
-          if (!_isExpired)
-            Text(
-              '${_timeLeft.inMinutes}:${(_timeLeft.inSeconds % 60).toString().padLeft(2, '0')}',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                fontFeatures: const [FontFeature.tabularFigures()],
-                color: isUrgent ? colors.error : colors.primary,
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  
-  
-  
-  Widget _buildEmailSection(ColorScheme colors) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: colors.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Ticket Delivery',
-                style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-            CustomSelectField(
-              label: 'Select Adult Passenger',
-              value: _selectedAdultName ?? '',
-              icon: Icons.person_outline,
-              items: _adultPassengers
-                  .map((e) =>
-                      "${e['firstName'] ?? ''} ${e['lastName'] ?? ''}".trim())
-                  .toList(),
-              onChanged: (val) {
-                if (val == null) return;
-                final selected = _adultPassengers.firstWhere(
-                  (e) =>
-                      "${e['firstName'] ?? ''} ${e['lastName'] ?? ''}".trim() ==
-                      val,
-                  orElse: () => {},
-                );
-                if (selected.isEmpty) return;
-                setState(() {
-                  _selectedAdultName = val;
-                  _selectedAdultIndex = selected['passengerId'] as int?;
-                  _emailValue = selected['email'] ?? '';
-                });
-              },
-            ),
-            const SizedBox(height: 16),
-            CustomInputField(
-              label: 'Email address',
-              value: _emailValue,
-              icon: Icons.email_outlined,
-              errorText: _emailError,
-              keyboardType: TextInputType.emailAddress,
-              onChanged: (val) => setState(() => _emailValue = val),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              widget.isMultiSegment
-                  ? 'Tickets for both flights will be sent to this email'
-                  : 'Tickets will be sent to this email',
-              style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
-            ),
           ],
         ),
       ),
@@ -676,8 +457,9 @@ class _PaymentPageState extends State<PaymentPage> {
               children: [
                 Switch(
                   value: _isPartialPayment,
-                  onChanged:
-                      _isExpired ? null : (v) => setState(() => _isPartialPayment = v),
+                  onChanged: _isExpired
+                      ? null
+                      : (v) => setState(() => _isPartialPayment = v),
                 ),
                 const SizedBox(width: 8),
                 const Text('Partial Payment'),
@@ -697,7 +479,8 @@ class _PaymentPageState extends State<PaymentPage> {
               PaymentMethodSelector(
                 methods: _paymentMethods,
                 selectedId: _singlePaymentMethodId,
-                onSelected: (id) => setState(() => _singlePaymentMethodId = id),
+                onSelected: (id) =>
+                    setState(() => _singlePaymentMethodId = id),
               ),
           ],
         ),
@@ -722,17 +505,25 @@ class _PaymentPageState extends State<PaymentPage> {
     if (_isPartialPayment) {
       final hasZeroAmount =
           _partialPayments.any((p) => (p['amount'] as double) <= 0);
-      final hasNoMethod = _partialPayments.any((p) => p['methodId'] == null);
+      final hasNoMethod =
+          _partialPayments.any((p) => p['methodId'] == null);
       final totalPaid = _partialPayments.fold<double>(
           0, (s, p) => s + (p['amount'] as double));
       final notCovered = (totalPaid - widget.totalPrice).abs() > 0.01 &&
           totalPaid < widget.totalPrice;
 
-      if (hasZeroAmount) disabledReason = 'Enter amount for each payment part';
-      else if (hasNoMethod) disabledReason = 'Select payment method for each part';
-      else if (notCovered) disabledReason = 'Total amount does not cover \$${widget.totalPrice.toStringAsFixed(2)}';
+      if (hasZeroAmount) {
+        disabledReason = 'Enter amount for each payment part';
+      } else if (hasNoMethod) {
+        disabledReason = 'Select payment method for each part';
+      } else if (notCovered) {
+        disabledReason =
+            'Total amount does not cover \$${widget.totalPrice.toStringAsFixed(2)}';
+      }
     } else {
-      if (_singlePaymentMethodId == null) disabledReason = 'Select a payment method';
+      if (_singlePaymentMethodId == null) {
+        disabledReason = 'Select a payment method';
+      }
     }
 
     final canConfirm = !_isProcessingPayment && disabledReason == null;
@@ -745,41 +536,33 @@ class _PaymentPageState extends State<PaymentPage> {
             child: CircularProgressIndicator(),
           ),
         Row(
-          children: [
-            Expanded(
-              child: Tooltip(
-                message: disabledReason ?? '',
-                child: FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: colors.errorContainer,
-                    foregroundColor: colors.onErrorContainer,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                  icon: const Icon(Icons.cancel_outlined),
-                  label: const Text('Failed'),
-                  onPressed:
-                      canConfirm ? () => _processPayment('failed') : null,
-                ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Tooltip(
-                message: disabledReason ?? '',
-                child: CustomButton(
-                  label: _isPartialPayment ? 'Confirm Partial' : 'Confirm Payment',
-                  isIconAfterLabel: true,
-                  onPressed:
-                      canConfirm ? () => _processPayment('paid') : null,
-                  borderRadius: 12,
-                  verticalPadding: 16,
-                ),
-              ),
-            ),
-          ],
+  children: [
+    Expanded(
+      child: Tooltip(
+        message: disabledReason ?? '',
+        child: CustomButton(
+          label: 'Failed',
+          onPressed: canConfirm ? () => _processPayment('failed') : null,
+          verticalPadding: 16,
+          backgroundColor: colors.errorContainer,
+          foregroundColor: colors.onErrorContainer,
         ),
+      ),
+    ),
+    const SizedBox(width: 16),
+    Expanded(
+      child: Tooltip(
+        message: disabledReason ?? '',
+        child: CustomButton(
+          label: _isPartialPayment ? 'Confirm Partial' : 'Confirm Payment',
+          isIconAfterLabel: true,
+          onPressed: canConfirm ? () => _processPayment('paid') : null,
+          verticalPadding: 16,
+        ),
+      ),
+    ),
+  ],
+),
       ],
     );
   }
@@ -792,11 +575,11 @@ class _PaymentPageState extends State<PaymentPage> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (BuildContext context) {
+      builder: (context) {
         final colors = Theme.of(context).colorScheme;
         return Dialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20)),
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Column(
@@ -812,8 +595,8 @@ class _PaymentPageState extends State<PaymentPage> {
                 ),
                 const SizedBox(height: 24),
                 const Text('Payment Failed',
-                    style:
-                        TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                        fontSize: 22, fontWeight: FontWeight.bold),
                     textAlign: TextAlign.center),
                 const SizedBox(height: 12),
                 Text(
@@ -850,11 +633,11 @@ class _PaymentPageState extends State<PaymentPage> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (BuildContext context) {
+      builder: (context) {
         final colors = Theme.of(context).colorScheme;
         return Dialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20)),
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Column(
@@ -871,13 +654,12 @@ class _PaymentPageState extends State<PaymentPage> {
                 ),
                 const SizedBox(height: 24),
                 const Text('Payment Successful!',
-                    style:
-                        TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                        fontSize: 22, fontWeight: FontWeight.bold),
                     textAlign: TextAlign.center),
                 const SizedBox(height: 12),
                 Text(
-                  'Your booking $bookingRef has been confirmed. '
-                  'Tickets will be sent to $_emailValue shortly.',
+                  'Booking $bookingRef has been confirmed.',
                   style: TextStyle(color: colors.onSurfaceVariant),
                   textAlign: TextAlign.center,
                 ),
@@ -905,11 +687,11 @@ class _PaymentPageState extends State<PaymentPage> {
   void _showErrorDialog(String message) {
     showDialog(
       context: context,
-      builder: (BuildContext context) {
+      builder: (context) {
         final colors = Theme.of(context).colorScheme;
         return AlertDialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16)),
           title: Row(
             children: [
               Icon(Icons.error_outline, color: colors.error, size: 28),
@@ -927,16 +709,5 @@ class _PaymentPageState extends State<PaymentPage> {
         );
       },
     );
-  }
-
-  Widget _buildErrorState(ColorScheme colors) {
-    return Scaffold(
-        body: Center(child: Text(_bookingError ?? 'Unknown Error')));
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
   }
 }

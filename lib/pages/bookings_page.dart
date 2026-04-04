@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../widgets/flight_search_form.dart';
+import '../widgets/booking/flight_search_form.dart';
 import '../widgets/booking/segment_date_form.dart';
 import '../widgets/responsive_layout.dart';
 import '../widgets/animation/animated_flight_progress.dart';
@@ -10,6 +10,8 @@ import '../widgets/custom/custom_button.dart';
 import '../widgets/passenger_selector.dart';
 import '../config/routes.dart';
 import '../services/recent_searches_service.dart';
+import '../services/auth_service.dart';
+import '../services/booking_api_service.dart';
 import '../models/flight_alternatives_model.dart';
 import '../models/booking_group_draft.dart';
 
@@ -36,6 +38,11 @@ class _BookingsPageState extends State<BookingsPage> {
   DateTime? _leg1Date;
   DateTime? _leg2Date;
   MainFormData? _mainFormData;
+
+  // Leg2 стан
+  bool _isLoadingLeg2 = false;
+  List<String> _leg2Dates = [];
+  List<String> _suggestedLeg1Dates = [];
 
   OverlayEntry? _segmentCalendarOverlay;
   int? _activeSegmentIndex;
@@ -165,6 +172,53 @@ class _BookingsPageState extends State<BookingsPage> {
     }
   }
 
+  Future<void> _loadLeg2Dates(DateTime leg1Date) async {
+    final hub = _selectedHub;
+    final mainData = _mainFormData;
+    if (hub == null || mainData == null) return;
+
+    setState(() {
+      _isLoadingLeg2 = true;
+      _leg2Dates = [];
+      _suggestedLeg1Dates = [];
+      _leg2Date = null;
+    });
+
+    try {
+      final api = BookingApiService(AuthService());
+      final leg1DateStr =
+          '${leg1Date.year}-${leg1Date.month.toString().padLeft(2, '0')}-${leg1Date.day.toString().padLeft(2, '0')}';
+
+      final result = await api.getLeg2DatesWithSuggestions(
+        fromCityId: mainData.fromCityId,
+        hubCityId: hub.cityId,
+        toCityId: mainData.toCityId,
+        leg1Date: leg1DateStr,
+      );
+
+      if (!mounted) return;
+
+      final leg2Dates = List<String>.from(result['leg2_dates'] ?? []);
+      final suggestedLeg1Dates =
+          List<String>.from(result['suggested_leg1_dates'] ?? []);
+
+      setState(() {
+        _isLoadingLeg2 = false;
+        _leg2Dates = leg2Dates;
+        _suggestedLeg1Dates = suggestedLeg1Dates;
+      });
+
+      if (leg2Dates.length == 1) {
+         setState(() => _leg2Date = DateTime.parse(leg2Dates.first));
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingLeg2 = false);
+      }
+    }
+  }
+
+  
   void _handleMultiSegmentSearch() async {
     final hub = _selectedHub;
     final mainData = _mainFormData;
@@ -222,8 +276,7 @@ class _BookingsPageState extends State<BookingsPage> {
       _selectedHub != null &&
       _mainFormData != null &&
       _leg1Date != null &&
-      _leg2Date != null &&
-      !_leg2Date!.isBefore(_leg1Date!);
+      _leg2Date != null;
 
   void _clearHub() {
     _closeSegmentCalendar();
@@ -232,6 +285,8 @@ class _BookingsPageState extends State<BookingsPage> {
       _selectedHub = null;
       _leg1Date = null;
       _leg2Date = null;
+      _leg2Dates = [];
+      _suggestedLeg1Dates = [];
       _passengers = {'adults': 1, 'children': 0, 'infants': 0};
     });
   }
@@ -380,6 +435,10 @@ class _BookingsPageState extends State<BookingsPage> {
   String _formatPassengers() {
     final total = _passengers.values.reduce((a, b) => a + b);
     return '$total passenger${total > 1 ? 's' : ''}';
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}';
   }
 
   @override
@@ -722,8 +781,19 @@ class _BookingsPageState extends State<BookingsPage> {
           fromCity: mainData.fromCity,
           toCityId: hub.cityId,
           toCity: hub.cityName,
+          finalDestinationCityId: mainData.toCityId,
           isCalendarOpen: _activeSegmentIndex == 0,
-          onDateChanged: (date) => setState(() => _leg1Date = date),
+          onDateChanged: (date) {
+            setState(() {
+              _leg1Date = date;
+              _leg2Date = null;
+              _leg2Dates = [];
+              _suggestedLeg1Dates = [];
+            });
+            if (date != null) {
+              _loadLeg2Dates(date);
+            }
+          },
           onRemove: _clearHub,
           onOpenCalendar: (fieldKey, availableDates, current, onSelected) {
             _openSegmentCalendar(
@@ -751,35 +821,7 @@ class _BookingsPageState extends State<BookingsPage> {
 
         const SizedBox(height: 8),
 
-        SegmentDateForm(
-          fromCityId: hub.cityId,
-          fromCity: hub.cityName,
-          toCityId: mainData.toCityId,
-          toCity: mainData.toCity,
-          isCalendarOpen: _activeSegmentIndex == 1,
-          onDateChanged: (date) => setState(() => _leg2Date = date),
-          onRemove: _clearHub,
-          onOpenCalendar: (fieldKey, availableDates, current, onSelected) {
-            _openSegmentCalendar(
-              fieldKey: fieldKey,
-              availableDates: availableDates,
-              current: current,
-              onSelected: onSelected,
-              segmentIndex: 1,
-            );
-          },
-        ),
-
-        if (_leg1Date != null &&
-            _leg2Date != null &&
-            _leg2Date!.isBefore(_leg1Date!))
-          Padding(
-            padding: const EdgeInsets.only(top: 8, left: 4),
-            child: Text(
-              'Second departure date must be on or after the first flight date.',
-              style: textTheme.bodySmall?.copyWith(color: colors.error),
-            ),
-          ),
+        _buildLeg2Result(context, hub, mainData, colors, textTheme),
 
         const SizedBox(height: 16),
 
@@ -812,9 +854,173 @@ class _BookingsPageState extends State<BookingsPage> {
       ],
     );
   }
+
+  Widget _buildLeg2Result(
+    BuildContext context,
+    _HubSelection hub,
+    MainFormData mainData,
+    ColorScheme colors,
+    TextTheme textTheme,
+  ) {
+    if (_leg1Date == null) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: colors.surfaceContainerLow.withOpacity(0.5),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: colors.outlineVariant.withOpacity(0.3)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.arrow_forward, size: 14, color: colors.onSurfaceVariant),
+            const SizedBox(width: 8),
+            Text(
+              '${hub.cityName}  →  ${mainData.toCity}',
+              style: textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: colors.onSurfaceVariant,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              'Select first leg date to see options',
+              style: textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_isLoadingLeg2) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: colors.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: colors.outlineVariant.withOpacity(0.6)),
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2, color: colors.primary),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Looking for connecting flights...',
+              style: textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_leg2Date != null) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: colors.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: colors.primary.withOpacity(0.4)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.check_circle_outline, size: 16, color: colors.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${hub.cityName}  →  ${mainData.toCity}',
+                    style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  Text(
+                    _formatDate(_leg2Date!),
+                    style: textTheme.bodySmall?.copyWith(
+                      color: colors.primary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (_leg2Dates.length > 1)
+              TextButton(
+                onPressed: () => setState(() => _leg2Date = null),
+                style: TextButton.styleFrom(
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                ),
+                child: Text(
+                  'Change',
+                  style: textTheme.labelSmall?.copyWith(color: colors.onSurfaceVariant),
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+
+    if (_leg2Dates.length > 1) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: colors.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: colors.outlineVariant.withOpacity(0.6)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${hub.cityName}  →  ${mainData.toCity}',
+              style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Select connecting flight date:',
+              style: textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: _leg2Dates.map((dateStr) {
+                final date = DateTime.parse(dateStr);
+                return InkWell(
+                  onTap: () => setState(() => _leg2Date = date),
+                  borderRadius: BorderRadius.circular(4),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: colors.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: colors.outlineVariant),
+                    ),
+                    child: Text(
+                      _formatDate(date),
+                      style: textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w500,
+                        color: colors.primary,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return const SizedBox.shrink();
+  }
+
 }
 
-// ─── Окремі класи поза _BookingsPageState ────────────────────────────────────
 
 class _HubSelection {
   final int cityId;
@@ -958,5 +1164,3 @@ class _NearbyAirportButtonState extends State<_NearbyAirportButton> {
     );
   }
 }
-
-

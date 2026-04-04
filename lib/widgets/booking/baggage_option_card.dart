@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../models/baggage_models.dart';
+import '../../models/baggage_models.dart';
 
 class BaggageOptionCard extends StatefulWidget {
   final BaggagePricingInFlight option;

@@ -266,4 +266,158 @@ class BookingApiService {
     throw Exception((error['detail'] ?? 'Failed to create group booking').toString());
   }
 
+  Future<List<String>> getLeg2AvailableDates({
+    required int hubCityId,
+    required int toCityId,
+    required String leg1Date,
+  }) async {
+    try {
+      final uri = Uri.parse('${AppConfig.baseUrl}/cities/available-dates/leg2').replace(
+        queryParameters: {
+          'hub_city': hubCityId.toString(),
+          'to_city': toCityId.toString(),
+          'leg1_date': leg1Date,
+        },
+      );
+      final response = await http.get(uri, headers: await _headers());
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((date) => date.toString()).toList();
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Network error (getLeg2AvailableDates): $e');
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> getLeg2DatesWithSuggestions({
+    required int fromCityId,
+    required int hubCityId,
+    required int toCityId,
+    required String leg1Date,
+  }) async {
+    final uri = Uri.parse('${AppConfig.baseUrl}/cities/available-dates/leg2').replace(
+      queryParameters: {
+        'from_city': fromCityId.toString(),
+        'hub_city': hubCityId.toString(),
+        'to_city': toCityId.toString(),
+        'leg1_date': leg1Date,
+      },
+    );
+    final response = await http.get(uri, headers: await _headers());
+    if (response.statusCode == 200) {
+      return Map<String, dynamic>.from(jsonDecode(response.body));
+    }
+    return {'leg2_dates': [], 'suggested_leg1_dates': []};
+  }
+
+  Future<List<String>> getLeg1ConnectingDates({
+    required int fromCityId,
+    required int hubCityId,
+    required int toCityId,
+  }) async {
+    final uri = Uri.parse('${AppConfig.baseUrl}/cities/available-dates/leg1-connecting')
+        .replace(queryParameters: {
+      'from_city': fromCityId.toString(),
+      'hub_city': hubCityId.toString(),
+      'to_city': toCityId.toString(),
+    });
+    final response = await http.get(uri, headers: await _headers());
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.map((e) => e.toString()).toList();
+    }
+    return [];
+  }
+
+  Future<List<Map<String, dynamic>>> getFlightAvailability(int flightId) async {
+    try {
+      final uri = Uri.parse('${AppConfig.baseUrl}/flights/$flightId/availability');
+      final response = await http.get(uri, headers: await _headers());
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((e) => Map<String, dynamic>.from(e)).toList();
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Network error (getFlightAvailability): $e');
+      return [];
+    }
+  }
+
+  Future<Map<int, List<Map<String, dynamic>>>> getFlightsAvailability(
+      List<int> flightIds) async {
+    try {
+      final uri = Uri.parse('${AppConfig.baseUrl}/flights/availability');
+      final response = await http.post(
+        uri,
+        headers: await _headers(),
+        body: jsonEncode(flightIds),
+      );
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        return data.map((key, value) => MapEntry(
+              int.parse(key),
+              (value as List).map((e) => Map<String, dynamic>.from(e)).toList(),
+            ));
+      }
+      return {};
+    } catch (e) {
+      debugPrint('Network error (getFlightsAvailability): $e');
+      return {};
+    }
+  }
+
+  Future<Map<String, dynamic>> reserveBooking(Map<String, dynamic> body) async {
+    try {
+      final uri = Uri.parse('${AppConfig.baseUrl}/bookings/reserve');
+      final response = await http.post(
+        uri,
+        headers: await _headers(),
+        body: jsonEncode(body),
+      );
+      if (response.statusCode == 201) {
+        return jsonDecode(response.body);
+      }
+      throw Exception(jsonDecode(response.body)['detail'] ?? 'Reservation failed');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> reserveGroupBooking(Map<String, dynamic> body) async {
+    try {
+      final uri = Uri.parse('${AppConfig.baseUrl}/bookings/reserve/group');
+      final response = await http.post(
+        uri,
+        headers: await _headers(),
+        body: jsonEncode(body),
+      );
+      if (response.statusCode == 201) {
+        return jsonDecode(response.body);
+      }
+      throw Exception(jsonDecode(response.body)['detail'] ?? 'Group reservation failed');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> updateBookingPassengers(int bookingId, Map<String, dynamic> body) async {
+    try {
+      final uri = Uri.parse('${AppConfig.baseUrl}/bookings/$bookingId/passengers');
+      final response = await http.patch(
+        uri,
+        headers: await _headers(),
+        body: jsonEncode(body),
+      );
+      if (response.statusCode != 200) {
+        throw Exception(jsonDecode(response.body)['detail'] ?? 'Update failed');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+
 }

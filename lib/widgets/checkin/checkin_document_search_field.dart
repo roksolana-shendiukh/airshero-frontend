@@ -8,6 +8,7 @@ class CheckInDocumentSearchField extends StatefulWidget {
   final DateTime departsDate;
   final Function(String) onDocumentSelected;
   final TextEditingController controller;
+  
 
   const CheckInDocumentSearchField({
     super.key,
@@ -28,6 +29,7 @@ class _CheckInDocumentSearchFieldState
   final _focusNode = FocusNode();
   final _layerLink = LayerLink();
 
+  final _fieldKey = GlobalKey();
   final ValueNotifier<List<Map<String, dynamic>>> _suggestionsNotifier =
       ValueNotifier([]);
   final ValueNotifier<bool> _isSearchingNotifier = ValueNotifier(false);
@@ -109,76 +111,84 @@ class _CheckInDocumentSearchFieldState
   void _showOverlay() {
     if (_overlayEntry != null) return;
 
-    final renderBox = context.findRenderObject() as RenderBox?;
+    final renderBox =
+        _fieldKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
-    final width = renderBox.size.width;
 
     _overlayEntry = OverlayEntry(
-      builder: (ctx) => CompositedTransformFollower(
-        link:             _layerLink,
-        showWhenUnlinked: false,
-        offset:           const Offset(0, 56),
-        child: Align(
-          alignment: Alignment.topLeft,
-          child: SizedBox(
-            width: width,
-            child: Material(
-              color:        Theme.of(ctx).colorScheme.surface,
-              borderRadius: BorderRadius.circular(8),
-              elevation:    4,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 280),
-                child: SingleChildScrollView(
-                  child: ValueListenableBuilder<bool>(
-                    valueListenable: _isSearchingNotifier,
-                    builder: (_, isSearching, __) {
-                      return ValueListenableBuilder<List<Map<String, dynamic>>>(
-                        valueListenable: _suggestionsNotifier,
-                        builder: (_, suggestions, __) {
-                          if (isSearching) {
-                            return const Padding(
-                              padding: EdgeInsets.all(16),
-                              child: Center(
-                                  child: CircularProgressIndicator()),
+      builder: (ctx) {
+        final box =
+            _fieldKey.currentContext?.findRenderObject() as RenderBox?;
+        final w = box?.size.width ?? 300;
+
+        return CompositedTransformFollower(
+          link: _layerLink,
+          showWhenUnlinked: false,
+          targetAnchor: Alignment.bottomLeft,   
+          followerAnchor: Alignment.topLeft,  
+          offset: Offset.zero,               
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: w,
+              child: Material(
+                color: Theme.of(ctx).colorScheme.surface,
+                borderRadius: BorderRadius.circular(8),
+                elevation: 4,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 280),
+                  child: SingleChildScrollView(
+                    child: ValueListenableBuilder<bool>(
+                      valueListenable: _isSearchingNotifier,
+                      builder: (_, isSearching, __) {
+                        return ValueListenableBuilder<List<Map<String, dynamic>>>(
+                          valueListenable: _suggestionsNotifier,
+                          builder: (_, suggestions, __) {
+                            if (isSearching) {
+                              return const Padding(
+                                padding: EdgeInsets.all(16),
+                                child: Center(child: CircularProgressIndicator()),
+                              );
+                            }
+
+                            final filtered = suggestions
+                                .where((s) =>
+                                    s['document_number'] != null &&
+                                    (s['document_number'] as String).isNotEmpty)
+                                .toList();
+
+                            if (filtered.isEmpty) return const SizedBox.shrink();
+
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: filtered
+                                  .map((s) => _SuggestionTile(
+                                        documentNumber:
+                                            s['document_number'] as String,
+                                        firstName:
+                                            s['first_name'] as String? ?? '',
+                                        lastName:
+                                            s['last_name'] as String? ?? '',
+                                        onTap: () => _selectSuggestion(s),
+                                      ))
+                                  .toList(),
                             );
-                          }
-
-                          final filtered = suggestions
-                              .where((s) =>
-                                  s['document_number'] != null &&
-                                  (s['document_number'] as String).isNotEmpty)
-                              .toList();
-
-                          if (filtered.isEmpty) return const SizedBox.shrink();
-
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: filtered
-                                .map((s) => _SuggestionTile(
-                                      documentNumber:
-                                          s['document_number'] as String,
-                                      firstName:
-                                          s['first_name'] as String? ?? '',
-                                      lastName:
-                                          s['last_name'] as String? ?? '',
-                                      onTap: () => _selectSuggestion(s),
-                                    ))
-                                .toList(),
-                          );
-                        },
-                      );
-                    },
+                          },
+                        );
+                      },
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
 
     Overlay.of(context).insert(_overlayEntry!);
   }
+
 
   void _hideOverlay() {
     _overlayEntry?.remove();
@@ -203,6 +213,7 @@ class _CheckInDocumentSearchFieldState
     return CompositedTransformTarget(
       link: _layerLink,
       child: AnimatedContainer(
+        key: _fieldKey,
         duration: const Duration(milliseconds: 150),
         decoration: BoxDecoration(
           color: colors.primaryContainer

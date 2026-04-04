@@ -12,7 +12,7 @@ class BagDetail {
   final double weight;
   final int typeId;
   final String typeName;
-  final String dimensions; // Ліміт розміру з БД
+  final String dimensions;
   final bool isPreBooked;
   final double surcharge;
   final String message;
@@ -29,28 +29,27 @@ class BagDetail {
 
   factory BagDetail.fromJson(Map<String, dynamic> json) {
     return BagDetail(
-      weight: (json['weight'] as num).toDouble(),
-      typeId: json['determinedTypeId'] ?? 0,
-      typeName: json['determinedTypeName'] ?? 'Unknown',
-      dimensions: json['determinedDimensions'] ?? 'No limits', 
-      isPreBooked: json['isPreBookedSlot'] ?? false,
-      surcharge: (json['surcharge'] as num).toDouble(),
-      message: json['message'] ?? '',
+      weight:      (json['weight'] as num).toDouble(),
+      typeId:      json['determinedTypeId']     ?? 0,
+      typeName:    json['determinedTypeName']   ?? 'Unknown',
+      dimensions:  json['determinedDimensions'] ?? 'No limits',
+      isPreBooked: json['isPreBookedSlot']      ?? false,
+      surcharge:   (json['surcharge'] as num).toDouble(),
+      message:     json['message']              ?? '',
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'baggage_unit_weight_kg': weight,
-      'baggage_type_id': typeId,
-    };
-  }
+  Map<String, dynamic> toJson() => {
+    'baggage_unit_weight_kg': weight,
+    'baggage_type_id':        typeId,
+  };
 }
 
 class CheckInBaggageStep extends StatefulWidget {
   final AuthService authService;
   final int bookingItemId;
   final int passengerClassId;
+  final int flightOperationId;
   final BaggageCompletedCallback onCompleted;
 
   const CheckInBaggageStep({
@@ -58,6 +57,7 @@ class CheckInBaggageStep extends StatefulWidget {
     required this.authService,
     required this.bookingItemId,
     required this.passengerClassId,
+    required this.flightOperationId,
     required this.onCompleted,
   });
 
@@ -66,18 +66,17 @@ class CheckInBaggageStep extends StatefulWidget {
 }
 
 class _CheckInBaggageStepState extends State<CheckInBaggageStep> {
-  bool _isLoading = true;
+  bool _isLoading     = true;
   bool _isCalculating = false;
   String? _error;
 
   Map<String, dynamic>? _allowance;
-  List<double> _weights = [];
+  List<double>    _weights        = [];
   List<BagDetail> _calculatedBags = [];
-  double _totalSurcharge = 0.0;
-  Timer? _debounce;
-
-  // Використовуємо Amber/Orange для перевісу (менш агресивно ніж червоний)
-  final Color _warningColor = Colors.orange.shade900;
+  double          _totalSurcharge = 0.0;
+  double          _flightCheckedWeight = 0.0;
+  double _baggageCapacity = 0.0;
+  Timer?          _debounce;
 
   @override
   void initState() {
@@ -93,20 +92,30 @@ class _CheckInBaggageStepState extends State<CheckInBaggageStep> {
 
   Future<void> _loadInitialData() async {
     try {
-      final api = CheckInApiService(widget.authService);
-      final info = await api.getBaggageInfo(widget.bookingItemId);
+      final api    = CheckInApiService(widget.authService);
+      final info   = await api.getBaggageInfo(widget.bookingItemId);
+      final weight = await api.getCheckedBaggageWeight(widget.flightOperationId);
+      debugPrint('WEIGHT RESPONSE: $weight');
 
       if (!mounted) return;
 
       final paidQty = info['baggageQuantity'] as int? ?? 0;
+
       setState(() {
-        _allowance = info;
-        _weights = List.generate(paidQty, (_) => 0.0);
-        _isLoading = false;
+        _allowance           = info;
+        _weights             = List.generate(paidQty, (_) => 0.0);
+        _flightCheckedWeight = (weight['totalCheckedWeightKg'] is Map
+            ? ((weight['totalCheckedWeightKg'] as Map)['totalCheckedWeightKg'] as num?)?.toDouble()
+            : (weight['totalCheckedWeightKg'] as num?)?.toDouble()) ?? 0.0;
+        _baggageCapacity = (weight['totalCheckedWeightKg'] is Map
+            ? ((weight['totalCheckedWeightKg'] as Map)['baggageCapacityKg'] as num?)?.toDouble()
+            : (weight['baggageCapacityKg'] as num?)?.toDouble()) ?? 0.0;
+        _isLoading           = false;
       });
     } catch (e) {
+      debugPrint('BAGGAGE LOAD ERROR: $e');
       setState(() {
-        _error = 'Failed to load baggage info';
+        _error     = 'Failed to load baggage info';
         _isLoading = false;
       });
     }
@@ -114,43 +123,34 @@ class _CheckInBaggageStepState extends State<CheckInBaggageStep> {
 
   Future<void> _syncWithBackend() async {
     if (_weights.isEmpty) return;
-
     setState(() => _isCalculating = true);
     try {
-      final api = CheckInApiService(widget.authService);
+      final api    = CheckInApiService(widget.authService);
       final result = await api.calculateBaggageSurcharge(
         bookingItemId: widget.bookingItemId,
-        bagWeights: _weights,
+        bagWeights:    _weights,
       );
-
       if (!mounted) return;
-
       setState(() {
         _totalSurcharge = (result['totalSurcharge'] as num).toDouble();
         _calculatedBags = (result['bags'] as List)
             .map((b) => BagDetail.fromJson(b))
             .toList();
-        _isCalculating = false;
+        _isCalculating  = false;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() => _isCalculating = false);
     }
   }
 
   void _onWeightChanged(int index, String value) {
-    final val = double.tryParse(value) ?? 0.0;
-    _weights[index] = val;
-
-    if (_debounce?.isActive ?? false) _debounce!.cancel();
-    _debounce = Timer(const Duration(milliseconds: 600), () {
-      _syncWithBackend();
-    });
+    _weights[index] = double.tryParse(value) ?? 0.0;
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 600), _syncWithBackend);
   }
 
-  void _addExtraBag() {
-    setState(() => _weights.add(0.0));
-  }
+  void _addExtraBag() => setState(() => _weights.add(0.0));
 
   void _removeExtraBag(int index) {
     setState(() {
@@ -160,253 +160,505 @@ class _CheckInBaggageStepState extends State<CheckInBaggageStep> {
     _syncWithBackend();
   }
 
+  double get _currentPassengerWeight =>
+      _weights.fold(0.0, (sum, w) => sum + w);
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
 
     if (_isLoading) {
-      return const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()));
+      return const Center(
+        child: Padding(padding: EdgeInsets.all(48), child: CircularProgressIndicator()),
+      );
     }
 
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Text(_error!, style: TextStyle(color: colors.error)),
+        ),
+      );
+    }
+
+    final allFilled = _weights.isEmpty || _weights.every((w) => w > 0);
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0), // Додано відступи від боків
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildAllowanceBanner(),
-          const SizedBox(height: 24),
-          ..._weights.asMap().entries.map((e) => _buildBagInput(e.key)),
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: _addExtraBag,
-            icon: const Icon(Icons.add, size: 16),
-            label: const Text('Add extra bag'),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _AllowanceBanner(allowance: _allowance),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _FlightWeightBanner(
+                  flightCheckedWeight:    _flightCheckedWeight,
+                  currentPassengerWeight: _currentPassengerWeight,
+                  baggageCapacity:        _baggageCapacity,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ..._weights.asMap().entries.map(
+            (e) => _BagRow(
+              index:     e.key,
+              weight:    e.value,
+              calc:      _calculatedBags.length > e.key ? _calculatedBags[e.key] : null,
+              isExtra:   e.key >= (_allowance?['baggageQuantity'] ?? 0),
+              onChanged: (v) => _onWeightChanged(e.key, v),
+              onRemove:  () => _removeExtraBag(e.key),
             ),
           ),
-          const SizedBox(height: 24),
-          if (_isCalculating) const Padding(padding: EdgeInsets.only(bottom: 16), child: LinearProgressIndicator()),
-          if (_totalSurcharge > 0) _buildSurchargeBanner(),
-          const SizedBox(height: 24),
+          Padding(
+            padding: const EdgeInsets.only(top: 4, bottom: 20),
+            child: TextButton.icon(
+              onPressed: _addExtraBag,
+              icon: const Icon(Icons.add, size: 14),
+              label: const Text('Add extra bag', style: TextStyle(fontSize: 13)),
+              style: TextButton.styleFrom(
+                padding:       const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                minimumSize:   Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+          ),
+          if (_isCalculating) ...[
+            LinearProgressIndicator(
+              minHeight:       1,
+              color:           colors.primary.withValues(alpha: 0.5),
+              backgroundColor: Colors.transparent,
+            ),
+            const SizedBox(height: 16),
+          ],
+          if (_totalSurcharge > 0) ...[
+            _SurchargeSummary(amount: _totalSurcharge),
+            const SizedBox(height: 16),
+          ],
           SizedBox(
             width: double.infinity,
             child: CustomButton(
-              label: _totalSurcharge > 0 ? 'Pay \$${_totalSurcharge.toStringAsFixed(2)} & Finish' : 'Finish Check-in',
-              onPressed: _weights.any((w) => w <= 0) ? null : () => widget.onCompleted(_calculatedBags, _totalSurcharge),
+              label: _totalSurcharge > 0
+                  ? 'Proceed to Payment  ·  \$${_totalSurcharge.toStringAsFixed(2)}'
+                  : 'Complete Check-in',
+              onPressed: allFilled
+                  ? () => widget.onCompleted(_calculatedBags, _totalSurcharge)
+                  : null,
             ),
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildAllowanceBanner() {
+class _AllowanceBanner extends StatelessWidget {
+  final Map<String, dynamic>? allowance;
+  const _AllowanceBanner({required this.allowance});
+
+  @override
+  Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final qty = _allowance?['baggageQuantity'] ?? 0;
-    final weight = _allowance?['baggageMaxWeight'] ?? 0;
-    final type = _allowance?['baggageTypeName'] ?? '—';
+    final qty    = allowance?['baggageQuantity'] ?? 0;
+    final weight = allowance?['baggageMaxWeight'] ?? 0;
+    final type   = allowance?['baggageTypeName']  ?? '—';
 
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: colors.primaryContainer.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colors.primary.withOpacity(0.2)),
+        color:        colors.primaryContainer.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(6),
+        border:       Border.all(color: colors.outline.withValues(alpha: 0.15)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Text('PRE-BOOKED ALLOWANCE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: colors.primary, letterSpacing: 1)),
-          const SizedBox(height: 8),
-          Text('$qty x $type (up to ${weight}kg per bag)', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+          Icon(Icons.luggage_outlined, size: 16, color: colors.primary),
+          const SizedBox(width: 10),
+          Text(
+            'Allowance:',
+            style: TextStyle(
+              fontSize:   12,
+              color:      colors.onSurfaceVariant,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            '$qty × $type · max ${weight}kg/bag',
+            style: TextStyle(
+              fontSize:   13,
+              fontWeight: FontWeight.w600,
+              color:      colors.onSurface,
+            ),
+          ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildBagInput(int index) {
-  final colors = Theme.of(context).colorScheme;
-  final calc = _calculatedBags.length > index ? _calculatedBags[index] : null;
-  final isExtra = index >= (_allowance?['baggageQuantity'] ?? 0);
-  final hasSurcharge = (calc?.surcharge ?? 0) > 0;
+class _FlightWeightBanner extends StatelessWidget {
+  final double flightCheckedWeight;
+  final double currentPassengerWeight;
+  final double baggageCapacity;
 
-  return Container(
-    margin: const EdgeInsets.only(bottom: 16),
-    padding: const EdgeInsets.all(20), 
-    decoration: BoxDecoration(
-      color: colors.surfaceContainerHigh,
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(
-        color: hasSurcharge ? _warningColor : colors.outlineVariant.withOpacity(0.4),
-        width: hasSurcharge ? 2.0 : 1.0,
+  const _FlightWeightBanner({
+    required this.flightCheckedWeight,
+    required this.currentPassengerWeight,
+    required this.baggageCapacity,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors      = Theme.of(context).colorScheme;
+    final total       = flightCheckedWeight + currentPassengerWeight;
+    final progress    = baggageCapacity > 0
+        ? (total / baggageCapacity).clamp(0.0, 1.0)
+        : 0.0;
+    final percent     = (progress * 100).toStringAsFixed(1);
+    final isNearFull  = progress > 0.85;
+    final isFull      = progress >= 1.0;
+    final accentColor = isFull
+        ? colors.error
+        : isNearFull
+            ? const Color(0xFFE65100)
+            : colors.primary;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color:        colors.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(8),
+        border:       Border.all(color: colors.outline.withValues(alpha: 0.15)),
       ),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: isExtra ? Colors.orange.withOpacity(0.1) : colors.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                isExtra ? 'EXTRA BAG' : 'INCLUDED SLOT',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.flight_outlined, size: 14, color: colors.onSurfaceVariant),
+              const SizedBox(width: 6),
+              Text(
+                'Baggage hold',
                 style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0.8,
-                  color: isExtra ? Colors.orange.shade900 : colors.primary,
+                  fontSize:   12,
+                  color:      colors.onSurfaceVariant,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-            ),
-            if (isExtra)
-              IconButton(
-                onPressed: () => _removeExtraBag(index),
-                icon: Icon(Icons.delete_outline, size: 20, color: colors.error),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
+              const Spacer(),
+              Text(
+                '$percent%',
+                style: TextStyle(
+                  fontSize:   13,
+                  fontWeight: FontWeight.w700,
+                  color:      accentColor,
+                ),
               ),
-          ],
+              const SizedBox(width: 6),
+              Text(
+                '${total.toStringAsFixed(1)} / ${baggageCapacity.toStringAsFixed(0)} kg',
+                style: TextStyle(
+                  fontSize: 12,
+                  color:    colors.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value:           progress,
+              minHeight:       6,
+              backgroundColor: colors.outline.withValues(alpha: 0.15),
+              valueColor:      AlwaysStoppedAnimation<Color>(accentColor),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _WeightChip(
+                label: 'Already checked',
+                value: '${flightCheckedWeight.toStringAsFixed(1)} kg',
+                colors: colors,
+              ),
+              const SizedBox(width: 8),
+              if (currentPassengerWeight > 0)
+                _WeightChip(
+                  label:    'This passenger',
+                  value:    '+${currentPassengerWeight.toStringAsFixed(1)} kg',
+                  colors:   colors,
+                  accent:   accentColor,
+                ),
+              const Spacer(),
+              _WeightChip(
+                label:  'Remaining',
+                value:  '${(baggageCapacity - total).clamp(0, baggageCapacity).toStringAsFixed(1)} kg',
+                colors: colors,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WeightChip extends StatelessWidget {
+  final String      label;
+  final String      value;
+  final ColorScheme colors;
+  final Color?      accent;
+
+  const _WeightChip({
+    required this.label,
+    required this.value,
+    required this.colors,
+    this.accent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(fontSize: 10, color: colors.onSurfaceVariant),
         ),
-        const SizedBox(height: 20),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              flex: 2,
-              child: CustomInputField(
-                label: 'Weight (kg)',
-                value: _weights[index] > 0 ? _weights[index].toStringAsFixed(1) : '',
-                icon: Icons.scale_outlined,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,1}')),
-                ],
-                onChanged: (v) => _onWeightChanged(index, v),
-              ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize:   12,
+            fontWeight: FontWeight.w600,
+            color:      accent ?? colors.onSurface,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _BagRow extends StatelessWidget {
+  final int        index;
+  final double     weight;
+  final BagDetail? calc;
+  final bool       isExtra;
+  final ValueChanged<String> onChanged;
+  final VoidCallback         onRemove;
+
+  const _BagRow({
+    required this.index,
+    required this.weight,
+    required this.calc,
+    required this.isExtra,
+    required this.onChanged,
+    required this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors       = Theme.of(context).colorScheme;
+    final hasSurcharge = (calc?.surcharge ?? 0) > 0;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Stack(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color:        colors.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(8),
+              border:       Border.all(color: colors.outline.withValues(alpha: 0.12)),
             ),
-            const SizedBox(width: 32),
-            if (calc != null)
-              Expanded(
-                flex: 3,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            padding: const EdgeInsets.fromLTRB(20, 12, 16, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
                     Text(
-                      calc.typeName, 
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)
+                      'BAG ${index + 1}',
+                      style: TextStyle(
+                        fontSize:      10,
+                        fontWeight:    FontWeight.w700,
+                        letterSpacing: 1.2,
+                        color:         colors.onSurfaceVariant,
+                      ),
                     ),
-                    const SizedBox(height: 10),
-                    
-                    // Блок виведення розмірів (лише чисте значення з БД)
+                    const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: colors.surface,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: colors.outlineVariant.withOpacity(0.3)),
+                        color: isExtra
+                            ? colors.tertiaryContainer.withValues(alpha: 0.4)
+                            : colors.primaryContainer.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(3),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.straighten, size: 16, color: colors.primary),
-                          const SizedBox(width: 10),
-                          Text(
-                            calc.dimensions, // Тут буде чітко "50x35x20" або "158x75x70"
-                            style: TextStyle(
-                              fontSize: 13, 
-                              fontWeight: FontWeight.w700, 
-                              color: colors.onSurface,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ],
+                      child: Text(
+                        isExtra ? 'Extra' : 'Included',
+                        style: TextStyle(
+                          fontSize:   10,
+                          fontWeight: FontWeight.w600,
+                          color: isExtra ? colors.tertiary : colors.primary,
+                        ),
                       ),
                     ),
-                    
-                    if (hasSurcharge)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 14),
-                        child: Text(
-                          '+\$${calc.surcharge.toStringAsFixed(2)}',
-                          style: TextStyle(
-                            color: _warningColor, 
-                            fontWeight: FontWeight.w900, 
-                            fontSize: 22
-                          ),
+                    const Spacer(),
+                    if (isExtra)
+                      InkWell(
+                        onTap:        onRemove,
+                        borderRadius: BorderRadius.circular(4),
+                        child: Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: Icon(Icons.close, size: 14, color: colors.onSurfaceVariant),
                         ),
                       ),
                   ],
                 ),
-              ),
-          ],
-        ),
-        if (calc != null && calc.message.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 18),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: hasSurcharge ? _warningColor.withOpacity(0.08) : colors.surface,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.info_outline, 
-                    size: 16, 
-                    color: hasSurcharge ? _warningColor : colors.onSurfaceVariant
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      calc.message,
-                      style: TextStyle(
-                        fontSize: 11, 
-                        fontWeight: FontWeight.w600, 
-                        color: hasSurcharge ? _warningColor : colors.onSurfaceVariant
+                const SizedBox(height: 10),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 190,
+                      child: CustomInputField(
+                        label: 'Weight (kg)',
+                        value: weight > 0 ? weight.toStringAsFixed(1) : '',
+                        icon:  Icons.scale_outlined,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,1}')),
+                        ],
+                        onChanged: onChanged,
                       ),
                     ),
+                    const SizedBox(width: 20),
+                    if (calc != null) ...[
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              calc!.typeName,
+                              style: TextStyle(
+                                fontSize:   13,
+                                fontWeight: FontWeight.w600,
+                                color:      colors.onSurface,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                Icon(Icons.straighten, size: 12, color: colors.onSurfaceVariant),
+                                const SizedBox(width: 4),
+                                Text(
+                                  calc!.dimensions,
+                                  style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (hasSurcharge)
+                        Text(
+                          '+\$${calc!.surcharge.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            fontSize:   15,
+                            fontWeight: FontWeight.w700,
+                            color:      Color(0xFFE65100),
+                          ),
+                        ),
+                    ],
+                  ],
+                ),
+                if (calc != null && calc!.message.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        size:  12,
+                        color: hasSurcharge ? const Color(0xFFE65100) : colors.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          calc!.message,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: hasSurcharge ? const Color(0xFFE65100) : colors.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
-              ),
+              ],
             ),
           ),
-      ],
-    ),
-  );
+          if (hasSurcharge)
+            Positioned(
+              left:   0,
+              top:    0,
+              bottom: 0,
+              child: Container(
+                width: 3,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFE65100),
+                  borderRadius: BorderRadius.only(
+                    topLeft:    Radius.circular(8),
+                    bottomLeft: Radius.circular(8),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }
-  
-  
-  Widget _buildSurchargeBanner() {
+
+class _SurchargeSummary extends StatelessWidget {
+  final double amount;
+  const _SurchargeSummary({required this.amount});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: _warningColor.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _warningColor.withOpacity(0.3)),
+        color:        const Color(0xFFE65100).withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(6),
+        border:       Border.all(color: const Color(0xFFE65100).withValues(alpha: 0.25)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              Icon(Icons.payments_outlined, color: _warningColor, size: 28),
-              const SizedBox(width: 16),
-              const Text('Total Surcharge:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            ],
+          Text(
+            'Excess baggage surcharge',
+            style: TextStyle(
+              fontSize:   13,
+              color:      colors.onSurface,
+              fontWeight: FontWeight.w500,
+            ),
           ),
           Text(
-            '\$${_totalSurcharge.toStringAsFixed(2)}',
-            style: TextStyle(color: _warningColor, fontWeight: FontWeight.w900, fontSize: 28),
+            '\$${amount.toStringAsFixed(2)}',
+            style: const TextStyle(
+              fontSize:   14,
+              fontWeight: FontWeight.w700,
+              color:      Color(0xFFE65100),
+            ),
           ),
         ],
       ),
