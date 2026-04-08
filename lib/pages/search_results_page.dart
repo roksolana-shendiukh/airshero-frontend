@@ -14,7 +14,7 @@ import '../models/class.dart';
 import '../services/booking_api_service.dart';
 import '../services/auth_service.dart';
 import '../services/recent_searches_service.dart';
-import '../config/routes.dart';
+import '../models/args/baggage_selection_args.dart';
 import '../services/navigation_storage_service.dart';
 import '../models/booking_group_draft.dart';
 

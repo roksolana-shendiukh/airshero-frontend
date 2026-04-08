@@ -204,4 +204,102 @@ class PlanningService {
     }
   }
 
+  Future<List<Map<String, dynamic>>> getAirfleets() async {
+    final uri = Uri.parse('${AppConfig.baseUrl}/planning/airfleets');
+    final response = await http.get(uri, headers: await _headers());
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.cast<Map<String, dynamic>>();
+    }
+    throw Exception('Failed to load airfleets: ${response.statusCode}');
+  }
+
+  Future<List<Map<String, dynamic>>> getAirports() async {
+    final uri = Uri.parse('${AppConfig.baseUrl}/planning/airports');
+    final response = await http.get(uri, headers: await _headers());
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.cast<Map<String, dynamic>>();
+    }
+    throw Exception('Failed to load airports: ${response.statusCode}');
+  }
+
+  Future<Map<String, dynamic>> createRoute({
+    required int airfleetId,
+    required int departsAirportId,
+    required int arrivesAirportId,
+    required String flightStartDate,
+    required String flightEndDate,
+    required List<Map<String, dynamic>> scheduleGroups,
+  }) async {
+    final uri = Uri.parse('${AppConfig.baseUrl}/planning/routes');
+    final response = await http.post(
+      uri,
+      headers: await _headers(),
+      body: jsonEncode({
+        'airfleetId': airfleetId,
+        'departsAirportId': departsAirportId,
+        'arrivesAirportId': arrivesAirportId,
+        'flightStartDate': flightStartDate,
+        'flightEndDate': flightEndDate,
+        'scheduleGroups': scheduleGroups,
+      }),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    final body = jsonDecode(response.body);
+    throw Exception(body['detail'] ?? 'Failed to create route');
+  }
+
+  Future<Map<String, dynamic>> addScheduleToRoute({
+    required int routeId,
+    required String flightStartDate,
+    required String flightEndDate,
+    required List<Map<String, dynamic>> scheduleGroups,
+  }) async {
+    final uri = Uri.parse(
+        '${AppConfig.baseUrl}/planning/routes/$routeId/schedules');
+    final response = await http.post(
+      uri,
+      headers: await _headers(),
+      body: jsonEncode({
+        'flightStartDate': flightStartDate,
+        'flightEndDate': flightEndDate,
+        'scheduleGroups': scheduleGroups,
+      }),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    final body = jsonDecode(response.body);
+    throw Exception(body['detail'] ?? 'Failed to add schedule');
+  }
+
+  Future<String> generateFlightNumber() async {
+    final uri = Uri.parse('${AppConfig.baseUrl}/planning/routes/generate-flight-number');
+    final response = await http.get(uri, headers: await _headers());
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return data['flightNumber'] as String;
+    }
+    throw Exception('Failed to generate flight number');
+  }
+
+  Future<List<String>> getAirfleetPhotos(int airfleetId) async {
+    try {
+      final uri = Uri.parse('${AppConfig.baseUrl}/airfleets/$airfleetId/photos');
+      final response = await http.get(uri, headers: await _headers());
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.cast<String>();
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Network error (getAirfleetPhotos): $e');
+      return [];
+    }
+  }
+
+
 }

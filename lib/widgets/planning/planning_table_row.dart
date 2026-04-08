@@ -22,133 +22,142 @@ class PlanningTableRow extends StatelessWidget {
           ),
         ),
       ),
-    child: IntrinsicHeight(
-      child: Row(
-        children: [
-          SizedBox(
-            width: columnWidths['flight_number'],
-            child: Padding(
-              padding: const EdgeInsets.only(left: 16, right: 8),
-              child: Text(
-                flight.flightNumber,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ),
-
-          SizedBox(
-            width: columnWidths['route'],
-            child: Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    flight.departsAirportCode,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w500,
-                        ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                    child: Icon(
-                      Icons.arrow_forward_rounded,
-                      size: 14,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  Text(
-                    flight.arrivesAirportCode,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w500,
-                        ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          SizedBox(
-            width: columnWidths['departs'],
-            child: Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: Text(
-                _fmtTime(flight.departsDatetime),
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-            ),
-          ),
-
-          SizedBox(
-            width: columnWidths['arrives'],
-            child: Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: Text(
-                _fmtTime(flight.arrivesDattime),
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-            ),
-          ),
-
-          SizedBox(
-            width: columnWidths['aircraft'],
-            child: ClipRect(
+      child: IntrinsicHeight(
+        child: Row(
+          children: [
+            SizedBox(
+              width: columnWidths['flight_number'],
               child: Padding(
-                padding: const EdgeInsets.only(right: 8),
+                padding: const EdgeInsets.only(left: 16, right: 8),
                 child: Text(
-                  flight.aircraftModel,
-                  style: Theme.of(context).textTheme.bodyMedium,
+                  flight.flightNumber,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                   overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
                 ),
               ),
             ),
-          ),
 
-          SizedBox(
-            width: columnWidths['classes'],
-            child: Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: Wrap(
-                spacing: 4,
-                runSpacing: 4,
-                children: flight.classNames
-                    .map((c) => _ClassChip(className: c))
-                    .toList(),
-              ),
-            ),
-          ),
-
-          SizedBox(
-            width: columnWidths['load'],
-            child: Padding(
-              padding: const EdgeInsets.only(right: 12),
-              child: _LoadBar(percent: flight.loadPercent),
-            ),
-          ),
-
-          SizedBox(
-            width: columnWidths['status'],
-            child: ClipRect(
+            SizedBox(
+              width: columnWidths['route'],
               child: Padding(
                 padding: const EdgeInsets.only(right: 8),
-                child: _StatusBadge(status: flight.flightStatusName),
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        flight.departsAirportCode,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w500,
+                            ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Icon(
+                        Icons.arrow_forward_rounded,
+                        size: 14,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    Flexible(
+                      child: Text(
+                        flight.arrivesAirportCode,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w500,
+                            ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+
+            SizedBox(
+              width: columnWidths['departs'],
+              child: Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Text(
+                  _fmtTime(flight.departsDatetime),
+                  style: Theme.of(context).textTheme.bodyMedium,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+
+            SizedBox(
+              width: columnWidths['arrives'],
+              child: Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Text(
+                  _fmtTime(flight.arrivesDattime),
+                  style: Theme.of(context).textTheme.bodyMedium,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+
+            SizedBox(
+              width: columnWidths['aircraft'],
+              child: ClipRect(
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Text(
+                    flight.aircraftModel,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                ),
+              ),
+            ),
+
+            SizedBox(
+              width: columnWidths['classes'],
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Wrap(
+                    spacing: 4,
+                    runSpacing: 4,
+                    children: flight.classNames
+                        .map((c) => _ClassChip(className: c))
+                        .toList(),
+                  ),
+                ),
+              ),
+            ),
+
+            SizedBox(
+              width: columnWidths['load'],
+              child: Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: _LoadBar(percent: flight.loadPercent),
+              ),
+            ),
+
+            SizedBox(
+              width: columnWidths['status'],
+              child: ClipRect(
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: _StatusBadge(status: flight.flightStatusName),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
-    )
     );
   }
 
   String _fmtTime(DateTime dt) =>
       '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
 }
-
 
 class _LoadBar extends StatelessWidget {
   final double percent;
@@ -183,8 +192,7 @@ class _LoadBar extends StatelessWidget {
           child: LinearProgressIndicator(
             value: percent / 100,
             minHeight: 5,
-            backgroundColor:
-                Theme.of(context).colorScheme.outlineVariant,
+            backgroundColor: Theme.of(context).colorScheme.outlineVariant,
             valueColor: AlwaysStoppedAnimation<Color>(barColor),
           ),
         ),
@@ -192,7 +200,6 @@ class _LoadBar extends StatelessWidget {
     );
   }
 }
-
 
 class _StatusBadge extends StatelessWidget {
   final String status;
@@ -264,5 +271,3 @@ class _ClassChip extends StatelessWidget {
     );
   }
 }
-
-

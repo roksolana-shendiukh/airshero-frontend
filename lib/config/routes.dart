@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+
 import '../pages/bookings_page.dart';
 import '../pages/search_results_page.dart';
 import '../pages/baggage_selection_page.dart';
@@ -8,271 +10,24 @@ import '../pages/admin/admin_users_page.dart';
 import '../pages/login_page.dart';
 import '../pages/change_password_page.dart';
 import '../pages/checkin_page.dart';
-import '../services/auth_service.dart';
-import '../services/navigation_storage_service.dart';
-import '../models/user_model.dart';
-import 'package:provider/provider.dart';
 import '../pages/flight_operation_page.dart';
 import '../pages/planning/planning_overview_page.dart';
 import '../pages/planning/planning_flights_page.dart';
 import '../pages/planning/create_flight_page.dart';
+import '../pages/planning/create_route_page.dart';
+
+import '../models/args/search_results_args.dart';
+import '../models/args/baggage_selection_args.dart';
 import '../models/booking_group_draft.dart';
 
-class SearchResultsArguments {
-  final int fromCityId;
-  final String fromCity;
-  final int toCityId;
-  final String toCity;
-  final DateTime departDate;
-  final DateTime? returnDate;
-  final Map<String, int> passengers;
-  final BookingGroupDraft? bookingGroupDraft;
-  final DateTime? leg2Date;
+import '../services/auth_service.dart';
+import '../models/user_model.dart';
+import '../widgets/baggage_selection_loader.dart';
 
-  SearchResultsArguments({
-    required this.fromCityId,
-    required this.fromCity,
-    required this.toCityId,
-    required this.toCity,
-    required this.departDate,
-    this.returnDate,
-    required this.passengers,
-    this.bookingGroupDraft,
-    this.leg2Date,
-  });
-}
-
-class BaggageSelectionArguments {
-  final String fromCity;
-  final String toCity;
-  final DateTime departDate;
-  final DateTime? returnDate;
-  final Map<String, int> passengers;
-  final Map<String, String> passengerClassLabels;
-  final String airlineName;
-  final String airlineLogoUrl;
-  final String fromAirportCode;
-  final String toAirportCode;
-  final String departureTime;
-  final String arrivalTime;
-  final String duration;
-  final double basePrice;
-  final bool isRoundTrip;
-  final List<Map<String, dynamic>> outboundAssignments;
-  final List<Map<String, dynamic>> returnAssignments;
-  final int outboundFlightId;
-  final int outboundFlightClassId;
-  final BookingGroupDraft? bookingGroupDraft;
-  final int segmentIndex;
-  final Map<int, Map<String, dynamic>>? initialPassengerData;
-  final int? bookingId;
-  final String? bookingNumber;
-  final int? bookingId2;
-  final String? bookingNumber2;
-  final DateTime? expiresAt;
-  final int? leg2FlightClassId;
-  final String? leg2FromCity;
-  final String? leg2ToCity;
-
-  BaggageSelectionArguments({
-    required this.fromCity,
-    required this.toCity,
-    required this.departDate,
-    this.returnDate,
-    required this.passengers,
-    required this.passengerClassLabels,
-    required this.airlineName,
-    required this.airlineLogoUrl,
-    required this.fromAirportCode,
-    required this.toAirportCode,
-    required this.departureTime,
-    required this.arrivalTime,
-    required this.duration,
-    required this.basePrice,
-    required this.isRoundTrip,
-    required this.outboundAssignments,
-    this.returnAssignments = const [],
-    required this.outboundFlightId,
-    required this.outboundFlightClassId,
-    this.bookingGroupDraft,
-    this.segmentIndex = 0,
-    this.initialPassengerData,
-    this.bookingId,
-    this.bookingNumber,
-    this.bookingId2,
-    this.bookingNumber2,
-    this.expiresAt,
-    this.leg2FlightClassId,
-    this.leg2FromCity,
-    this.leg2ToCity,
-  });
-
-  Map<String, dynamic> toMap() => {
-        'fromCity': fromCity,
-        'toCity': toCity,
-        'departDate': departDate.toIso8601String(),
-        'returnDate': returnDate?.toIso8601String(),
-        'passengers': passengers,
-        'passengerClassLabels': passengerClassLabels,
-        'airlineName': airlineName,
-        'airlineLogoUrl': airlineLogoUrl,
-        'fromAirportCode': fromAirportCode,
-        'toAirportCode': toAirportCode,
-        'departureTime': departureTime,
-        'arrivalTime': arrivalTime,
-        'duration': duration,
-        'basePrice': basePrice,
-        'isRoundTrip': isRoundTrip,
-        'outboundAssignments': outboundAssignments,
-        'returnAssignments': returnAssignments,
-        'outboundFlightId': outboundFlightId,
-        'outboundFlightClassId': outboundFlightClassId,
-        'segmentIndex': segmentIndex,
-        'bookingId': bookingId,
-        'bookingNumber': bookingNumber,
-        'bookingId2': bookingId2,
-        'bookingNumber2': bookingNumber2,
-        'expiresAt': expiresAt?.toIso8601String(),
-        'leg2FlightClassId': leg2FlightClassId,
-        'leg2FromCity': leg2FromCity,
-        'leg2ToCity': leg2ToCity,
-      };
-
-  static BaggageSelectionArguments? fromMap(Map<String, dynamic>? map) {
-    if (map == null) return null;
-    try {
-      DateTime parseDate(dynamic val) {
-        if (val is DateTime) return val;
-        return DateTime.parse(val as String);
-      }
-
-      List<Map<String, dynamic>> parseAssignments(dynamic raw) {
-        if (raw == null) return [];
-        return (raw as List)
-            .map((e) => Map<String, dynamic>.from(e as Map))
-            .toList();
-      }
-
-      return BaggageSelectionArguments(
-        fromCity: map['fromCity'] as String,
-        toCity: map['toCity'] as String,
-        departDate: parseDate(map['departDate']),
-        returnDate:
-            map['returnDate'] != null ? parseDate(map['returnDate']) : null,
-        passengers: Map<String, int>.from(map['passengers'] as Map),
-        passengerClassLabels:
-            Map<String, String>.from(map['passengerClassLabels'] as Map),
-        airlineName: map['airlineName'] as String,
-        airlineLogoUrl: map['airlineLogoUrl'] as String,
-        fromAirportCode: map['fromAirportCode'] as String,
-        toAirportCode: map['toAirportCode'] as String,
-        departureTime: map['departureTime'] as String,
-        arrivalTime: map['arrivalTime'] as String,
-        duration: map['duration'] as String,
-        basePrice: (map['basePrice'] as num).toDouble(),
-        isRoundTrip: map['isRoundTrip'] as bool,
-        outboundAssignments: parseAssignments(map['outboundAssignments']),
-        returnAssignments: parseAssignments(map['returnAssignments']),
-        outboundFlightId: (map['outboundFlightId'] as num).toInt(),
-        outboundFlightClassId: (map['outboundFlightClassId'] as num).toInt(),
-        segmentIndex: (map['segmentIndex'] as num?)?.toInt() ?? 0,
-        bookingId: map['bookingId'] as int?,
-        bookingNumber: map['bookingNumber'] as String?,
-        bookingId2: map['bookingId2'] as int?,
-        bookingNumber2: map['bookingNumber2'] as String?,
-        expiresAt: map['expiresAt'] != null
-            ? DateTime.parse(map['expiresAt'] as String)
-            : null,
-        leg2FlightClassId: map['leg2FlightClassId'] as int?,
-        leg2FromCity: map['leg2FromCity'] as String?,
-        leg2ToCity: map['leg2ToCity'] as String?,
-      );
-    } catch (e) {
-      debugPrint('BaggageSelectionArguments.fromMap error: $e');
-      return null;
-    }
-  }
-}
-
-class PaymentArguments {
-  final String fromCity;
-  final String toCity;
-  final DateTime departDate;
-  final DateTime? returnDate;
-  final Map<String, int> passengers;
-  final Map<String, String> passengerClassLabels;
-  final String airlineName;
-  final String airlineLogoUrl;
-  final String fromAirportCode;
-  final String toAirportCode;
-  final String departureTime;
-  final String arrivalTime;
-  final String duration;
-  final double basePrice;
-  final bool isRoundTrip;
-  final Map<int, Map<int, int>> baggageSelections;
-  final Map<int, Map<String, dynamic>> passengerData;
-  final double totalPrice;
-  final bool isMultiSegment;
-  final BookingGroupDraft? bookingGroupDraft;
-  final int? bookingId;
-  final String? bookingNumber;
-  final int? bookingId2;
-  final String? bookingNumber2;
-
-  PaymentArguments({
-    required this.fromCity,
-    required this.toCity,
-    required this.departDate,
-    this.returnDate,
-    required this.passengers,
-    required this.passengerClassLabels,
-    required this.airlineName,
-    required this.airlineLogoUrl,
-    required this.fromAirportCode,
-    required this.toAirportCode,
-    required this.departureTime,
-    required this.arrivalTime,
-    required this.duration,
-    required this.basePrice,
-    required this.isRoundTrip,
-    required this.baggageSelections,
-    required this.passengerData,
-    required this.totalPrice,
-    this.isMultiSegment = false,
-    this.bookingGroupDraft,
-    this.bookingId,
-    this.bookingNumber,
-    this.bookingId2,
-    this.bookingNumber2,
-  });
-}
-
-String buildSearchResultsUrl({
-  required int fromCityId,
-  required String fromCity,
-  required int toCityId,
-  required String toCity,
-  required DateTime departDate,
-  DateTime? returnDate,
-  required Map<String, int> passengers,
-}) {
-  return Uri(
-    path: '/search-results',
-    queryParameters: {
-      'fromId': fromCityId.toString(),
-      'from': fromCity,
-      'toId': toCityId.toString(),
-      'to': toCity,
-      'date': departDate.toIso8601String().substring(0, 10),
-      if (returnDate != null)
-        'returnDate': returnDate.toIso8601String().substring(0, 10),
-      'adults': (passengers['adults'] ?? 1).toString(),
-      'children': (passengers['children'] ?? 0).toString(),
-      'infants': (passengers['infants'] ?? 0).toString(),
-    },
-  ).toString();
-}
+export '../models/args/search_results_args.dart';
+export '../models/args/baggage_selection_args.dart';
+export '../models/args/payment_args.dart';
+export '../utils/url_helpers.dart';
 
 class AppRouter {
   static final GoRouter router = GoRouter(
@@ -398,7 +153,7 @@ class AppRouter {
           if (state.extra is BaggageSelectionArguments) {
             return _buildBaggagePage(state.extra as BaggageSelectionArguments);
           }
-          return _BaggageSelectionLoader();
+          return const BaggageSelectionLoader();
         },
       ),
 
@@ -454,9 +209,10 @@ class AppRouter {
             outboundAssignments: (extra['outboundAssignments'] as List<dynamic>)
                 .map((e) => Map<String, dynamic>.from(e as Map))
                 .toList(),
-            returnAssignments: ((extra['returnAssignments'] as List<dynamic>?) ?? [])
-                .map((e) => Map<String, dynamic>.from(e as Map))
-                .toList(),
+            returnAssignments:
+                ((extra['returnAssignments'] as List<dynamic>?) ?? [])
+                    .map((e) => Map<String, dynamic>.from(e as Map))
+                    .toList(),
             removedPassengerIndices: List<int>.from(
                 (extra['removedPassengerIndices'] as List?)
                         ?.map((e) => e as int) ??
@@ -464,13 +220,13 @@ class AppRouter {
             isMultiSegment: extra['isMultiSegment'] as bool? ?? false,
             bookingGroupDraft:
                 extra['bookingGroupDraft'] as BookingGroupDraft?,
-            bookingId: extra['bookingId'] as int?,          
-                bookingNumber: extra['bookingNumber'] as String?, 
-                bookingId2: extra['bookingId2'] as int?,         
-                bookingNumber2: extra['bookingNumber2'] as String?, 
-                expiresAt: extra['expiresAt'] != null            
-                    ? DateTime.parse(extra['expiresAt'] as String)
-                    : null,
+            bookingId: extra['bookingId'] as int?,
+            bookingNumber: extra['bookingNumber'] as String?,
+            bookingId2: extra['bookingId2'] as int?,
+            bookingNumber2: extra['bookingNumber2'] as String?,
+            expiresAt: extra['expiresAt'] != null
+                ? DateTime.parse(extra['expiresAt'] as String)
+                : null,
           );
         },
       ),
@@ -516,6 +272,11 @@ class AppRouter {
         path: '/planning/create-flight',
         builder: (context, state) => const CreateFlightPage(),
       ),
+
+      GoRoute(
+        path: '/planning/create-route',
+        builder: (context, state) => const CreateRoutePage(),
+      ),
     ],
   );
 
@@ -542,53 +303,14 @@ class AppRouter {
       bookingGroupDraft: args.bookingGroupDraft,
       segmentIndex: args.segmentIndex,
       initialPassengerData: args.initialPassengerData,
-      bookingId: args.bookingId,       
-      bookingNumber: args.bookingNumber,  
-      bookingId2: args.bookingId2,       
-      bookingNumber2: args.bookingNumber2, 
-      expiresAt: args.expiresAt, 
-      leg2FlightClassId: args.leg2FlightClassId, 
-      leg2FromCity: args.leg2FromCity,           
-      leg2ToCity: args.leg2ToCity, 
+      bookingId: args.bookingId,
+      bookingNumber: args.bookingNumber,
+      bookingId2: args.bookingId2,
+      bookingNumber2: args.bookingNumber2,
+      expiresAt: args.expiresAt,
+      leg2FlightClassId: args.leg2FlightClassId,
+      leg2FromCity: args.leg2FromCity,
+      leg2ToCity: args.leg2ToCity,
     );
-  }
-
-
-}
-
-class _BaggageSelectionLoader extends StatefulWidget {
-  @override
-  State<_BaggageSelectionLoader> createState() =>
-      _BaggageSelectionLoaderState();
-}
-
-class _BaggageSelectionLoaderState extends State<_BaggageSelectionLoader> {
-  BaggageSelectionArguments? _args;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    final map = await NavigationStorageService.loadBaggageArgs();
-    final args = BaggageSelectionArguments.fromMap(map);
-    if (!mounted) return;
-    if (args == null) {
-      context.go('/sales/bookings');
-    } else {
-      setState(() => _args = args);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_args == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-    return AppRouter._buildBaggagePage(_args!);
   }
 }

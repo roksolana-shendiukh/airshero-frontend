@@ -232,37 +232,31 @@ class _LoginPageState extends State<LoginPage> {
 
         const SizedBox(height: 14),
 
-        CustomInputField(
-          label:     'Password',
-          value:     _password,
-          icon:      Icons.lock_outline,
-          onChanged: (v) => setState(() => _password = v),
-          onIconTap: () => setState(() => _obscurePassword = !_obscurePassword),
-        ),
-
-        const SizedBox(height: 8),
-
-        Align(
+        // Stack накладає іконку ока поверх поля без зміни CustomInputField
+        Stack(
           alignment: Alignment.centerRight,
-          child: TextButton.icon(
-            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-            icon: Icon(
-              _obscurePassword
-                  ? Icons.visibility_outlined
-                  : Icons.visibility_off_outlined,
-              size: 15,
+          children: [
+            CustomInputField(
+              label:       'Password',
+              value:       _password,
+              icon:        Icons.lock_outline,
+              obscureText: _obscurePassword,
+              onChanged:   (v) => setState(() => _password = v),
             ),
-            label: Text(
-              _obscurePassword ? 'Show password' : 'Hide password',
-              style: const TextStyle(fontSize: 13),
+            Positioned(
+              right: 4,
+              child: IconButton(
+                icon: Icon(
+                  _obscurePassword
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
+                  size: 20,
+                  color: colors.onSurfaceVariant,
+                ),
+                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+              ),
             ),
-            style: TextButton.styleFrom(
-              foregroundColor: colors.onSurfaceVariant,
-              padding:       EdgeInsets.zero,
-              minimumSize:   Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-          ),
+          ],
         ),
 
         const SizedBox(height: 24),

@@ -7,7 +7,6 @@ import '../../services/flight_operation_api_service.dart';
 import '../custom/custom_button.dart';
 import 'airfleet_step.dart';
 import 'flight_step.dart';
-import 'gate_step.dart';
 
 class CreateFlightOperationForm extends StatefulWidget {
   final FlightOperationApiService apiService;
@@ -26,24 +25,22 @@ class CreateFlightOperationForm extends StatefulWidget {
       _CreateFlightOperationFormState();
 }
 
-class _CreateFlightOperationFormState
-    extends State<CreateFlightOperationForm> {
-  int _currentStep = 0;
-  static const int _totalSteps = 3;
-
-  bool _isLoadingData      = true;
+class _CreateFlightOperationFormState extends State<CreateFlightOperationForm> {
+  bool _isLoadingFlights = true;
   bool _isLoadingAirfleets = false;
-  bool _isLoadingGates     = false;
-  bool _isSubmitting       = false;
+  bool _isLoadingGates = false;
+  bool _isSubmitting = false;
+  bool _showAircraftList = false;
   String? _errorMessage;
+  String? _openTerminal;
 
-  List<FlightWithoutOperationModel> _flights   = [];
-  List<AirfleetModel>               _airfleets = [];
-  List<GateModel>                   _gates     = [];
+  List<FlightWithoutOperationModel> _flights = [];
+  List<AirfleetModel> _airfleets = [];
+  List<GateModel> _gates = [];
 
   FlightWithoutOperationModel? _selectedFlight;
-  AirfleetModel?               _selectedAirfleet;
-  GateModel?                   _selectedGate;
+  AirfleetModel? _selectedAirfleet;
+  GateModel? _selectedGate;
 
   @override
   void initState() {
@@ -52,62 +49,67 @@ class _CreateFlightOperationFormState
   }
 
   Future<void> _loadFlights() async {
-    setState(() => _isLoadingData = true);
+    setState(() => _isLoadingFlights = true);
     try {
       final flights = await widget.apiService.getFlightsWithoutOperation();
-      if (mounted) setState(() {
-        _flights       = flights;
-        _isLoadingData = false;
-      });
-    } catch (e) {
-      if (mounted) setState(() {
-        _errorMessage  = 'Failed to load flights';
-        _isLoadingData = false;
-      });
+      if (mounted) {
+        setState(() {
+          _flights = flights;
+          _isLoadingFlights = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Failed to load flights';
+          _isLoadingFlights = false;
+        });
+      }
     }
   }
 
-  Future<void> _loadAirfleets() async {
+  Future<void> _loadAirfleets(int flightId) async {
     setState(() => _isLoadingAirfleets = true);
-    final airfleets = await widget.apiService
-        .getAirfleets(flightId: _selectedFlight?.flightId);
-    if (mounted) setState(() {
-      _airfleets          = airfleets;
+    final airfleets = await widget.apiService.getAirfleets(flightId: flightId);
+    if (!mounted) return;
+    setState(() {
+      _airfleets = airfleets;
       _isLoadingAirfleets = false;
+      if (_selectedAirfleet == null && airfleets.isNotEmpty) {
+        _selectedAirfleet = airfleets.first;
+      }
     });
   }
 
-  Future<void> _loadGates() async {
+  Future<void> _loadGates(int flightId) async {
     setState(() => _isLoadingGates = true);
-    final gates = await widget.apiService
-        .getGates(flightId: _selectedFlight?.flightId);
-    if (mounted) setState(() {
-      _gates          = gates;
+    final gates = await widget.apiService.getGates(flightId: flightId);
+    if (!mounted) return;
+    setState(() {
+      _gates = gates;
       _isLoadingGates = false;
     });
   }
 
-  bool get _canGoNext {
-    switch (_currentStep) {
-      case 0: return _selectedFlight != null;
-      case 1: return _selectedAirfleet != null;
-      default: return false;
+  void _onFlightSelected(FlightWithoutOperationModel? flight) {
+    if (flight?.flightId == _selectedFlight?.flightId) return;
+    setState(() {
+      _selectedFlight = flight;
+      _selectedAirfleet = null;
+      _selectedGate = null;
+      _airfleets = [];
+      _gates = [];
+      _showAircraftList = false;
+      _openTerminal = null;
+    });
+    if (flight != null) {
+      _loadAirfleets(flight.flightId);
+      _loadGates(flight.flightId);
     }
   }
 
-  void _goNext() {
-    if (!_canGoNext) return;
-    if (_currentStep == 0) _loadAirfleets();
-    if (_currentStep == 1) _loadGates();
-    setState(() => _currentStep++);
-  }
-
-  void _goBack() {
-    if (_currentStep > 0) setState(() => _currentStep--);
-  }
-
   Future<void> _handleSubmit() async {
-    if (_selectedGate == null) return;
+    if (_selectedFlight == null || _selectedAirfleet == null || _selectedGate == null) return;
 
     setState(() {
       _isSubmitting = true;
@@ -115,9 +117,9 @@ class _CreateFlightOperationFormState
     });
 
     final dto = CreateFlightOperationDTO(
-      flightId:   _selectedFlight!.flightId,
-      airfleetId: _selectedAirfleet?.airfleetId,
-      gateId:     _selectedGate!.gateId,
+      flightId: _selectedFlight!.flightId,
+      airfleetId: _selectedAirfleet!.airfleetId,
+      gateId: _selectedGate!.gateId,
     );
 
     final result = await widget.apiService.createFlightOperation(dto);
@@ -127,330 +129,341 @@ class _CreateFlightOperationFormState
     if (result.success) {
       widget.onSuccess();
     } else {
-      setState(() =>
-          _errorMessage = result.error ?? 'Failed to create flight operation');
+      setState(() => _errorMessage = result.error ?? 'Failed to create flight operation');
     }
+  }
+
+  Map<String, List<GateModel>> get _groupedGates {
+    final map = <String, List<GateModel>>{};
+    for (final g in _gates) {
+      final key = g.terminalCode ?? '?';
+      map.putIfAbsent(key, () => []).add(g);
+    }
+    return map;
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 12, 0),
-              child: Row(
-                children: [
-                  Icon(Icons.flight_takeoff_outlined,
-                      color: colors.primary, size: 22),
-                  const SizedBox(width: 10),
-                  Text('New Flight Operation',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w600)),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: widget.onCancel,
-                  ),
-                ],
-              ),
-            ),
-
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-              child: _StepIndicator(
-                currentStep: _currentStep,
-                totalSteps:  _totalSteps,
-                labels: const ['Flight', 'Aircraft', 'Gate'],
-              ),
-            ),
-
-            const Divider(height: 28),
-
-            if (_isLoadingData)
-              const Padding(
-                padding: EdgeInsets.all(48),
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 250),
-                  transitionBuilder: (child, animation) => FadeTransition(
-                    opacity: animation,
-                    child: SlideTransition(
-                      position: Tween<Offset>(
-                        begin: const Offset(0.04, 0),
-                        end: Offset.zero,
-                      ).animate(animation),
-                      child: child,
-                    ),
-                  ),
-                  child: KeyedSubtree(
-                    key: ValueKey(_currentStep),
-                    child: _buildStep(context, colors),
-                  ),
-                ),
-              ),
-
-            if (_errorMessage != null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: colors.errorContainer,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.error_outline,
-                          color: colors.onErrorContainer, size: 16),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(_errorMessage!,
-                            style: TextStyle(
-                                color: colors.onErrorContainer,
-                                fontSize: 13)),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
-              child: Row(
-                children: [
-                  if (_currentStep > 0)
-                    TextButton.icon(
-                      onPressed: _goBack,
-                      icon: const Icon(Icons.arrow_back, size: 16),
-                      label: const Text('Back'),
-                    ),
-                  const Spacer(),
-                  if (_currentStep < _totalSteps - 1)
-                    SizedBox(
-                      width: 120,
-                      child: CustomButton(
-                        label: 'Next',
-                        onPressed: _canGoNext ? _goNext : null,
-                      ),
-                    )
-                  else
-                    SizedBox(
-                      width: 140,
-                      child: CustomButton(
-                        label: _isSubmitting ? 'Creating...' : 'Create',
-                        verticalPadding: 14,
-                        onPressed: (_isSubmitting ||
-                                _isLoadingGates ||
-                                _selectedGate == null)
-                            ? null
-                            : _handleSubmit,
-                      ),
-                    ),
-                ],
-              ),
-            ),
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        constraints: const BoxConstraints(
+          maxWidth: 1200,
+          maxHeight: 1050, 
+        ),
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.15),
+              blurRadius: 30,
+              offset: const Offset(0, 12),
+            )
           ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Column(
+            children: [
+              _buildHeader(colors),
+              Expanded(
+                child: _buildBody(colors),
+              ),
+              if (_errorMessage != null) _buildError(colors),
+              _buildFooter(colors),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildStep(BuildContext context, ColorScheme colors) {
-    switch (_currentStep) {
-      case 0:
-        return _StepContent(
-          title:    'Select Flight',
-          subtitle: 'Choose a flight without an assigned operation',
-          child: FlightStep(
-            flights:  _flights,
-            selected: _selectedFlight,
-            onChanged: (f) => setState(() {
-              _selectedFlight   = f;
-              _selectedAirfleet = null;
-              _selectedGate     = null;
-            }),
+  Widget _buildHeader(ColorScheme colors) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        border: Border(bottom: BorderSide(color: colors.outlineVariant.withOpacity(0.4))),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.flight_takeoff_rounded, color: colors.primary, size: 22),
+          const SizedBox(width: 12),
+          const Text(
+            'Create Flight Operation',
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
           ),
-        );
-
-      case 1:
-        return _StepContent(
-          title:    'Assign Aircraft',
-          subtitle: 'Select the aircraft for this route',
-          child: _isLoadingAirfleets
-              ? const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 40),
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              : AirfleetStep(
-                  airfleets:  _airfleets,
-                  selected:   _selectedAirfleet,
-                  apiService: widget.apiService,
-                  onChanged: (a) => setState(() {
-                    _selectedAirfleet = a;
-                    _selectedGate     = null;
-                  }),
-                ),
-        );
-
-      case 2:
-        return _StepContent(
-          title:    'Assign Gate',
-          subtitle: 'Select the departure gate',
-          child: GateStep(
-            gates:     _gates,
-            selected:  _selectedGate,
-            isLoading: _isLoadingGates,
-            onChanged: (g) => setState(() => _selectedGate = g),
+          const Spacer(),
+          IconButton(
+            onPressed: widget.onCancel,
+            icon: const Icon(Icons.close_rounded, size: 22),
           ),
-        );
-
-      default:
-        return const SizedBox.shrink();
-    }
+        ],
+      ),
+    );
   }
-}
 
-
-// ── Step Indicator ─────────────────────────────────────────────────────────────
-
-class _StepIndicator extends StatelessWidget {
-  final int currentStep;
-  final int totalSteps;
-  final List<String> labels;
-
-  const _StepIndicator({
-    required this.currentStep,
-    required this.totalSteps,
-    required this.labels,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+  Widget _buildBody(ColorScheme colors) {
     return Row(
-      children: List.generate(totalSteps, (i) {
-        final isDone   = i < currentStep;
-        final isActive = i == currentStep;
-        return Expanded(
-          child: Column(
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                height: 3,
-                decoration: BoxDecoration(
-                  color: isDone || isActive
-                      ? colors.primary
-                      : colors.outlineVariant,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 250),
-                    width: 20,
-                    height: 20,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: isDone
-                          ? colors.primary
-                          : isActive
-                              ? colors.primaryContainer
-                              : colors.surfaceContainerHighest,
-                      border: Border.all(
-                        color: isDone || isActive
-                            ? colors.primary
-                            : colors.outline,
-                        width: 1.5,
-                      ),
-                    ),
-                    child: Center(
-                      child: isDone
-                          ? Icon(Icons.check,
-                              size: 12, color: colors.onPrimary)
-                          : Text('${i + 1}',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                color: isActive
-                                    ? colors.primary
-                                    : colors.onSurfaceVariant,
-                              )),
-                    ),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          flex: 46,
+          child: Container(
+            color: colors.surfaceContainerLowest.withOpacity(0.3),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: _isLoadingFlights
+                ? const Center(child: CircularProgressIndicator())
+                : FlightStep(
+                    flights: _flights,
+                    selected: _selectedFlight,
+                    onChanged: _onFlightSelected,
                   ),
-                  const SizedBox(width: 4),
-                  Text(labels[i],
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: isDone || isActive
-                                ? colors.primary
-                                : colors.onSurfaceVariant,
-                            fontWeight: isActive
-                                ? FontWeight.w600
-                                : FontWeight.normal,
-                          )),
-                ],
-              ),
-            ],
           ),
-        );
-      }),
+        ),
+        VerticalDivider(width: 1, thickness: 1, color: colors.outlineVariant.withOpacity(0.4)),
+        Expanded(
+          flex: 54,
+          child: _selectedFlight == null
+              ? _buildPlaceholder(colors)
+              : AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 250),
+                  child: _showAircraftList
+                      ? _buildAircraftListMode(colors)
+                      : _buildDetailsMode(colors),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAircraftListMode(ColorScheme colors) {
+    return Column(
+      key: const ValueKey('ListMode'),
+      children: [
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: AirfleetStep(
+              airfleets: _airfleets,
+              selected: _selectedAirfleet,
+              apiService: widget.apiService,
+              onChanged: (a) => setState(() {
+                _selectedAirfleet = a;
+                _showAircraftList = false;
+              }),
+            ),
+          ),
+        ),
+        _buildModeFooter('Back to details', Icons.arrow_back_rounded, () {
+          setState(() => _showAircraftList = false);
+        }, colors),
+      ],
+    );
+  }
+
+  Widget _buildDetailsMode(ColorScheme colors) {
+    return ListView(
+      key: const ValueKey('DetailsMode'),
+      padding: const EdgeInsets.all(28),
+      children: [
+        _buildAircraftSection(colors),
+        const SizedBox(height: 28),
+        _buildGateSection(colors),
+      ],
+    );
+  }
+
+  Widget _buildAircraftSection(ColorScheme colors) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('AIRCRAFT', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1.1)),
+            if (_airfleets.length > 1)
+              TextButton(
+                onPressed: () => setState(() => _showAircraftList = true),
+                child: const Text('Change', style: TextStyle(fontSize: 13)),
+              ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        if (_isLoadingAirfleets)
+          const LinearProgressIndicator()
+        else if (_selectedAirfleet != null)
+          _SelectedAircraftCard(
+            airfleet: _selectedAirfleet!,
+            colors: colors,
+          ),
+      ],
+    );
+  }
+
+  Widget _buildGateSection(ColorScheme colors) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('GATE SELECTION', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1.1)),
+        const SizedBox(height: 14),
+        if (_isLoadingGates)
+          const Center(child: Padding(padding: EdgeInsets.all(25), child: CircularProgressIndicator()))
+        else if (_gates.isEmpty)
+          const Text('No gates available', style: TextStyle(fontSize: 14))
+        else
+          ..._groupedGates.entries.map((e) => _buildTerminalGroup(e.key, e.value, colors)),
+      ],
+    );
+  }
+
+  Widget _buildTerminalGroup(String terminal, List<GateModel> gates, ColorScheme colors) {
+    final isExpanded = _openTerminal == terminal;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: colors.outlineVariant.withOpacity(0.6)),
+      ),
+      child: Column(
+        children: [
+          ListTile(
+            dense: true,
+            title: Text('Terminal $terminal', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            trailing: Icon(isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded, size: 20),
+            onTap: () => setState(() => _openTerminal = isExpanded ? null : terminal),
+          ),
+          if (isExpanded)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: gates.map((gate) => ChoiceChip(
+                  label: Text(gate.gateCode, style: const TextStyle(fontSize: 12)),
+                  selected: _selectedGate?.gateId == gate.gateId,
+                  onSelected: gate.isAvailable ? (val) => setState(() => _selectedGate = val ? gate : null) : null,
+                  showCheckmark: false,
+                  selectedColor: colors.primaryContainer,
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                )).toList(),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlaceholder(ColorScheme colors) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.airplane_ticket_outlined, size: 56, color: colors.outline.withOpacity(0.15)),
+          const SizedBox(height: 12),
+          Text('Select a flight to continue', style: TextStyle(color: colors.onSurfaceVariant, fontSize: 14)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFooter(ColorScheme colors) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        border: Border(top: BorderSide(color: colors.outlineVariant.withOpacity(0.4))),
+      ),
+      child: Row(
+        children: [
+          const Spacer(),
+          TextButton(
+            onPressed: widget.onCancel,
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            ),
+            child: const Text('Cancel', style: TextStyle(fontSize: 14)),
+          ),
+          const SizedBox(width: 14),
+          SizedBox(
+            width: 210,
+            height: 44, 
+            child: CustomButton(
+              label: _isSubmitting ? 'Processing...' : 'Create Operation',
+              onPressed: (_selectedFlight != null && _selectedAirfleet != null && _selectedGate != null && !_isSubmitting)
+                  ? _handleSubmit : null,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildModeFooter(String label, IconData icon, VoidCallback onTap, ColorScheme colors) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: TextButton.icon(
+        onPressed: onTap, 
+        icon: Icon(icon, size: 16), 
+        label: Text(label, style: const TextStyle(fontSize: 13))
+      ),
+    );
+  }
+
+  Widget _buildError(ColorScheme colors) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colors.errorContainer.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: colors.error.withOpacity(0.1)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.error_outline_rounded, color: colors.error, size: 18),
+          const SizedBox(width: 10),
+          Expanded(child: Text(_errorMessage!, style: TextStyle(color: colors.onErrorContainer, fontSize: 12))),
+        ],
+      ),
     );
   }
 }
 
+class _SelectedAircraftCard extends StatelessWidget {
+  final AirfleetModel airfleet;
+  final ColorScheme colors;
 
-// ── Step Content ───────────────────────────────────────────────────────────────
-
-class _StepContent extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final Widget child;
-
-  const _StepContent({
-    required this.title,
-    required this.subtitle,
-    required this.child,
-  });
+  const _SelectedAircraftCard({required this.airfleet, required this.colors});
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colors.primary.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: colors.primary.withOpacity(0.2), width: 1),
+      ),
+      child: Row(
         children: [
-          Text(title,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleSmall
-                  ?.copyWith(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
-          Text(subtitle,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colors.onSurfaceVariant,
-                  )),
-          const SizedBox(height: 16),
-          child,
+          Icon(Icons.airplanemode_active_rounded, color: colors.primary, size: 20),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(airfleet.aircraftModel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                if (airfleet.manufacturerName != null)
+                  Text(airfleet.manufacturerName!, style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12)),
+              ],
+            ),
+          ),
+          Icon(Icons.check_circle_rounded, color: colors.primary, size: 22),
         ],
       ),
     );

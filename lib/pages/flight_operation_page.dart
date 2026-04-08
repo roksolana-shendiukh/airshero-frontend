@@ -82,9 +82,9 @@ class _FlightOperationPageState extends State<FlightOperationPage> {
       barrierColor: Colors.black.withValues(alpha: 0.4),
       builder: (ctx) => Dialog(
         backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.all(24),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560),
+          constraints: const BoxConstraints(maxWidth: 780),
           child: CreateFlightOperationForm(
             apiService: _apiService,
             onSuccess: () async {
