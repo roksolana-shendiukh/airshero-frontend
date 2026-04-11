@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../services/auth_service.dart';
 import '../../services/checkin_api_service.dart';
+import '../../widgets/custom/custom_button.dart';
 
 class CheckInFlightSelectModal extends StatefulWidget {
   final AuthService authService;
@@ -144,37 +145,39 @@ class _CheckInFlightSelectModalState extends State<CheckInFlightSelectModal> {
   }
 
   Widget _buildFlightCard(Map<String, dynamic> flight) {
-    final colors       = Theme.of(context).colorScheme;
-    final status       = flight['status']       as String?;
-    final flightNumber = flight['flightNumber'] as String? ?? '—';
-    final gate         = flight['gateCode']     as String? ?? '—';
-    final departs      = flight['departsDatetime'] as String?;
-    final arrives      = flight['arrivesDatetime'] as String?;
-    final depAirport   = flight['departsAirport']  as String? ?? '—';
-    final arrAirport   = flight['arrivesAirport']  as String? ?? '—';
-    final arrName      = flight['arrivesAirportName'] as String? ?? '—';
+    final colors        = Theme.of(context).colorScheme;
+    final status        = flight['status']            as String?;
+    final flightNumber  = flight['flightNumber']      as String? ?? '—';
+    final gate          = flight['gateCode']          as String? ?? '—';
+    final departs       = flight['departsDatetime']   as String?;
+    final arrives       = flight['arrivesDatetime']   as String?;
+    final depAirport    = flight['departsAirport']    as String? ?? '—';
+    final arrAirport    = flight['arrivesAirport']    as String? ?? '—';
+    final arrName       = flight['arrivesAirportName'] as String? ?? '—';
     final boardingStart = flight['boardingStartTime'] as String?;
     final boardingEnd   = flight['boardingEndTime']   as String?;
 
     return Material(
-      color: colors.surfaceContainerHighest,
+      color:        colors.surfaceContainerHighest,
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
-        onTap: () => widget.onFlightSelected(flight),
+        onTap: boardingStart != null
+            ? () => widget.onFlightSelected(flight)
+            : null,
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-
               Row(
                 children: [
                   Text(
                     flightNumber,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleSmall
+                        ?.copyWith(fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(width: 8),
                   Container(
@@ -230,13 +233,12 @@ class _CheckInFlightSelectModalState extends State<CheckInFlightSelectModal> {
                       Text(
                         _formatDate(departs),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: colors.onSurfaceVariant,
+                              color:    colors.onSurfaceVariant,
                               fontSize: 11,
                             ),
                       ),
                     ],
                   ),
-
                   Expanded(
                     child: Row(
                       children: [
@@ -247,7 +249,8 @@ class _CheckInFlightSelectModalState extends State<CheckInFlightSelectModal> {
                           ),
                         ),
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 8),
                           child: Icon(Icons.flight,
                               size: 16, color: colors.onSurfaceVariant),
                         ),
@@ -260,7 +263,6 @@ class _CheckInFlightSelectModalState extends State<CheckInFlightSelectModal> {
                       ],
                     ),
                   ),
-
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
@@ -280,7 +282,7 @@ class _CheckInFlightSelectModalState extends State<CheckInFlightSelectModal> {
                       Text(
                         arrName,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: colors.onSurfaceVariant,
+                              color:    colors.onSurfaceVariant,
                               fontSize: 11,
                             ),
                         overflow: TextOverflow.ellipsis,
@@ -290,7 +292,6 @@ class _CheckInFlightSelectModalState extends State<CheckInFlightSelectModal> {
                 ],
               ),
 
-              // ── Boarding time ────────────────────────────────
               if (boardingStart != null && boardingEnd != null) ...[
                 const SizedBox(height: 10),
                 Row(
@@ -308,6 +309,46 @@ class _CheckInFlightSelectModalState extends State<CheckInFlightSelectModal> {
                   ],
                 ),
               ],
+
+              const SizedBox(height: 10),
+
+             if (boardingStart == null)
+              Align(
+                alignment: Alignment.centerRight,
+                child: CustomButton(
+                  label:             'Start Boarding',
+                  icon:              Icons.play_arrow_rounded,
+                  isIconAfterLabel:  false,
+                  verticalPadding:   8,
+                  horizontalPadding: 14,
+                  onPressed: () async {
+                    final api = CheckInApiService(widget.authService);
+                    final ok  = await api.startBoarding(
+                        flight['flightOperationId'] as int);
+                    if (ok && mounted) {
+                      widget.onFlightSelected(flight);
+                    }
+                  },
+                ),
+              )
+            else if (boardingEnd == null)
+              Align(
+                alignment: Alignment.centerRight,
+                child: CustomButton(
+                  label:             'End Boarding',
+                  icon:              Icons.stop_rounded,
+                  isIconAfterLabel:  false,
+                  verticalPadding:   8,
+                  horizontalPadding: 14,
+                  backgroundColor:   Colors.orange,
+                  onPressed: () async {
+                    final api = CheckInApiService(widget.authService);
+                    await api.endBoarding(
+                        flight['flightOperationId'] as int);
+                    if (mounted) _loadFlights();
+                  },
+                ),
+              ),
             ],
           ),
         ),

@@ -7,12 +7,14 @@ class CheckInConfirmPassengerStep extends StatelessWidget {
   final Map<String, dynamic> bookingData;
   final AuthService          authService;
   final VoidCallback         onConfirm;
+  final int                  flightOperationId;
 
   const CheckInConfirmPassengerStep({
     super.key,
     required this.bookingData,
     required this.authService,
     required this.onConfirm,
+    required this.flightOperationId,
   });
 
   @override
@@ -147,7 +149,7 @@ class CheckInConfirmPassengerStep extends StatelessWidget {
               label:     'Confirm and select seat',
               onPressed: () async {
                 final api    = CheckInApiService(authService);
-                final result = await api.checkAlreadyCheckedIn(bookingItemId);
+                final result = await api.checkAlreadyCheckedIn(bookingItemId, flightOperationId);
 
                 if (!context.mounted) return;
 
@@ -184,6 +186,7 @@ class CheckInConfirmPassengerStep extends StatelessWidget {
               },
             ),
           ),
+        
         ],
       ),
     );

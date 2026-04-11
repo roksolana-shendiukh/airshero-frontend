@@ -161,7 +161,7 @@ class _TimelinePanelState extends State<TimelinePanel>
 
   bool get _canStartBaggage =>
       !_isTerminated &&
-      _op.boardingStartTime != null &&
+      _op.boardingEndTime != null && 
       _op.baggageLoadingStartTime == null;
 
   bool get _canEndBoarding =>
@@ -194,7 +194,6 @@ class _TimelinePanelState extends State<TimelinePanel>
     if (t == null) return null;
     try {
       final parts = t.split(':');
-      debugPrint('[_parseTime] input=$t parts=$parts');
       final now = DateTime.now();
       return DateTime(
         now.year, now.month, now.day,
@@ -292,6 +291,8 @@ class _TimelinePanelState extends State<TimelinePanel>
               ),
             ),
 
+            
+
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
@@ -304,8 +305,8 @@ class _TimelinePanelState extends State<TimelinePanel>
                       endTime:   _op.boardingEndTime,
                       startStep: 'boarding-start',
                       endStep:   'boarding-end',
-                      canStart:  _canStartBoarding,
-                      canEnd:    _canEndBoarding,
+                      canStart:  false,
+                      canEnd:    false,
                       isLast:    false,
                     ),
                     _buildStep(

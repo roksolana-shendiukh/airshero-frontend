@@ -1,94 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'schedule_date_picker.dart';
-import 'planning_time_picker.dart';
+import '../../../widgets/planning/schedule_date_picker.dart';
+import '../../../widgets/planning/planning_time_picker.dart';
 import '../../../widgets/custom/custom_input_field.dart';
-
-
-class _DateFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue old,
-    TextEditingValue next,
-  ) {
-    final raw = next.text.replaceAll(RegExp(r'[^\d]'), '');
-    if (raw.isEmpty) return next.copyWith(text: '');
-
-    final buf = StringBuffer();
-
-    for (int i = 0; i < raw.length && i < 8; i++) {
-      final digit = int.parse(raw[i]);
-
-      if (i == 0) {
-        if (digit > 3) return old;
-        buf.write(raw[i]);
-      } else if (i == 1) {
-        final day = int.parse(raw[0]) * 10 + digit;
-        if (day < 1 || day > 31) return old;
-        buf.write(raw[i]);
-        buf.write('.');
-      } else if (i == 2) {
-        if (digit > 1) return old;
-        buf.write(raw[i]);
-      } else if (i == 3) {
-        final month = int.parse(raw[2]) * 10 + digit;
-        if (month < 1 || month > 12) return old;
-        buf.write(raw[i]);
-        buf.write('.');
-      } else {
-        buf.write(raw[i]);
-      }
-    }
-
-    final text = buf.toString();
-    return next.copyWith(
-      text: text,
-      selection: TextSelection.collapsed(offset: text.length),
-    );
-  }
-}
-
-// ─── Time formatter ───────────────────────────────────────────────
-
-class _TimeFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue old,
-    TextEditingValue next,
-  ) {
-    final raw = next.text.replaceAll(RegExp(r'[^\d]'), '');
-    if (raw.isEmpty) return next.copyWith(text: '');
-
-    final buf = StringBuffer();
-
-    for (int i = 0; i < raw.length && i < 4; i++) {
-      final digit = int.parse(raw[i]);
-
-      if (i == 0) {
-        if (digit > 2) return old;
-        buf.write(raw[i]);
-      } else if (i == 1) {
-        final hour = int.parse(raw[0]) * 10 + digit;
-        if (hour > 23) return old;
-        buf.write(raw[i]);
-        buf.write(':');
-      } else if (i == 2) {
-        if (digit > 5) return old;
-        buf.write(raw[i]);
-      } else {
-        buf.write(raw[i]);
-      }
-    }
-
-    final text = buf.toString();
-    return next.copyWith(
-      text: text,
-      selection: TextSelection.collapsed(offset: text.length),
-    );
-  }
-}
-
-// ─── Step2Schedule ────────────────────────────────────────────────
 
 class Step2Schedule extends StatefulWidget {
   final List<Map<String, dynamic>> scheduleGroups;
@@ -160,39 +74,6 @@ class _Step2ScheduleState extends State<Step2Schedule> {
           .toList(),
       flightStartDate: _startDate,
       flightEndDate: _endDate,
-    );
-  }
-
-  Future<void> _pickDate({required bool isStart}) async {
-    final minDate =
-        isStart ? DateTime.now() : (_startDate ?? DateTime.now());
-    final initial = isStart ? _startDate : _endDate;
-
-    await showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12)),
-        child: ScheduleDatePicker(
-          selectedDate: initial,
-          minDate: minDate,
-          onDateSelected: (picked) {
-            Navigator.of(context).pop();
-            setState(() {
-              if (isStart) {
-                _startDate = picked;
-                if (_endDate != null &&
-                    _endDate!.isBefore(picked)) {
-                  _endDate = null;
-                }
-              } else {
-                _endDate = picked;
-              }
-            });
-            _notify();
-          },
-        ),
-      ),
     );
   }
 
@@ -300,6 +181,7 @@ class _Step2ScheduleState extends State<Step2Schedule> {
 
   Widget _buildDateRow() {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
           child: _DateInputField(
@@ -315,14 +197,14 @@ class _Step2ScheduleState extends State<Step2Schedule> {
               });
               _notify();
             },
-            onPickerTap: () => _pickDate(isStart: true),
           ),
         ),
-        const SizedBox(width: 12),
-        Icon(Icons.arrow_forward,
-            size: 16,
-            color: Theme.of(context).colorScheme.onSurfaceVariant),
-        const SizedBox(width: 12),
+        Padding(
+          padding: const EdgeInsets.only(top: 18, left: 12, right: 12),
+          child: Icon(Icons.arrow_forward,
+              size: 16,
+              color: Theme.of(context).colorScheme.onSurfaceVariant),
+        ),
         Expanded(
           child: _DateInputField(
             label: 'End date',
@@ -332,8 +214,6 @@ class _Step2ScheduleState extends State<Step2Schedule> {
               setState(() => _endDate = d);
               _notify();
             },
-            onPickerTap:
-                _startDate != null ? () => _pickDate(isStart: false) : null,
           ),
         ),
       ],
@@ -355,8 +235,7 @@ class _Step2ScheduleState extends State<Step2Schedule> {
           const SizedBox(width: 10),
           Text(
             'Estimated flights to generate: ',
-            style:
-                TextStyle(fontSize: 13, color: colors.onSurfaceVariant),
+            style: TextStyle(fontSize: 13, color: colors.onSurfaceVariant),
           ),
           Text(
             '$count',
@@ -386,21 +265,19 @@ class _ScheduleGroup {
   }) : dayIds = dayIds ?? {};
 }
 
-// ─── Date input field ─────────────────────────────────────────────
+// ─── Date input field (overlay) ───────────────────────────────────
 
 class _DateInputField extends StatefulWidget {
   final String label;
   final DateTime? date;
   final DateTime minDate;
   final ValueChanged<DateTime> onDateChanged;
-  final VoidCallback? onPickerTap;
 
   const _DateInputField({
     required this.label,
     required this.date,
     required this.minDate,
     required this.onDateChanged,
-    required this.onPickerTap,
   });
 
   @override
@@ -408,78 +285,79 @@ class _DateInputField extends StatefulWidget {
 }
 
 class _DateInputFieldState extends State<_DateInputField> {
-  late final TextEditingController _ctrl;
+  final LayerLink _layerLink = LayerLink();
+  OverlayEntry? _overlay;
+  bool _isOpen = false;
 
   static String _fmt(DateTime d) =>
       '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}';
 
-  DateTime? _parse(String s) {
-    if (s.length != 10) return null;
-    final parts = s.split('.');
-    if (parts.length != 3) return null;
-    final d = int.tryParse(parts[0]);
-    final m = int.tryParse(parts[1]);
-    final y = int.tryParse(parts[2]);
-    if (d == null || m == null || y == null) return null;
-    if (m < 1 || m > 12 || d < 1 || d > 31 || y < 2000) return null;
-    try {
-      final date = DateTime(y, m, d);
-      final min = DateTime(widget.minDate.year, widget.minDate.month,
-          widget.minDate.day);
-      if (!date.isBefore(min)) return date;
-    } catch (_) {}
-    return null;
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = TextEditingController(
-        text: widget.date != null ? _fmt(widget.date!) : '');
-  }
-
-  @override
-  void didUpdateWidget(_DateInputField old) {
-    super.didUpdateWidget(old);
-    if (widget.date != old.date) {
-      final newText =
-          widget.date != null ? _fmt(widget.date!) : '';
-      if (_ctrl.text != newText) {
-        _ctrl.text = newText;
-        _ctrl.selection =
-            TextSelection.collapsed(offset: newText.length);
-      }
+  void _openOverlay() {
+    if (_isOpen) {
+      _closeOverlay();
+      return;
     }
+
+    _isOpen = true;
+    _overlay = OverlayEntry(
+      builder: (context) => CompositedTransformFollower(
+        link: _layerLink,
+        showWhenUnlinked: false,
+        targetAnchor: Alignment.bottomLeft,
+        followerAnchor: Alignment.topLeft,
+        offset: const Offset(0, 4),
+        child: Align(
+          alignment: Alignment.topLeft,
+          child: TapRegion(
+            onTapOutside: (_) => _closeOverlay(),
+            child: Material(
+              elevation: 4,
+              borderRadius: BorderRadius.circular(12),
+              child: ScheduleDatePicker(
+                selectedDate: widget.date,
+                minDate: widget.minDate,
+                onDateSelected: (picked) {
+                  _closeOverlay();
+                  widget.onDateChanged(picked);
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    Overlay.of(context).insert(_overlay!);
+  }
+
+  void _closeOverlay() {
+    _overlay?.remove();
+    _overlay = null;
+    if (mounted) setState(() => _isOpen = false);
   }
 
   @override
   void dispose() {
-    _ctrl.dispose();
+    _overlay?.remove();
+    _overlay = null;
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return CustomInputField(
-      label: widget.label,
-      value: _ctrl.text,
-      icon: Icons.calendar_today_outlined,
-      focusHint: 'DD.MM.YYYY',
-      onIconTap: widget.onPickerTap,
-      keyboardType: TextInputType.number,
-      inputFormatters: [
-        FilteringTextInputFormatter.digitsOnly,
-        _DateFormatter(),
-      ],
-      onChanged: (v) {
-        final parsed = _parse(v);
-        if (parsed != null) widget.onDateChanged(parsed);
-      },
+    return CompositedTransformTarget(
+      link: _layerLink,
+      child: CustomInputField(
+        label: widget.label,
+        value: widget.date != null ? _fmt(widget.date!) : '',
+        icon: Icons.calendar_today_outlined,
+        readOnly: true,
+        onTap: _openOverlay,
+        onIconTap: _openOverlay,
+      ),
     );
   }
 }
-
-// ─── Time input field ─────────────────────────────────────────────
 
 class _TimeInputField extends StatefulWidget {
   final String label;
@@ -497,77 +375,96 @@ class _TimeInputField extends StatefulWidget {
 }
 
 class _TimeInputFieldState extends State<_TimeInputField> {
-  late final TextEditingController _ctrl;
+  final LayerLink _layerLink = LayerLink();
+  OverlayEntry? _overlay;
+  bool _isOpen = false;
 
-  static bool _isValid(String s) {
-    if (s.length != 5) return false;
-    final parts = s.split(':');
-    if (parts.length != 2) return false;
-    final h = int.tryParse(parts[0]);
-    final m = int.tryParse(parts[1]);
-    if (h == null || m == null) return false;
-    return h >= 0 && h <= 23 && m >= 0 && m <= 59;
-  }
+  String _displayValue = '';
 
   @override
   void initState() {
     super.initState();
-    _ctrl = TextEditingController(text: widget.value);
+    _displayValue = widget.value;
   }
 
-  @override
-  void didUpdateWidget(_TimeInputField old) {
-    super.didUpdateWidget(old);
-    if (widget.value != old.value && _ctrl.text != widget.value) {
-      _ctrl.text = widget.value;
-      _ctrl.selection =
-          TextSelection.collapsed(offset: widget.value.length);
+  void _toggle() => _isOpen ? _close() : _open();
+
+  void _open() {
+    if (!mounted) return;
+    setState(() => _isOpen = true);
+    _insertOverlay();
+  }
+
+  void _insertOverlay() {
+    _overlay?.remove();
+    _overlay = OverlayEntry(
+      builder: (ctx) => CompositedTransformFollower(
+        link: _layerLink,
+        showWhenUnlinked: false,
+        targetAnchor: Alignment.bottomLeft,
+        followerAnchor: Alignment.topLeft,
+        offset: const Offset(0, 4),
+        child: Align(
+          alignment: Alignment.topLeft,
+          child: TapRegion(
+            onTapOutside: (_) => _close(),
+            child: Material(
+              elevation: 4,
+              borderRadius: BorderRadius.circular(12),
+              child: SizedBox(
+                width: 200,
+                child: PlanningTimePickerOverlay(
+                  initialTime: _displayValue.isNotEmpty
+                      ? _displayValue
+                      : '00:00',
+                  onTimeSelected: _handleTimeSelected,
+                  onClose: _close,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    Overlay.of(context).insert(_overlay!);
+  }
+
+  void _handleTimeSelected(String v) {
+    widget.onChanged(v); 
+    if (mounted && _displayValue != v) {
+      setState(() => _displayValue = v); 
     }
+  }
+
+  void _close() {
+    _overlay?.remove();
+    _overlay = null;
+    if (mounted) setState(() => _isOpen = false);
   }
 
   @override
   void dispose() {
-    _ctrl.dispose();
+    _overlay?.remove();
+    _overlay = null;
     super.dispose();
-  }
-
-  Future<void> _pick() async {
-    final initial =
-        _isValid(widget.value) ? widget.value : '00:00';
-    final result = await showPlanningTimePicker(
-      context: context,
-      initialTime: initial,
-    );
-    if (result != null) {
-      _ctrl.text = result;
-      _ctrl.selection =
-          TextSelection.collapsed(offset: result.length);
-      widget.onChanged(result);
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return CustomInputField(
-      label: widget.label,
-      value: _ctrl.text,
-      icon: Icons.access_time_outlined,
-      focusHint: 'HH:MM',
-      onIconTap: _pick,
-      keyboardType: TextInputType.number,
-      inputFormatters: [
-        FilteringTextInputFormatter.digitsOnly,
-        _TimeFormatter(),
-      ],
-      onChanged: (v) {
-        if (_isValid(v)) widget.onChanged(v);
-      },
+    return CompositedTransformTarget(
+      link: _layerLink,
+      child: CustomInputField(
+        label: widget.label,
+        value: _displayValue,
+        icon: Icons.access_time_outlined,
+        readOnly: true,
+        isSelected: _isOpen,
+        onTap: _toggle,
+        onIconTap: _toggle,
+      ),
     );
   }
 }
-
-// ─── Group card ───────────────────────────────────────────────────
-
 class _GroupCard extends StatelessWidget {
   final _ScheduleGroup group;
   final int index;
@@ -596,8 +493,7 @@ class _GroupCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: colors.surfaceContainerHighest.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(10),
-        border:
-            Border.all(color: colors.outline.withValues(alpha: 0.2)),
+        border: Border.all(color: colors.outline.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -690,7 +586,9 @@ class _GroupCard extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // ✅ Виправлення 3: прибрано зайві TapRegion навколо _TimeInputField
               Expanded(
                 child: _TimeInputField(
                   label: 'Departure',
@@ -701,10 +599,11 @@ class _GroupCard extends StatelessWidget {
                   },
                 ),
               ),
-              const SizedBox(width: 12),
-              Icon(Icons.arrow_forward,
-                  size: 16, color: colors.onSurfaceVariant),
-              const SizedBox(width: 12),
+              Padding(
+                padding: const EdgeInsets.only(top: 18, left: 12, right: 12),
+                child: Icon(Icons.arrow_forward,
+                    size: 16, color: colors.onSurfaceVariant),
+              ),
               Expanded(
                 child: _TimeInputField(
                   label: 'Arrival',

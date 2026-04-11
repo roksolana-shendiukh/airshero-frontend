@@ -23,8 +23,12 @@ enum CheckInStep {
 
 class CheckInPage extends StatefulWidget {
   final AuthService authService;
+  final Map<String, dynamic>? preselectedFlight;
 
-  const CheckInPage({super.key, required this.authService});
+  const CheckInPage({
+    super.key, 
+    required this.authService,
+    this.preselectedFlight,});
 
   @override
   State<CheckInPage> createState() => _CheckInPageState();
@@ -57,7 +61,13 @@ class _CheckInPageState extends State<CheckInPage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _showFlightModal());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.preselectedFlight != null) {
+        _handleFlightSelected(widget.preselectedFlight!);
+      } else {
+        _showFlightModal();
+      }
+    });
   }
 
   void _showFlightModal() {
@@ -72,7 +82,9 @@ class _CheckInPageState extends State<CheckInPage> {
   }
 
   void _handleFlightSelected(Map<String, dynamic> flight) {
-    Navigator.of(context).pop();
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
     setState(() {
       _selectedFlight    = flight;
       _flightNumber      = flight['flightNumber'] as String?;
@@ -211,9 +223,10 @@ class _CheckInPageState extends State<CheckInPage> {
               onSearch:     _handleSearchResult,
             ),
             CheckInConfirmPassengerStep(
-              bookingData:  _bookingData!,
-              authService:  widget.authService,
-              onConfirm:    () => setState(() => _currentStep = CheckInStep.selectSeat),
+              bookingData:       _bookingData!,
+              authService:       widget.authService,
+              flightOperationId: _flightOperationId!,
+              onConfirm:         () => setState(() => _currentStep = CheckInStep.selectSeat),
             ),
           ],
         );

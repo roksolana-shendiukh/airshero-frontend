@@ -4,15 +4,19 @@ import 'package:provider/provider.dart';
 import '../config/theme_notifier.dart';
 import '../services/auth_service.dart';
 import '../models/user_model.dart';
+import '../services/checkin_service.dart';
+import 'checkin/checkin_status_bar.dart';
 
 class ResponsiveLayout extends StatefulWidget {
   final Widget? header;
   final Widget body;
+  final bool scrollable;
 
   const ResponsiveLayout({
     super.key,
     this.header,
     required this.body,
+    this.scrollable = false,
   });
 
   @override
@@ -53,7 +57,7 @@ class _ResponsiveLayoutState extends State<ResponsiveLayout> {
                 ),
                 child: _buildAppBar(context, authService, currentUser, isLargeScreen, isLightTheme, themeNotifier),
               ),
-              
+
               Expanded(
                 child: Row(
                   children: [
@@ -78,11 +82,24 @@ class _ResponsiveLayoutState extends State<ResponsiveLayout> {
                     Expanded(
                       child: Column(
                         children: [
+                          if (currentUser?.role == UserRole.checkInAgent)
+                            Consumer<CheckInService>(
+                              builder: (context, checkinService, _) {
+                                final flight = checkinService.activeFlight;
+                                if (flight == null) return const SizedBox.shrink();
+                                return CheckInStatusBar(flight: flight);
+                              },
+                            ),
                           if (widget.header != null) widget.header!,
-                          Expanded(child: widget.body),
+                          Expanded(
+                            child: widget.scrollable
+                                ? SingleChildScrollView(child: widget.body)
+                                : widget.body,
+                          ),
                         ],
                       ),
                     ),
+                  
                   ],
                 ),
               ),
@@ -190,7 +207,6 @@ class _ResponsiveLayoutState extends State<ResponsiveLayout> {
         const Divider(height: 1, indent: 12, endIndent: 12),
         const SizedBox(height: 8),
 
-        // MENU ITEMS - ТЕЖ ЗАХИЩЕНІ ВІД OVERFLOW
         Expanded(
           child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -200,7 +216,6 @@ class _ResponsiveLayoutState extends State<ResponsiveLayout> {
               isActive: currentPath == item.route,
               collapsed: collapsed,
               onTap: () {
-                if (Navigator.canPop(context)) Navigator.pop(context);
                 context.go(item.route);
               },
             )).toList(),
@@ -375,3 +390,9 @@ class _SidebarItem extends StatelessWidget {
     );
   }
 }
+
+
+
+
+
+

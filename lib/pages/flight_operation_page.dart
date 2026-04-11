@@ -264,25 +264,11 @@ class _FlightOperationPageState extends State<FlightOperationPage> {
           Text(
             '${op.flightNumber ?? "—"} · ${op.departsCode ?? "—"} → ${op.arrivesCode ?? "—"} · $label',
             style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w500),
-          ),
-          const Spacer(),
-          CustomButton(
-            label:             'New Operation',
-            icon:              Icons.add,
-            isIconAfterLabel:  false,
-            verticalPadding:   10,
-            horizontalPadding: 14,
-            onPressed:         _startNewOperation,
-          ),
+          ),          const Spacer(),
+         
         ],
       ),
     );
-  }
-
-  Future<void> _startNewOperation() async {
-    await context.read<AuthService>().refreshSession();
-    setState(() => _operation = null);
-    _openCreateForm();
   }
 
   Widget _noOperationBar(BuildContext context) {
@@ -299,15 +285,7 @@ class _FlightOperationPageState extends State<FlightOperationPage> {
               'No operation assigned. Create a new one.',
               style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13),
             ),
-          ),
-          CustomButton(
-            label:            'New Operation',
-            icon:             Icons.add,
-            isIconAfterLabel: false,
-            verticalPadding:  10,
-            horizontalPadding: 14,
-            onPressed:        _openCreateForm,
-          ),
+          ),         
         ],
       ),
     );
@@ -559,9 +537,13 @@ class _OperationInfoBarState extends State<_OperationInfoBar> {
         if (op.baggageLoadingStartTime != null && op.baggageLoadingEndTime == null)
           return _parseTime(op.baggageLoadingStartTime);
         return null;
-        case 'Departed':
-          return _parseDatetime(op.actualDepartureDatetime);
-        default:
+      case 'Baggage Loading':
+        if (op.baggageLoadingStartTime != null && op.baggageLoadingEndTime == null)
+          return _parseTime(op.baggageLoadingStartTime);
+        return null;
+      case 'Departed':
+        return _parseDatetime(op.actualDepartureDatetime);
+      default:
         return null;
     }
   }
@@ -598,6 +580,7 @@ class _OperationInfoBarState extends State<_OperationInfoBar> {
     switch (status) {
       case 'Waiting':   return colors.onSurfaceVariant;
       case 'Boarding':  return const Color(0xFF2196F3);
+      case 'Baggage Loading': return const Color.fromARGB(255, 25, 68, 223);
       case 'Departed':  return const Color(0xFFFF9800);
       case 'Arrived':   return const Color(0xFF00BCD4);
       case 'Completed': return const Color(0xFF4CAF50);
@@ -608,13 +591,14 @@ class _OperationInfoBarState extends State<_OperationInfoBar> {
 
   IconData _statusIcon(String? status) {
     switch (status) {
-      case 'Waiting':   return Icons.schedule_outlined;
-      case 'Boarding':  return Icons.door_sliding_outlined;
-      case 'Departed':  return Icons.flight_takeoff_outlined;
-      case 'Arrived':   return Icons.flight_land_outlined;
-      case 'Completed': return Icons.check_circle_outline;
-      case 'Cancelled': return Icons.cancel_outlined;
-      default:          return Icons.info_outline;
+      case 'Waiting':         return Icons.schedule_outlined;
+      case 'Boarding':        return Icons.door_sliding_outlined;
+      case 'Baggage Loading': return Icons.luggage_outlined;
+      case 'Departed':        return Icons.flight_takeoff_outlined;
+      case 'Arrived':         return Icons.flight_land_outlined;
+      case 'Completed':       return Icons.check_circle_outline;
+      case 'Cancelled':       return Icons.cancel_outlined;
+      default:                return Icons.info_outline;
     }
   }
 

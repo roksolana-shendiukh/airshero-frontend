@@ -99,8 +99,7 @@ class _CreateRoutePageState extends State<CreateRoutePage> {
               const Icon(Icons.check_circle_outline,
                   color: Colors.white, size: 16),
               const SizedBox(width: 8),
-              Text(
-                  'Route created · $flightsGenerated flights generated'),
+              Text('Route created · $flightsGenerated flights generated'),
             ]),
             backgroundColor: Colors.green.shade700,
             behavior: SnackBarBehavior.floating,
@@ -114,8 +113,7 @@ class _CreateRoutePageState extends State<CreateRoutePage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-                e.toString().replaceFirst('Exception: ', '')),
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
             backgroundColor: Colors.red.shade700,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
@@ -131,6 +129,7 @@ class _CreateRoutePageState extends State<CreateRoutePage> {
   @override
   Widget build(BuildContext context) {
     return ResponsiveLayout(
+      scrollable: true,
       header: RouteWizardHeader(
         currentStep: _currentStep,
         onBack: _back,
@@ -138,10 +137,12 @@ class _CreateRoutePageState extends State<CreateRoutePage> {
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Expanded(child: _buildStep()),
+            _buildStep(),
             const SizedBox(height: 16),
             _buildBottomBar(),
+            const SizedBox(height: 24),
           ],
         ),
       ),
@@ -154,57 +155,54 @@ class _CreateRoutePageState extends State<CreateRoutePage> {
       decoration: BoxDecoration(
         color: colors.surface,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-            color: colors.outline.withValues(alpha: 0.15)),
+        border: Border.all(color: colors.outline.withValues(alpha: 0.15)),
       ),
       clipBehavior: Clip.antiAlias,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(28),
-        child: switch (_currentStep) {
-          'routeInfo' => Step1RouteInfo(
-              service: _service,
-              selectedAirfleet: _selectedAirfleet,
-              selectedDepartsAirport: _selectedDepartsAirport,
-              selectedArrivesAirport: _selectedArrivesAirport,
-              onChanged: ({
-                required airfleet,
-                required departsAirport,
-                required arrivesAirport,
-              }) {
-                setState(() {
-                  _selectedAirfleet = airfleet;
-                  _selectedDepartsAirport = departsAirport;
-                  _selectedArrivesAirport = arrivesAirport;
-                });
-              },
-            ),
-          'schedule' => Step2Schedule(
-              scheduleGroups: _scheduleGroups,
-              flightStartDate: _flightStartDate,
-              flightEndDate: _flightEndDate,
-              onChanged: ({
-                required scheduleGroups,
-                required flightStartDate,
-                required flightEndDate,
-              }) {
-                setState(() {
-                  _scheduleGroups = scheduleGroups;
-                  _flightStartDate = flightStartDate;
-                  _flightEndDate = flightEndDate;
-                });
-              },
-            ),
-          'confirm' => Step3RouteConfirm(
-              airfleet: _selectedAirfleet!,
-              departsAirport: _selectedDepartsAirport!,
-              arrivesAirport: _selectedArrivesAirport!,
-              scheduleGroups: _scheduleGroups,
-              flightStartDate: _flightStartDate!,
-              flightEndDate: _flightEndDate!,
-            ),
-          _ => const SizedBox.shrink(),
-        },
-      ),
+      padding: const EdgeInsets.all(28),
+      child: switch (_currentStep) {
+        'routeInfo' => Step1RouteInfo(
+            service: _service,
+            selectedAirfleet: _selectedAirfleet,
+            selectedDepartsAirport: _selectedDepartsAirport,
+            selectedArrivesAirport: _selectedArrivesAirport,
+            onChanged: ({
+              required airfleet,
+              required departsAirport,
+              required arrivesAirport,
+            }) {
+              setState(() {
+                _selectedAirfleet = airfleet;
+                _selectedDepartsAirport = departsAirport;
+                _selectedArrivesAirport = arrivesAirport;
+              });
+            },
+          ),
+        'schedule' => Step2Schedule(
+            scheduleGroups: _scheduleGroups,
+            flightStartDate: _flightStartDate,
+            flightEndDate: _flightEndDate,
+            onChanged: ({
+              required scheduleGroups,
+              required flightStartDate,
+              required flightEndDate,
+            }) {
+              setState(() {
+                _scheduleGroups = scheduleGroups;
+                _flightStartDate = flightStartDate;
+                _flightEndDate = flightEndDate;
+              });
+            },
+          ),
+        'confirm' => Step3RouteConfirm(
+            airfleet: _selectedAirfleet!,
+            departsAirport: _selectedDepartsAirport!,
+            arrivesAirport: _selectedArrivesAirport!,
+            scheduleGroups: _scheduleGroups,
+            flightStartDate: _flightStartDate!,
+            flightEndDate: _flightEndDate!,
+          ),
+        _ => const SizedBox.shrink(),
+      },
     );
   }
 

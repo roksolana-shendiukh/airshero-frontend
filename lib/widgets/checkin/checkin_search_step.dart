@@ -90,6 +90,7 @@ class _CheckInSearchStepState extends State<CheckInSearchStep> {
         flightNumber: widget.flightNumber,
         departsDate:  widget.departDate,
       );
+      debugPrint('SUGGESTIONS: $results');
       if (!mounted) return;
       _suggestionsNotifier.value = results;
       _isSearchingNotifier.value = false;

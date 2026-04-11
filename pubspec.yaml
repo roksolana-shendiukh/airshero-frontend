@@ -30,6 +30,7 @@ dependencies:
   dio: ^5.9.1
   firebase_auth: ^5.0.0
   firebase_core: ^3.0.0
+  cloud_firestore: ^5.0.0
   
 dev_dependencies:
   flutter_test:

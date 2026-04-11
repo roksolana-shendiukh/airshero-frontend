@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -38,8 +39,25 @@ class _ScheduleDatePickerState extends State<ScheduleDatePicker> {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
 
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 360),
+    return RawGestureDetector(
+      behavior: HitTestBehavior.deferToChild,
+      gestures: {
+        TapGestureRecognizer:
+            GestureRecognizerFactoryWithHandlers<TapGestureRecognizer>(
+          () => TapGestureRecognizer(),
+          (instance) => instance.onTapDown = (_) {},
+        ),
+        PanGestureRecognizer:
+            GestureRecognizerFactoryWithHandlers<PanGestureRecognizer>(
+          () => PanGestureRecognizer(),
+          (instance) {
+            instance.onDown = (_) {};
+            instance.onStart = (_) {};
+          },
+        ),
+      },
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 360),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -53,11 +71,6 @@ class _ScheduleDatePickerState extends State<ScheduleDatePicker> {
                       .textTheme
                       .titleMedium
                       ?.copyWith(fontWeight: FontWeight.w500),
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.close, size: 20),
-                  onPressed: () => Navigator.of(context).pop(),
                 ),
               ],
             ),
@@ -135,7 +148,8 @@ class _ScheduleDatePickerState extends State<ScheduleDatePicker> {
           ],
         ),
       ),
-    );
+    ), // ConstrainedBox
+    ); // RawGestureDetector
   }
 
   Widget _buildGrid(ColorScheme colors) {

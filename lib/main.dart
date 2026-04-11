@@ -9,6 +9,7 @@ import 'config/theme.dart';
 import 'config/routes.dart';
 import 'config/theme_notifier.dart';
 import 'services/auth_service.dart';
+import 'services/checkin_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,14 +19,20 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  final authService = AuthService();
+  final authService    = AuthService();
   await authService.restoreSession();
 
-  final prefs = await SharedPreferences.getInstance();
+  final checkinService = CheckInService();
+  if (authService.currentUser?.id != null) {
+    await checkinService.init(authService.currentUser!.id);
+  }
+
+  final prefs        = await SharedPreferences.getInstance();
   final isLightTheme = prefs.getBool('isLightTheme') ?? true;
 
   runApp(AirSheroApp(
-    authService: authService,
+    authService:    authService,
+    checkinService: checkinService,
     initialLightTheme: isLightTheme,
   ));
 }
@@ -43,12 +50,14 @@ class AppScrollBehavior extends MaterialScrollBehavior {
 }
 
 class AirSheroApp extends StatefulWidget {
-  final AuthService authService;
-  final bool initialLightTheme;
+  final AuthService    authService;
+  final CheckInService checkinService;
+  final bool           initialLightTheme;
 
   const AirSheroApp({
     super.key,
     required this.authService,
+    required this.checkinService,
     required this.initialLightTheme,
   });
 
@@ -73,21 +82,31 @@ class _AirSheroAppState extends State<AirSheroApp> {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider.value(
-      value: widget.authService,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: widget.authService),
+        ChangeNotifierProvider.value(value: widget.checkinService),
+      ],
       child: ThemeNotifier(
         isLightTheme: _isLightTheme,
-        toggleTheme: _toggleTheme,
+        toggleTheme:  _toggleTheme,
         child: MaterialApp.router(
-          title: 'AirShero',
+          title:                     'AirShero',
           debugShowCheckedModeBanner: false,
-          theme: AppTheme.lightTheme,
-          darkTheme: AppTheme.darkTheme,
-          themeMode: _isLightTheme ? ThemeMode.light : ThemeMode.dark,
-          scrollBehavior: AppScrollBehavior(),
-          routerConfig: AppRouter.router,
+          theme:                     AppTheme.lightTheme,
+          darkTheme:                 AppTheme.darkTheme,
+          themeMode:                 _isLightTheme ? ThemeMode.light : ThemeMode.dark,
+          scrollBehavior:            AppScrollBehavior(),
+          routerConfig:              AppRouter.router,
         ),
       ),
     );
   }
 }
+
+
+
+
+
+
+

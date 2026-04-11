@@ -125,11 +125,14 @@ enum UserRole {
         ];
       case UserRole.checkInAgent:
         return [
-          const MenuItem(icon: Icons.how_to_reg_outlined, title: 'Check-In', route: '/checkin'),
+          const MenuItem(icon: Icons.flight_outlined, title: 'Flights', route: '/checkin'),
+          const MenuItem(icon: Icons.how_to_reg_outlined, title: 'Check-In', route: '/checkin/register'),
         ];
       case UserRole.flightOperator:
         return [
           const MenuItem(icon: Icons.flight_outlined, title: 'Flight Operations', route: '/flight-operations'),
+          const MenuItem(icon: Icons.people_outline, title: 'Crew', route: '/flight-operations/crew'),
+          const MenuItem(icon: Icons.airplanemode_active_outlined, title: 'Active Operation', route: '/flight-operations/active'),
         ];
       case UserRole.planningManager:
         return [
@@ -143,6 +146,7 @@ enum UserRole {
         ];
     }
   }
+
 }
 
 enum UserStatus {

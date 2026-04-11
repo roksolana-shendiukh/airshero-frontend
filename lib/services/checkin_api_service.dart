@@ -197,15 +197,19 @@ class CheckInApiService {
     throw Exception('Failed to issue boarding pass: ${response.body}');
   }
 
-  Future<Map<String, dynamic>> checkAlreadyCheckedIn(int bookingItemId) async {
-    final uri = Uri.parse('${AppConfig.baseUrl}/checkin/check-already-checked-in/$bookingItemId');
+  Future<Map<String, dynamic>> checkAlreadyCheckedIn(
+      int bookingItemId, int flightOperationId) async {
+    final uri = Uri.parse(
+      '${AppConfig.baseUrl}/checkin/check-already-checked-in/$bookingItemId',
+    ).replace(queryParameters: {
+      'flight_operation_id': flightOperationId.toString(),
+    });
     final response = await http.get(uri, headers: await _headers());
     if (response.statusCode == 200) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
     return {'alreadyCheckedIn': false};
   }
-
   Future<Map<String, dynamic>> getCheckedBaggageWeight(int flightOperationId) async {
     final uri = Uri.parse(
       '${AppConfig.baseUrl}/checkin/checked-baggage-weight/$flightOperationId',
@@ -215,6 +219,52 @@ class CheckInApiService {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
     return {'totalCheckedWeightKg': 0.0};
+  }
+
+  Future<bool> startBoarding(int operationId) async {
+    try {
+      final response = await http.post(
+        Uri.parse('${AppConfig.baseUrl}/flight-operations/$operationId/timeline/boarding-start'),
+        headers: await _headers(),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('Network error (startBoarding): $e');
+      return false;
+    }
+  }
+
+  Future<bool> endBoarding(int operationId) async {
+    try {
+      final response = await http.post(
+        Uri.parse('${AppConfig.baseUrl}/flight-operations/$operationId/timeline/boarding-end'),
+        headers: await _headers(),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('Network error (endBoarding): $e');
+      return false;
+    }
+  }
+
+  Future<Map<String, dynamic>> getBoardingStats(int flightOperationId) async {
+    final uri = Uri.parse(
+        '${AppConfig.baseUrl}/checkin/stats/$flightOperationId');
+    final response = await http.get(uri, headers: await _headers());
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    return {'totalPassengers': 0, 'checkedIn': 0, 'remaining': 0};
+  }
+
+  Future<List<Map<String, dynamic>>> getRecentlyCheckedIn(int flightOperationId) async {
+    final uri = Uri.parse(
+        '${AppConfig.baseUrl}/checkin/recent/$flightOperationId');
+    final response = await http.get(uri, headers: await _headers());
+    if (response.statusCode == 200) {
+      return List<Map<String, dynamic>>.from(jsonDecode(response.body));
+    }
+    return [];
   }
 
 }
