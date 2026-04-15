@@ -143,6 +143,7 @@ enum UserRole {
       case UserRole.systemAdmin:
         return [
           const MenuItem(icon: Icons.people_outline, title: 'Users', route: '/admin/users'),
+          const MenuItem(icon: Icons.history_outlined, title: 'Audit', route: '/admin/audit'),
         ];
     }
   }

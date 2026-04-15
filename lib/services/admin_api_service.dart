@@ -145,4 +145,62 @@ class AdminApiService {
       throw Exception('Failed to set status: ${response.statusCode}');
     }
   }
+
+
+  Future<Map<String, dynamic>> getAnalyticsActiveUsers() async {
+    final response = await http.get(
+      Uri.parse('${AppConfig.baseUrl}/analytics/active-users'),
+      headers: await _headers(),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception('Failed to load active users analytics: ${response.statusCode}');
+  }
+
+  Future<Map<String, dynamic>> getAnalyticsEvents() async {
+    final response = await http.get(
+      Uri.parse('${AppConfig.baseUrl}/analytics/events'),
+      headers: await _headers(),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception('Failed to load events analytics: ${response.statusCode}');
+  }
+
+  Future<Map<String, dynamic>> getAnalyticsScreens() async {
+    final response = await http.get(
+      Uri.parse('${AppConfig.baseUrl}/analytics/screens'),
+      headers: await _headers(),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception('Failed to load screens analytics: ${response.statusCode}');
+  }
+
+  Future<Map<String, dynamic>> getSystemAnalytics() async {
+    final response = await http.get(
+      Uri.parse('${AppConfig.baseUrl}/analytics/system'),
+      headers: await _headers(),
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception('Failed to load system analytics: ${response.statusCode}');
+  }
+
+  Future<List<Map<String, dynamic>>> getSystemHistory() async {
+    final response = await http.get(
+      Uri.parse('${AppConfig.baseUrl}/analytics/system/history'),
+      headers: await _headers(),
+    );
+    if (response.statusCode == 200) {
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      return (body['data'] as List).cast<Map<String, dynamic>>();
+    }
+    throw Exception('Failed to load system history: ${response.statusCode}');
+  }
+
 }

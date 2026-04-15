@@ -233,6 +233,7 @@ class _CheckInPageState extends State<CheckInPage> {
 
       case CheckInStep.selectSeat:
         if (_flightOperationId == null) return _buildFlightOperationError();
+        debugPrint('>>> passengerClassId: $_passengerClassId');
         return CheckInSeatMapStep(
           authService:          widget.authService,
           flightOperationId:    _flightOperationId!,
@@ -312,13 +313,16 @@ class _CheckInPageState extends State<CheckInPage> {
 
       case CheckInStep.boardingPass:
         return CheckInBoardingPassStep(
-          ticketNumber:  _ticketNumber  ?? '—',
-          passengerName: _passengerName ?? '—',
-          flightNumber:  _flightNumber  ?? '—',
-          flightClass:   _flightClass   ?? '—',
-          seat:          _selectedSeat  ?? '—',
-          departDate:    _departDate!,
-          bagCount:      _baggageCount  ?? 0,
+          ticketNumber:   _ticketNumber  ?? '—',
+          passengerName:  _passengerName ?? '—',
+          flightNumber:   _flightNumber  ?? '—',
+          flightClass:    _flightClass   ?? '—',
+          seat:           _selectedSeat  ?? '—',
+          departDate:     _departDate!,
+          bagCount:       _baggageCount  ?? 0,
+          departsAirport: _selectedFlight?['departsAirport'] as String? ?? '—',
+          arrivesAirport: _selectedFlight?['arrivesAirport'] as String? ?? '—',
+          departsTime:    _selectedFlight?['departsDatetime'] as String? ?? '—',
           onNewPassenger: _resetForNextPassenger,
         );
     }

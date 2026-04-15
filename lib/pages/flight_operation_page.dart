@@ -8,11 +8,9 @@ import '../services/flight_operation_api_service.dart';
 import '../services/weather_service.dart';
 import '../widgets/responsive_layout.dart';
 import '../widgets/flight_operation/flight_map.dart';
-import '../widgets/flight_operation/create_flight_operation_form.dart';
 import '../widgets/flight_operation/crew_panel.dart';
 import '../widgets/flight_operation/timeline_panel.dart';
 import '../widgets/flight_operation/weather_side_panel.dart';
-import '../widgets/custom/custom_button.dart';
 
 class FlightOperationPage extends StatefulWidget {
   const FlightOperationPage({super.key});
@@ -74,29 +72,6 @@ class _FlightOperationPageState extends State<FlightOperationPage> {
         await context.read<AuthService>().refreshSession();
       }
     }
-  }
-
-  void _openCreateForm() {
-    showDialog(
-      context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.4),
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 780),
-          child: CreateFlightOperationForm(
-            apiService: _apiService,
-            onSuccess: () async {
-              Navigator.of(ctx).pop();
-              await context.read<AuthService>().refreshSession();
-              await _loadOperation();
-            },
-            onCancel: () => Navigator.of(ctx).pop(),
-          ),
-        ),
-      ),
-    );
   }
 
   List<RouteModel> get _operationRoutes {

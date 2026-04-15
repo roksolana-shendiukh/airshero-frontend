@@ -9,6 +9,7 @@ class FlightOperationModel {
   final int statusId;
   final String? statusName;
   final int? airfleetId;
+  final String? airlineName;
   final String? aircraftModel;
   final int? gateId;
   final String? gateCode;
@@ -31,6 +32,7 @@ class FlightOperationModel {
     required this.statusId,
     this.statusName,
     this.airfleetId,
+    this.airlineName,
     this.aircraftModel,
     this.gateId,
     this.gateCode,
@@ -57,6 +59,7 @@ class FlightOperationModel {
         statusId:               (json['statusId'] as num).toInt(),
         statusName:             json['statusName'] as String?,
         airfleetId:             (json['airfleetId'] as num?)?.toInt(),
+        airlineName: json['airlineName'] as String?,
         aircraftModel:          json['aircraftModel'] as String?,
         gateId:                 (json['gateId'] as num?)?.toInt(),
         gateCode:               json['gateCode'] as String?,

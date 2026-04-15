@@ -1,38 +1,52 @@
 import 'package:flutter/material.dart';
 import '../custom/custom_select_field.dart';
+import 'flight_number_search.dart';
 
 class PlanningFlightsFilters extends StatelessWidget {
   final List<String> statusOptions;
   final List<String> aircraftOptions;
+  final List<String> allFlightNumbers;
   final String? selectedStatus;
   final String? selectedAircraft;
   final String sortBy;
+  final String searchQuery;
   final void Function(String?) onStatusChanged;
   final void Function(String?) onAircraftChanged;
   final void Function(String?) onSortChanged;
+  final ValueChanged<String> onSearchChanged;
 
   const PlanningFlightsFilters({
     super.key,
     required this.statusOptions,
     required this.aircraftOptions,
+    required this.allFlightNumbers,
     required this.selectedStatus,
     required this.selectedAircraft,
     required this.sortBy,
+    required this.searchQuery,
     required this.onStatusChanged,
     required this.onAircraftChanged,
     required this.onSortChanged,
+    required this.onSearchChanged,
   });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 12,
+      child: Row(
         children: [
           SizedBox(
-            width: 200,
+            width: 320,
+            child: FlightNumberSearch(
+              allFlightNumbers: allFlightNumbers,
+              value: searchQuery,
+              onChanged: onSearchChanged,
+            ),
+          ),
+          const SizedBox(width: 12),
+          SizedBox(
+            width: 180,
             child: CustomSelectField(
               label: 'Status',
               icon: Icons.circle_outlined,
@@ -41,8 +55,9 @@ class PlanningFlightsFilters extends StatelessWidget {
               onChanged: (v) => onStatusChanged(v == 'All' ? null : v),
             ),
           ),
+          const SizedBox(width: 12),
           SizedBox(
-            width: 220,
+            width: 200,
             child: CustomSelectField(
               label: 'Aircraft',
               icon: Icons.airplanemode_active_outlined,
@@ -51,8 +66,9 @@ class PlanningFlightsFilters extends StatelessWidget {
               onChanged: (v) => onAircraftChanged(v == 'All' ? null : v),
             ),
           ),
+          const SizedBox(width: 12),
           SizedBox(
-            width: 200,
+            width: 180,
             child: CustomSelectField(
               label: 'Sort by Load',
               icon: Icons.sort_rounded,
@@ -70,3 +86,6 @@ class PlanningFlightsFilters extends StatelessWidget {
     );
   }
 }
+
+
+

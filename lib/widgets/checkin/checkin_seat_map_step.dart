@@ -75,6 +75,9 @@ class _CheckInSeatMapStepState extends State<CheckInSeatMapStep> {
       final result = await api.getSeatMap(widget.flightOperationId);
       if (!mounted) return;
       final seats = List<Map<String, dynamic>>.from(result['seats'] ?? []);
+      debugPrint('>>> passengerClassId: ${widget.passengerClassId}');
+    debugPrint('>>> seat classIds: ${seats.map((s) => s['classId']).toSet()}');
+    
       setState(() {
         _seats          = seats;
         _flightClassIds = Set<int>.from(seats.map((s) => s['classId'] as int));

@@ -251,8 +251,6 @@ class _Step2ScheduleState extends State<Step2Schedule> {
   }
 }
 
-// ─── Models ───────────────────────────────────────────────────────
-
 class _ScheduleGroup {
   Set<int> dayIds;
   String departureTime;
@@ -265,7 +263,6 @@ class _ScheduleGroup {
   }) : dayIds = dayIds ?? {};
 }
 
-// ─── Date input field (overlay) ───────────────────────────────────
 
 class _DateInputField extends StatefulWidget {
   final String label;
@@ -377,26 +374,28 @@ class _TimeInputField extends StatefulWidget {
 class _TimeInputFieldState extends State<_TimeInputField> {
   final LayerLink _layerLink = LayerLink();
   OverlayEntry? _overlay;
-  bool _isOpen = false;
+  bool _isWheelOpen = false;
 
-  String _displayValue = '';
+  // Key дозволяє повністю перестворити CustomInputField
+  // коли wheel змінює значення — обходить внутрішній стан контролера
+  Key _fieldKey = UniqueKey();
 
   @override
-  void initState() {
-    super.initState();
-    _displayValue = widget.value;
-  }
-
-  void _toggle() => _isOpen ? _close() : _open();
-
-  void _open() {
-    if (!mounted) return;
-    setState(() => _isOpen = true);
-    _insertOverlay();
-  }
-
-  void _insertOverlay() {
+  void dispose() {
     _overlay?.remove();
+    _overlay = null;
+    super.dispose();
+  }
+
+  // ── Wheel overlay ──────────────────────────────────────────────
+
+  void _openWheel() {
+    if (_isWheelOpen) {
+      _closeWheel();
+      return;
+    }
+    setState(() => _isWheelOpen = true);
+
     _overlay = OverlayEntry(
       builder: (ctx) => CompositedTransformFollower(
         link: _layerLink,
@@ -407,18 +406,22 @@ class _TimeInputFieldState extends State<_TimeInputField> {
         child: Align(
           alignment: Alignment.topLeft,
           child: TapRegion(
-            onTapOutside: (_) => _close(),
+            onTapOutside: (_) => _closeWheel(),
             child: Material(
               elevation: 4,
               borderRadius: BorderRadius.circular(12),
               child: SizedBox(
                 width: 200,
                 child: PlanningTimePickerOverlay(
-                  initialTime: _displayValue.isNotEmpty
-                      ? _displayValue
-                      : '00:00',
-                  onTimeSelected: _handleTimeSelected,
-                  onClose: _close,
+                  initialTime: widget.value.isNotEmpty ? widget.value : '00:00',
+                  onTimeSelected: (v) {
+                    // ✅ Перестворюємо CustomInputField з новим key —
+                    // це змушує його побудувати свіжий внутрішній контролер
+                    // з актуальним значенням, ігноруючи старий стан
+                    setState(() => _fieldKey = UniqueKey());
+                    widget.onChanged(v);
+                  },
+                  onClose: _closeWheel,
                 ),
               ),
             ),
@@ -426,27 +429,29 @@ class _TimeInputFieldState extends State<_TimeInputField> {
         ),
       ),
     );
+
     Overlay.of(context).insert(_overlay!);
   }
 
-  void _handleTimeSelected(String v) {
-    widget.onChanged(v); 
-    if (mounted && _displayValue != v) {
-      setState(() => _displayValue = v); 
+  void _closeWheel() {
+    _overlay?.remove();
+    _overlay = null;
+    if (mounted) setState(() => _isWheelOpen = false);
+  }
+
+  // ── Manual input ───────────────────────────────────────────────
+
+  void _onChanged(String raw) {
+    final digits = raw.replaceAll(':', '');
+    if (digits.length == 4) {
+      final h = int.tryParse(digits.substring(0, 2));
+      final m = int.tryParse(digits.substring(2, 4));
+      if (h != null && m != null && h >= 0 && h <= 23 && m >= 0 && m <= 59) {
+        widget.onChanged(
+          '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}',
+        );
+      }
     }
-  }
-
-  void _close() {
-    _overlay?.remove();
-    _overlay = null;
-    if (mounted) setState(() => _isOpen = false);
-  }
-
-  @override
-  void dispose() {
-    _overlay?.remove();
-    _overlay = null;
-    super.dispose();
   }
 
   @override
@@ -454,17 +459,82 @@ class _TimeInputFieldState extends State<_TimeInputField> {
     return CompositedTransformTarget(
       link: _layerLink,
       child: CustomInputField(
+        key: _fieldKey,
         label: widget.label,
-        value: _displayValue,
+        value: widget.value,
         icon: Icons.access_time_outlined,
-        readOnly: true,
-        isSelected: _isOpen,
-        onTap: _toggle,
-        onIconTap: _toggle,
+        isSelected: _isWheelOpen,
+        onIconTap: _openWheel,
+        onTap: null,
+        onChanged: _onChanged,
+        keyboardType: TextInputType.number,
+        inputFormatters: [
+          FilteringTextInputFormatter.allow(RegExp(r'[\d:]')),
+          _TimeInputFormatter(),
+        ],
+        focusHint: 'Format: HH:MM  (e.g. 14:30)',
       ),
     );
   }
 }
+
+// ─── Форматтер з валідацією діапазонів ────────────────────────────────────
+//
+// Правила:
+//  • Перша цифра години: лише 0–2
+//  • Якщо перша цифра = 2, друга: лише 0–3  → години 00–23
+//  • Перша цифра хвилин: лише 0–5           → хвилини 00–59
+//  • Автоматично вставляє ':' після 2 цифр години
+
+class _TimeInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    // Беремо тільки цифри
+    final digits = newValue.text.replaceAll(RegExp(r'[^\d]'), '');
+    if (digits.isEmpty) return newValue.copyWith(text: '');
+
+    // Валідуємо і обрізаємо по одній цифрі
+    final validated = _validateDigits(digits);
+
+    final formatted = validated.length <= 2
+        ? validated
+        : '${validated.substring(0, 2)}:${validated.substring(2)}';
+
+    return newValue.copyWith(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+
+  String _validateDigits(String digits) {
+    final buf = StringBuffer();
+
+    for (int i = 0; i < digits.length && i < 4; i++) {
+      final d = int.parse(digits[i]);
+
+      if (i == 0) {
+        // Перша цифра години: 0, 1, або 2
+        if (d > 2) break;
+      } else if (i == 1) {
+        // Друга цифра години
+        final firstHour = int.parse(digits[0]);
+        if (firstHour == 2 && d > 3) break; // макс 23
+      } else if (i == 2) {
+        // Перша цифра хвилин: 0–5
+        if (d > 5) break;
+      }
+      // i == 3: будь-яка цифра 0–9 дозволена
+
+      buf.write(digits[i]);
+    }
+
+    return buf.toString();
+  }
+}
+
 class _GroupCard extends StatelessWidget {
   final _ScheduleGroup group;
   final int index;

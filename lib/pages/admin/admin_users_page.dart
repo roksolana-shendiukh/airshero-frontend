@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../widgets/responsive_layout.dart';
 import '../../models/user_model.dart';
-import '../../widgets/table_header.dart';
-import '../../widgets/table_row.dart' as admin_table;
+import '../../widgets/table_column_def.dart'; // Імпорт моделі колонок
+import '../../widgets/generic_table_header.dart'; // НОВИЙ ІМПОРТ
+import '../../widgets/generic_table_row.dart'; // НОВИЙ ІМПОРТ
 import '../../widgets/admin/users_table_columns.dart';
 import '../../widgets/admin/user_table_pagination.dart';
 import '../../widgets/admin/user_management_header.dart';
@@ -38,20 +39,34 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
   final Set<String> _selectedUserIds = {};
   bool _selectAll = false;
 
-  Map<String, double> _columnWidths = {
-    'checkbox': UsersTableColumns.checkbox.width,
-    'name':     UsersTableColumns.name.width,
-    'email':    UsersTableColumns.email.width,
-    'airline':  UsersTableColumns.airline.width,
-    'role':     UsersTableColumns.role.width,
-    'status':   UsersTableColumns.status.width,
-    'actions':  UsersTableColumns.actions.width,
-  };
+  // ДИНАМІЧНІ КОЛОНКИ ТА ЇХ ШИРИНА
+  late final List<TableColumnDef<UserModel>> _columns;
+  final Map<String, double> _columnWidths = {};
 
   @override
   void initState() {
     super.initState();
     _adminApi = AdminApiService(context.read<AuthService>());
+    
+    // Ініціалізуємо колонки, передаючи їм колбеки дій
+    _columns = UsersTableColumns.buildColumns(
+      onEdit: (user) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Edit ${user.email}')),
+      ),
+      onDelete: (user) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Delete ${user.email}')),
+      ),
+      onToggleLock: (user) {
+        // Логіка блокування
+        setState(() {});
+      },
+    );
+
+    // Автоматично заповнюємо початкову ширину колонок із конфігурації
+    for (var col in _columns) {
+      _columnWidths[col.key] = col.initialWidth;
+    }
+
     _loadUsers();
   }
 
@@ -65,11 +80,11 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
   void _onColumnResize(String key, double delta) {
     setState(() {
       final current = _columnWidths[key] ?? 100;
-      _columnWidths[key] = (current + delta).clamp(60.0, 500.0);
+      _columnWidths[key] = (current + delta).clamp(100.0, 500.0);
     });
   }
 
-  double get _totalWidth => _columnWidths.values.fold(0, (sum, w) => sum + w);
+  double get _totalWidth => _columnWidths.values.fold(0.0, (sum, w) => sum + w) + 48.0;
 
   Future<void> _loadUsers() async {
     setState(() {
@@ -170,6 +185,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
       header: Padding(
         padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
         child: Column(
+          // ... (УВЕСЬ КОД ХЕДЕРА З ФІЛЬТРАМИ ЗАЛИШАЄТЬСЯ БЕЗ ЗМІН)
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -258,7 +274,6 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
         ),
       ),
 
-      // ── BODY: займає весь залишок висоти (Expanded у ResponsiveLayout) ───
       body: Padding(
         padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
         child: _isLoading
@@ -321,32 +336,29 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                                     width: _totalWidth,
                                     child: Column(
                                       children: [
-                                        TableHeader(
+                                        // ВИКОРИСТОВУЄМО УНІВЕРСАЛЬНИЙ ХЕДЕР
+                                        GenericTableHeader<UserModel>(
                                           selectAll: _selectAll,
                                           onToggleSelectAll: _toggleSelectAll,
                                           columnWidths: _columnWidths,
                                           onColumnResize: _onColumnResize,
+                                          columns: _columns, // ПЕРЕДАЄМО КОЛОНКИ
                                         ),
                                         Expanded(
                                           child: ListView.builder(
                                             itemCount: _paginatedUsers.length,
                                             itemBuilder: (context, index) {
                                               final user = _paginatedUsers[index];
-                                              return admin_table.TableRow(
-                                                user: user,
+                                              
+                                              // ВИКОРИСТОВУЄМО УНІВЕРСАЛЬНИЙ РЯДОК
+                                              return GenericTableRow<UserModel>(
+                                                item: user,
+                                                columns: _columns, // ПЕРЕДАЄМО КОЛОНКИ
                                                 columnWidths: _columnWidths,
                                                 isSelected: _selectedUserIds.contains(user.id),
                                                 onToggle: () => _toggleUserSelection(user.id),
-                                                onEdit: () =>
-                                                    ScaffoldMessenger.of(context).showSnackBar(
-                                                  SnackBar(content: Text('Edit ${user.email}')),
-                                                ),
-                                                onDelete: () =>
-                                                    ScaffoldMessenger.of(context).showSnackBar(
-                                                  SnackBar(content: Text('Delete ${user.email}')),
-                                                ),
-                                                onToggleLock: () => setState(() {}),
                                               );
+                                              
                                             },
                                           ),
                                         ),

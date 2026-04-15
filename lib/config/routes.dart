@@ -35,6 +35,7 @@ export '../models/args/payment_args.dart';
 export '../utils/url_helpers.dart';
 import '../services/checkin_service.dart';
 import '../widgets/responsive_layout.dart';
+import '../pages/admin/admin_audit_page.dart';
 
 class AppRouter {
   static Page<void> _fade(GoRouterState state, Widget child) =>
@@ -240,6 +241,11 @@ class AppRouter {
       GoRoute(
         path:        '/admin/users',
         pageBuilder: (c, s) => _fade(s, const AdminUsersPage()),
+      ),
+
+      GoRoute(
+        path:        '/admin/audit',
+        pageBuilder: (c, s) => _fade(s, const AdminSystemPage()),
       ),
 
       GoRoute(

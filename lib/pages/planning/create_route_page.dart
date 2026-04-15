@@ -91,22 +91,7 @@ class _CreateRoutePageState extends State<CreateRoutePage> {
         scheduleGroups: _scheduleGroups,
       );
 
-      if (mounted) {
-        final flightsGenerated = result['flightsGenerated'] as int? ?? 0;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(children: [
-              const Icon(Icons.check_circle_outline,
-                  color: Colors.white, size: 16),
-              const SizedBox(width: 8),
-              Text('Route created · $flightsGenerated flights generated'),
-            ]),
-            backgroundColor: Colors.green.shade700,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8)),
-          ),
-        );
+      if (mounted) {        
         context.go('/planning/flights');
       }
     } catch (e) {

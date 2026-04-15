@@ -27,6 +27,7 @@ class _PlanningFlightsPageState extends State<PlanningFlightsPage> {
   List<OverviewFlight> _flights = [];
   List<String> _availableDates = [];
   List<String> _availableMonths = [];
+  List<String> _allFlightNumbers = [];
 
   bool _flightsLoading = true;
   String? _flightsError;
@@ -40,25 +41,28 @@ class _PlanningFlightsPageState extends State<PlanningFlightsPage> {
   String? _selectedStatus;
   String? _selectedAircraft;
   String _sortBy = 'default';
+  String _searchQuery = '';
 
   static const List<({String key, String label, double width})> _colDefs = [
-    (key: 'flight_number', label: 'Flight', width: 100),
-    (key: 'route', label: 'Route', width: 120),
-    (key: 'departs', label: 'Departure', width: 110),
-    (key: 'arrives', label: 'Arrival', width: 100),
-    (key: 'aircraft', label: 'Aircraft', width: 130),
-    (key: 'classes', label: 'Classes', width: 160),
-    (key: 'load', label: 'Load', width: 130),
-    (key: 'status', label: 'Status', width: 130),
+    (key: 'flight_number', label: 'Flight',    width: 100),
+    (key: 'route',         label: 'Route',     width: 120),
+    (key: 'departs',       label: 'Departure', width: 110),
+    (key: 'arrives',       label: 'Arrival',   width: 100),
+    (key: 'aircraft',      label: 'Aircraft',  width: 130),
+    (key: 'classes',       label: 'Classes',   width: 160),
+    (key: 'load',          label: 'Load',      width: 130),
+    (key: 'status',        label: 'Status',    width: 130),
   ];
 
   late Map<String, double> _colWidths;
 
   List<OverviewFlight> get _filteredFlights {
     var list = _flights.where((f) {
-      if (_selectedStatus != null && _selectedStatus != 'All' &&
+      if (_selectedStatus != null &&
+          _selectedStatus != 'All' &&
           f.flightStatusName != _selectedStatus) return false;
-      if (_selectedAircraft != null && _selectedAircraft != 'All' &&
+      if (_selectedAircraft != null &&
+          _selectedAircraft != 'All' &&
           f.aircraftModel != _selectedAircraft) return false;
       return true;
     }).toList();
@@ -71,11 +75,15 @@ class _PlanningFlightsPageState extends State<PlanningFlightsPage> {
     return list;
   }
 
-  List<String> get _statusOptions =>
-      ['All', ..._flights.map((f) => f.flightStatusName).toSet().toList()..sort()];
+  List<String> get _statusOptions => [
+        'All',
+        ..._flights.map((f) => f.flightStatusName).toSet().toList()..sort(),
+      ];
 
-  List<String> get _aircraftOptions =>
-      ['All', ..._flights.map((f) => f.aircraftModel).toSet().toList()..sort()];
+  List<String> get _aircraftOptions => [
+        'All',
+        ..._flights.map((f) => f.aircraftModel).toSet().toList()..sort(),
+      ];
 
   int get _totalPages =>
       (_filteredFlights.length / _itemsPerPage).ceil().clamp(1, 9999);
@@ -91,7 +99,12 @@ class _PlanningFlightsPageState extends State<PlanningFlightsPage> {
     super.initState();
     _colWidths = {for (final c in _colDefs) c.key: c.width};
     _service = PlanningService(context.read<AuthService>());
-    Future.wait([_loadFlights(), _loadAvailableDates(), _loadAvailableMonths()]);
+    Future.wait([
+      _loadFlights(),
+      _loadAvailableDates(),
+      _loadAvailableMonths(),
+      _loadAllFlightNumbers(),
+    ]);
   }
 
   @override
@@ -111,8 +124,12 @@ class _PlanningFlightsPageState extends State<PlanningFlightsPage> {
         date: _selectedDate,
         month: _selectedDate.month,
         year: _selectedDate.year,
+        flightNumber: _searchQuery.isNotEmpty ? _searchQuery : null,
       );
-      if (mounted) setState(() { _flights = result; _currentPage = 1; });
+      if (mounted) setState(() {
+        _flights = result;
+        _currentPage = 1;
+      });
     } catch (e) {
       if (mounted) setState(() => _flightsError = e.toString());
     } finally {
@@ -128,6 +145,11 @@ class _PlanningFlightsPageState extends State<PlanningFlightsPage> {
   Future<void> _loadAvailableMonths() async {
     final months = await _service.getAvailableMonths();
     if (mounted) setState(() => _availableMonths = months);
+  }
+
+  Future<void> _loadAllFlightNumbers() async {
+    final numbers = await _service.getAllFlightNumbers();
+    if (mounted) setState(() => _allFlightNumbers = numbers);
   }
 
   void _onColumnResize(String key, double delta) {
@@ -160,7 +182,8 @@ class _PlanningFlightsPageState extends State<PlanningFlightsPage> {
     await showDialog(
       context: context,
       builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: PlanningDatePicker(
           selectedDate: _selectedDate,
           availableDates: _availableDates,
@@ -202,30 +225,41 @@ class _PlanningFlightsPageState extends State<PlanningFlightsPage> {
           children: [
             _buildPageHeader(),
             const SizedBox(height: 16),
-            if (_flights.isNotEmpty)
-              PlanningFlightsFilters(
-                statusOptions: _statusOptions,
-                aircraftOptions: _aircraftOptions,
-                selectedStatus: _selectedStatus,
-                selectedAircraft: _selectedAircraft,
-                sortBy: _sortBy,
-                onStatusChanged: (v) => setState(() {
-                  _selectedStatus = v;
+            PlanningFlightsFilters(
+              statusOptions: _statusOptions,
+              aircraftOptions: _aircraftOptions,
+              allFlightNumbers: _allFlightNumbers,
+              selectedStatus: _selectedStatus,
+              selectedAircraft: _selectedAircraft,
+              sortBy: _sortBy,
+              searchQuery: _searchQuery,
+              onStatusChanged: (v) => setState(() {
+                _selectedStatus = v;
+                _currentPage = 1;
+              }),
+              onAircraftChanged: (v) => setState(() {
+                _selectedAircraft = v;
+                _currentPage = 1;
+              }),
+              onSortChanged: (v) => setState(() {
+                _sortBy = v == 'Highest first'
+                    ? 'load_desc'
+                    : v == 'Lowest first'
+                        ? 'load_asc'
+                        : 'default';
+                _currentPage = 1;
+              }),
+              onSearchChanged: (v) {
+                setState(() {
+                  _searchQuery = v;
                   _currentPage = 1;
-                }),
-                onAircraftChanged: (v) => setState(() {
-                  _selectedAircraft = v;
-                  _currentPage = 1;
-                }),
-                onSortChanged: (v) => setState(() {
-                  _sortBy = v == 'Highest first'
-                      ? 'load_desc'
-                      : v == 'Lowest first'
-                          ? 'load_asc'
-                          : 'default';
-                  _currentPage = 1;
-                }),
-              ),
+                  if (v.isNotEmpty && _viewMode != _ViewMode.all) {
+                    _viewMode = _ViewMode.all;
+                  }
+                });
+                _loadFlights();
+              },
+            ),
           ],
         ),
       ),
@@ -242,7 +276,9 @@ class _PlanningFlightsPageState extends State<PlanningFlightsPage> {
           totalPages: _totalPages,
           totalCount: _filteredFlights.length,
           itemsPerPage: _itemsPerPage,
-          hasActiveFilters: _selectedStatus != null || _selectedAircraft != null,
+          hasActiveFilters: _selectedStatus != null ||
+              _selectedAircraft != null ||
+              _searchQuery.isNotEmpty,
           onColumnResize: _onColumnResize,
           onRetry: _loadFlights,
           onPreviousPage: () => setState(() => _currentPage--),
@@ -260,7 +296,8 @@ class _PlanningFlightsPageState extends State<PlanningFlightsPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Flights', style: Theme.of(context).textTheme.titleLarge),
+              Text('Flights',
+                  style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 2),
               Text(_periodLabel(),
                   style: Theme.of(context).textTheme.bodyMedium),
@@ -271,7 +308,8 @@ class _PlanningFlightsPageState extends State<PlanningFlightsPage> {
           decoration: BoxDecoration(
             color: colors.surfaceContainerHighest.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: colors.outline.withValues(alpha: 0.2)),
+            border:
+                Border.all(color: colors.outline.withValues(alpha: 0.2)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -289,8 +327,8 @@ class _PlanningFlightsPageState extends State<PlanningFlightsPage> {
                 },
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 150),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 8),
                   decoration: BoxDecoration(
                     color: isActive ? colors.primary : Colors.transparent,
                     borderRadius: BorderRadius.circular(7),
@@ -301,8 +339,9 @@ class _PlanningFlightsPageState extends State<PlanningFlightsPage> {
                       fontSize: 13,
                       fontWeight:
                           isActive ? FontWeight.w600 : FontWeight.normal,
-                      color:
-                          isActive ? colors.onPrimary : colors.onSurfaceVariant,
+                      color: isActive
+                          ? colors.onPrimary
+                          : colors.onSurfaceVariant,
                     ),
                   ),
                 ),
@@ -317,8 +356,8 @@ class _PlanningFlightsPageState extends State<PlanningFlightsPage> {
             borderRadius: BorderRadius.circular(6),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: colors.primaryContainer.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(6),
@@ -333,7 +372,8 @@ class _PlanningFlightsPageState extends State<PlanningFlightsPage> {
                     _viewMode == _ViewMode.day
                         ? _fmtDate(_selectedDate)
                         : '${_shortMonth(_selectedDate.month)} ${_selectedDate.year}',
-                    style: TextStyle(fontSize: 13, color: colors.onSurface),
+                    style: TextStyle(
+                        fontSize: 13, color: colors.onSurface),
                   ),
                 ],
               ),
@@ -362,7 +402,8 @@ class _PlanningFlightsPageState extends State<PlanningFlightsPage> {
       ][m];
 
   String _monthName(int m) => const [
-        '', 'January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December',
+        '', 'January', 'February', 'March', 'April',
+        'May', 'June', 'July', 'August',
+        'September', 'October', 'November', 'December',
       ][m];
 }

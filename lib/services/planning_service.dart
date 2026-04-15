@@ -30,28 +30,29 @@ class PlanningService {
   }
 
   Future<List<OverviewFlight>> getOverviewFlights({
-    String mode = 'day',
-    DateTime? date,
-    int? month,
-    int? year,
+    required String mode,
+    required DateTime date,
+    required int month,
+    required int year,
+    String? flightNumber,
   }) async {
     try {
-      final params = <String, String>{'mode': mode};
-      if (mode == 'day' && date != null) {
-        params['date'] = date.toIso8601String().split('T')[0];
-      } else if (mode == 'month') {
-        final now = date ?? DateTime.now();
-        params['month'] = (month ?? now.month).toString();
-        params['year'] = (year ?? now.year).toString();
-      }
+      final params = {
+        'mode': mode,
+        'date': '${date.year}-${date.month.toString().padLeft(2,'0')}-${date.day.toString().padLeft(2,'0')}',
+        'month': month.toString(),
+        'year': year.toString(),
+        if (flightNumber != null && flightNumber.isNotEmpty)
+          'flight_number': flightNumber,
+      };
 
       final uri =
           Uri.parse('${AppConfig.baseUrl}/planning/overview/flights')
               .replace(queryParameters: params);
-
+      debugPrint('URL: $uri');
       final response = await http.get(uri, headers: await _headers());
+      
       if (response.statusCode == 200) {
-        debugPrint('FLIGHTS RAW: ${response.body.substring(0, response.body.length.clamp(0, 500))}');
         final List<dynamic> data = jsonDecode(response.body);
         return data
             .cast<Map<String, dynamic>>()
@@ -301,5 +302,13 @@ class PlanningService {
     }
   }
 
+  Future<List<String>> getAllFlightNumbers() async {
+    final uri = Uri.parse('${AppConfig.baseUrl}/planning/routes/flight-numbers');
+    final response = await http.get(uri, headers: await _headers());
+    if (response.statusCode == 200) {
+      return List<String>.from(jsonDecode(response.body));
+    }
+    return [];
+  }
 
 }

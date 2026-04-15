@@ -231,29 +231,6 @@ class _CheckInFlightsPageState extends State<CheckInFlightsPage> {
         ),
         const Spacer(),
         if (activeFlight != null) ...[
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color:        Colors.green.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.timer_outlined, size: 14, color: Colors.green),
-                const SizedBox(width: 6),
-                Text(
-                  _elapsedLabel(activeFlight['boardingStartTime'] as String?),
-                  style: const TextStyle(
-                    fontSize:   13,
-                    fontWeight: FontWeight.w600,
-                    color:      Colors.green,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
           OutlinedButton(
             onPressed: _isActioning ? null : _leaveBoarding,
             style: OutlinedButton.styleFrom(
@@ -274,6 +251,8 @@ class _CheckInFlightsPageState extends State<CheckInFlightsPage> {
             child: const Text('End Boarding', style: TextStyle(fontSize: 13)),
           ),
         ] else ...[
+          
+          
           IconButton(
             icon:      const Icon(Icons.refresh_rounded, size: 20),
             onPressed: _load,

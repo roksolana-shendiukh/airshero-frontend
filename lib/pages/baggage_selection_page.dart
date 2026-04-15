@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../widgets/responsive_layout.dart';
 import '../widgets/booking/baggage_option_card.dart';
-import '../widgets/custom/passenger_form_card/passenger_form_card.dart';
+import '../widgets/passenger_form_card/passenger_form_card.dart';
 import '/widgets/custom/custom_button.dart';
 import '../models/baggage_models.dart';
 import '../widgets/booking/booking_progress_header.dart';
