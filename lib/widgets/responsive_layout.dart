@@ -87,7 +87,11 @@ class _ResponsiveLayoutState extends State<ResponsiveLayout> {
                               builder: (context, checkinService, _) {
                                 final flight = checkinService.activeFlight;
                                 if (flight == null) return const SizedBox.shrink();
-                                return CheckInStatusBar(flight: flight);
+                                final currentPath = GoRouterState.of(context).uri.path;
+                                return CheckInStatusBar(
+                                  flight:          flight,
+                                  onBackToFlights: currentPath == '/checkin' ? null : () => context.go('/checkin'),
+                                );
                               },
                             ),
                           if (widget.header != null) widget.header!,
@@ -213,7 +217,7 @@ class _ResponsiveLayoutState extends State<ResponsiveLayout> {
             children: menuItems.map((item) => _SidebarItem(
               icon: item.icon,
               title: item.title,
-              isActive: currentPath == item.route,
+              isActive: currentPath == item.route || currentPath.startsWith(item.route + '/'),
               collapsed: collapsed,
               onTap: () {
                 context.go(item.route);

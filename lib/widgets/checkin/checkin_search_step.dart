@@ -12,6 +12,7 @@ class CheckInSearchStep extends StatefulWidget {
   final AuthService authService;
   final String      flightNumber;
   final DateTime    departDate;
+  final VoidCallback? onBackToFlights;
   final void Function({
     required String documentNumber,
     required String flightNumber,
@@ -25,6 +26,7 @@ class CheckInSearchStep extends StatefulWidget {
     required this.flightNumber,
     required this.departDate,
     required this.onSearch,
+    this.onBackToFlights,
   });
 
   @override
@@ -284,6 +286,7 @@ class _CheckInSearchStepState extends State<CheckInSearchStep> {
             ],
           ),
 
+         
           const SizedBox(height: 16),
 
           CompositedTransformTarget(

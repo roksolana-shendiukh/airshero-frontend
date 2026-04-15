@@ -34,17 +34,16 @@ class _CheckInBaggageStepState extends State<CheckInBaggageStep> {
   bool    _isCalculating = false;
   String? _error;
 
-  Map<String, dynamic>?          _allowance;
-  List<Map<String, dynamic>>     _baggageTypes       = [];
-  List<double>                   _weights            = [];
-  List<int?>                     _selectedTypes      = [];
-  List<BagDetail>                _calculatedBags     = [];
-  double                         _totalSurcharge     = 0.0;
-  double                         _flightCheckedWeight = 0.0;
-  double                         _baggageCapacity    = 0.0;
-  Timer?                         _debounce;
-
-  int get _paidQty => _allowance?['baggageQuantity'] as int? ?? 0;
+  Map<String, dynamic>?      _allowance;
+  List<Map<String, dynamic>> _baggageTypes        = [];
+  List<double>               _weights             = [];
+  List<int?>                 _selectedTypes       = [];
+  List<bool>                 _isExtraFlags        = [];
+  List<BagDetail>            _calculatedBags      = [];
+  double                     _totalSurcharge      = 0.0;
+  double                     _flightCheckedWeight = 0.0;
+  double                     _baggageCapacity     = 0.0;
+  Timer?                     _debounce;
 
   @override
   void initState() {
@@ -74,6 +73,7 @@ class _CheckInBaggageStepState extends State<CheckInBaggageStep> {
         _baggageTypes        = types;
         _weights             = List.generate(paidQty, (_) => 0.0);
         _selectedTypes       = List.generate(paidQty, (_) => null);
+        _isExtraFlags        = List.generate(paidQty, (_) => false); 
         _flightCheckedWeight = (weight['totalCheckedWeightKg'] as num?)?.toDouble() ?? 0.0;
         _baggageCapacity     = (weight['baggageCapacityKg']    as num?)?.toDouble() ?? 0.0;
         _isLoading           = false;
@@ -99,10 +99,12 @@ class _CheckInBaggageStepState extends State<CheckInBaggageStep> {
       );
       if (!mounted) return;
       setState(() {
+        _totalSurcharge = (result['totalSurcharge'] as num).toDouble();
         _calculatedBags = (result['bags'] as List).asMap().entries.map((e) {
           final bag = BagDetail.fromJson(e.value);
           final i   = e.key;
-          if (i >= _paidQty && _selectedTypes.length > i && _selectedTypes[i] != null) {
+          if (_isExtraFlags.length > i && _isExtraFlags[i] &&
+              _selectedTypes.length > i && _selectedTypes[i] != null) {
             return BagDetail(
               weight:      bag.weight,
               typeId:      _selectedTypes[i]!,
@@ -138,16 +140,18 @@ class _CheckInBaggageStepState extends State<CheckInBaggageStep> {
     setState(() {
       _weights.add(0.0);
       _selectedTypes.add(null);
+      _isExtraFlags.add(true); 
     });
   }
 
-  void _removeExtraBag(int index) {
+  void _removeBag(int index) {
     setState(() {
       _weights.removeAt(index);
       _selectedTypes.removeAt(index);
+      _isExtraFlags.removeAt(index);
       if (_calculatedBags.length > index) _calculatedBags.removeAt(index);
     });
-    _syncWithBackend();
+    if (_weights.isNotEmpty) _syncWithBackend();
   }
 
   double get _currentPassengerWeight =>
@@ -161,8 +165,10 @@ class _CheckInBaggageStepState extends State<CheckInBaggageStep> {
     if (_weights.isEmpty) return true;
     for (int i = 0; i < _weights.length; i++) {
       if (_weights[i] <= 0) return false;
-      // Extra bags require type selection
-      if (i >= _paidQty && _selectedTypes[i] == null) return false;
+      if (_isExtraFlags.length > i && _isExtraFlags[i] &&
+          (_selectedTypes.length <= i || _selectedTypes[i] == null)) {
+        return false;
+      }
     }
     return true;
   }
@@ -212,12 +218,12 @@ class _CheckInBaggageStepState extends State<CheckInBaggageStep> {
               index:          e.key,
               weight:         e.value,
               calc:           _calculatedBags.length > e.key ? _calculatedBags[e.key] : null,
-              isExtra:        e.key >= _paidQty,
+              isExtra:        _isExtraFlags.length > e.key ? _isExtraFlags[e.key] : false,
               baggageTypes:   _baggageTypes,
               selectedTypeId: _selectedTypes.length > e.key ? _selectedTypes[e.key] : null,
               onTypeChanged:  (v) => _onTypeChanged(e.key, v),
               onChanged:      (v) => _onWeightChanged(e.key, v),
-              onRemove:       () => _removeExtraBag(e.key),
+              onRemove:       () => _removeBag(e.key),
             ),
           ),
 
@@ -227,7 +233,7 @@ class _CheckInBaggageStepState extends State<CheckInBaggageStep> {
               message: _isHoldFull ? 'Baggage hold is full' : '',
               child: TextButton.icon(
                 onPressed: _isHoldFull ? null : _addExtraBag,
-                icon: const Icon(Icons.add, size: 14),
+                icon:  const Icon(Icons.add, size: 14),
                 label: const Text('Add extra bag', style: TextStyle(fontSize: 13)),
                 style: TextButton.styleFrom(
                   padding:       const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -259,9 +265,11 @@ class _CheckInBaggageStepState extends State<CheckInBaggageStep> {
                 children: [
                   Icon(Icons.warning_amber_outlined, size: 14, color: colors.error),
                   const SizedBox(width: 8),
-                  Text(
-                    'Baggage hold is at full capacity. No additional baggage can be accepted.',
-                    style: TextStyle(fontSize: 12, color: colors.error),
+                  Expanded(
+                    child: Text(
+                      'Baggage hold is at full capacity. No additional baggage can be accepted.',
+                      style: TextStyle(fontSize: 12, color: colors.error),
+                    ),
                   ),
                 ],
               ),
@@ -281,8 +289,8 @@ class _CheckInBaggageStepState extends State<CheckInBaggageStep> {
                   ? 'Proceed to Payment  ·  \$${_totalSurcharge.toStringAsFixed(2)}'
                   : 'Complete Check-in',
               onPressed: _allFilled && !_isCalculating && !_isHoldFull
-                ? () => widget.onCompleted(_calculatedBags, _totalSurcharge)
-                : null,
+                  ? () => widget.onCompleted(_calculatedBags, _totalSurcharge)
+                  : null,
             ),
           ),
         ],

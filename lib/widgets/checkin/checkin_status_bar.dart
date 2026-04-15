@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 
 class CheckInStatusBar extends StatefulWidget {
   final Map<String, dynamic> flight;
+  final VoidCallback? onBackToFlights;
 
-  const CheckInStatusBar({super.key, required this.flight});
+  const CheckInStatusBar({super.key, required this.flight, this.onBackToFlights,});
 
   @override
   State<CheckInStatusBar> createState() => _CheckInStatusBarState();
@@ -171,7 +172,23 @@ class _CheckInStatusBarState extends State<CheckInStatusBar> {
                     ],
                   ),
                 ),
-                const SizedBox(width: 10),                
+                const SizedBox(width: 10),     
+
+                const Spacer(),
+                if (widget.onBackToFlights != null)
+                  TextButton.icon(
+                    onPressed: widget.onBackToFlights,
+                    icon:  const Icon(Icons.people_outline, size: 15),
+                    label: const Text('Passengers', style: TextStyle(fontSize: 13)),
+                    style: TextButton.styleFrom(
+                      padding:       const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      minimumSize:   Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+
+
+
               ],
             ),
           ),

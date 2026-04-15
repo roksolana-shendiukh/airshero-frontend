@@ -77,15 +77,14 @@ class BagRow extends StatelessWidget {
                       ),
                     ),
                     const Spacer(),
-                    if (isExtra)
-                      InkWell(
-                        onTap:        onRemove,
-                        borderRadius: BorderRadius.circular(4),
-                        child: Padding(
-                          padding: const EdgeInsets.all(4),
-                          child: Icon(Icons.close, size: 14, color: colors.onSurfaceVariant),
-                        ),
+                    InkWell(
+                      onTap:        onRemove,
+                      borderRadius: BorderRadius.circular(4),
+                      child: Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: Icon(Icons.close, size: 14, color: colors.onSurfaceVariant),
                       ),
+                    ),
                   ],
                 ),
 

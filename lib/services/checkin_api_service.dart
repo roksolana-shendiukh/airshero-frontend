@@ -248,9 +248,11 @@ class CheckInApiService {
   }
 
   Future<Map<String, dynamic>> getBoardingStats(int flightOperationId) async {
+    debugPrint('[getBoardingStats] flightOperationId=$flightOperationId');
     final uri = Uri.parse(
         '${AppConfig.baseUrl}/checkin/stats/$flightOperationId');
     final response = await http.get(uri, headers: await _headers());
+    debugPrint('[getBoardingStats] status=${response.statusCode} body=${response.body}');
     if (response.statusCode == 200) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
@@ -266,5 +268,15 @@ class CheckInApiService {
     }
     return [];
   }
+
+  Future<Map<String, dynamic>> getBoardingPassDetails(int boardingPassId) async {
+    final uri = Uri.parse('${AppConfig.baseUrl}/checkin/boarding-pass/$boardingPassId');
+    final response = await http.get(uri, headers: await _headers());
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception('Failed to load boarding pass');
+  }
+
 
 }

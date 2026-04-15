@@ -10,6 +10,7 @@ import '../../widgets/checkin/checkin_flight_select_modal.dart';
 import '../../widgets/checkin/checkin_baggage_step.dart';
 import '../../widgets/checkin/checkin_boarding_pass_step.dart';
 import '../pages/payment/checkin_payment_step.dart';
+import 'package:go_router/go_router.dart';
 
 enum CheckInStep {
   selectFlight,
@@ -106,32 +107,33 @@ class _CheckInPageState extends State<CheckInPage> {
     }
   }
 
-  bool get _showBackButton =>
-      _currentStep != CheckInStep.search &&
-      _currentStep != CheckInStep.boardingPass;
+  bool get _showBackButton => _currentStep != CheckInStep.boardingPass;
 
   void _goBack() {
-    setState(() {
-      switch (_currentStep) {
-        case CheckInStep.confirmPassenger:
-          _currentStep   = CheckInStep.search;
-          _bookingData   = null;
-          _passengerName = null;
-          _flightClass   = null;
-          _bookingItemId = null;
-        case CheckInStep.selectSeat:
-          _currentStep = CheckInStep.confirmPassenger;
-        case CheckInStep.baggage:
-          _currentStep = CheckInStep.selectSeat;
-        case CheckInStep.payment:
-          _currentStep = CheckInStep.baggage;
-        case CheckInStep.boardingPass:
-        case CheckInStep.search:
-        case CheckInStep.selectFlight:
-          break;
-      }
-    });
+  if (_currentStep == CheckInStep.search) {
+    context.go('/checkin');
+    return;
   }
+  
+  setState(() {
+    switch (_currentStep) {
+      case CheckInStep.confirmPassenger:
+        _currentStep   = CheckInStep.search;
+        _bookingData   = null;
+        _passengerName = null;
+        _flightClass   = null;
+        _bookingItemId = null;
+      case CheckInStep.selectSeat:
+        _currentStep = CheckInStep.confirmPassenger;
+      case CheckInStep.baggage:
+        _currentStep = CheckInStep.selectSeat;
+      case CheckInStep.payment:
+        _currentStep = CheckInStep.baggage;
+      default:
+        break;
+    }
+  });
+}
 
   void _handleSearchResult({
     required String documentNumber,
@@ -207,10 +209,11 @@ class _CheckInPageState extends State<CheckInPage> {
 
       case CheckInStep.search:
         return CheckInSearchStep(
-          authService:  widget.authService,
-          flightNumber: _flightNumber!,
-          departDate:   _departDate!,
-          onSearch:     _handleSearchResult,
+          authService:      widget.authService,
+          flightNumber:     _flightNumber!,
+          departDate:       _departDate!,
+          onSearch:         _handleSearchResult,
+          onBackToFlights:  () => context.go('/checkin'),
         );
 
       case CheckInStep.confirmPassenger:
@@ -312,19 +315,21 @@ class _CheckInPageState extends State<CheckInPage> {
         );
 
       case CheckInStep.boardingPass:
-        return CheckInBoardingPassStep(
-          ticketNumber:   _ticketNumber  ?? '—',
-          passengerName:  _passengerName ?? '—',
-          flightNumber:   _flightNumber  ?? '—',
-          flightClass:    _flightClass   ?? '—',
-          seat:           _selectedSeat  ?? '—',
-          departDate:     _departDate!,
-          bagCount:       _baggageCount  ?? 0,
-          departsAirport: _selectedFlight?['departsAirport'] as String? ?? '—',
-          arrivesAirport: _selectedFlight?['arrivesAirport'] as String? ?? '—',
-          departsTime:    _selectedFlight?['departsDatetime'] as String? ?? '—',
-          onNewPassenger: _resetForNextPassenger,
-        );
+      return CheckInBoardingPassStep(
+        ticketNumber:   _ticketNumber  ?? '—',
+        passengerName:  _passengerName ?? '—',
+        flightNumber:   _flightNumber  ?? '—',
+        flightClass:    _flightClass   ?? '—',
+        seat:           _selectedSeat  ?? '—',
+        departDate:     _departDate!,
+        bagCount:       _baggageCount  ?? 0,
+        departsAirport: _selectedFlight?['departsAirport'] as String? ?? '—',
+        arrivesAirport: _selectedFlight?['arrivesAirport'] as String? ?? '—',
+        departsTime:    _selectedFlight?['departsDatetime'] as String? ?? '—',
+        arrivesTime:    _selectedFlight?['arrivesDatetime'] as String? ?? '—',
+        gate:           _selectedFlight?['gateCode']        as String? ?? '—',
+        onNewPassenger: _resetForNextPassenger,
+      );
     }
   }
 

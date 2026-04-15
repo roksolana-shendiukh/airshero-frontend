@@ -126,7 +126,6 @@ enum UserRole {
       case UserRole.checkInAgent:
         return [
           const MenuItem(icon: Icons.flight_outlined, title: 'Flights', route: '/checkin'),
-          const MenuItem(icon: Icons.how_to_reg_outlined, title: 'Check-In', route: '/checkin/register'),
         ];
       case UserRole.flightOperator:
         return [

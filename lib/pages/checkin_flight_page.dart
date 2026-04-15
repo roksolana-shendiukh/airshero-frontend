@@ -9,6 +9,9 @@ import '../../services/checkin_api_service.dart';
 import '../../services/checkin_service.dart';
 import '../../widgets/responsive_layout.dart';
 import '../../widgets/custom/custom_button.dart';
+import '../../widgets/checkin/checkin_boarding_pass_step.dart';
+import '../widgets/checkIn/checkin_passenger_bar.dart';
+
 
 class CheckInFlightsPage extends StatefulWidget {
   const CheckInFlightsPage({super.key});
@@ -30,6 +33,8 @@ class _CheckInFlightsPageState extends State<CheckInFlightsPage> {
   int       _checkedIn      = 0;
   int _totalPassengers = 0;
   int _remaining       = 0;
+  late final AuthService _authService;
+  String _searchQuery = '';
 
   List<Map<String, dynamic>>? _recentPassengers;
 
@@ -53,7 +58,8 @@ class _CheckInFlightsPageState extends State<CheckInFlightsPage> {
   @override
   void initState() {
     super.initState();
-    _apiService = CheckInApiService(context.read<AuthService>());
+    _authService = context.read<AuthService>(); 
+    _apiService  = CheckInApiService(_authService);
     _load();
   }
 
@@ -231,6 +237,18 @@ class _CheckInFlightsPageState extends State<CheckInFlightsPage> {
         ),
         const Spacer(),
         if (activeFlight != null) ...[
+          CustomButton(
+            label:             'Register Passenger',
+            icon:              Icons.person_add_outlined,
+            isIconAfterLabel:  false,
+            verticalPadding:   8,
+            horizontalPadding: 14,
+            onPressed: () => context.go(
+              '/checkin/register',
+              extra: activeFlight,
+            ),
+          ),
+          const SizedBox(width: 8),
           OutlinedButton(
             onPressed: _isActioning ? null : _leaveBoarding,
             style: OutlinedButton.styleFrom(
@@ -251,8 +269,6 @@ class _CheckInFlightsPageState extends State<CheckInFlightsPage> {
             child: const Text('End Boarding', style: TextStyle(fontSize: 13)),
           ),
         ] else ...[
-          
-          
           IconButton(
             icon:      const Icon(Icons.refresh_rounded, size: 20),
             onPressed: _load,
@@ -263,101 +279,173 @@ class _CheckInFlightsPageState extends State<CheckInFlightsPage> {
     );
   }
 
-  Widget _buildActiveBoardingBody(Map<String, dynamic> flight) {
-    final colors = Theme.of(context).colorScheme;
+  Future<void> _showBoardingPassModal(int boardingPassId) async {
+    try {
+      final api  = CheckInApiService(_authService);
+      final data = await api.getBoardingPassDetails(boardingPassId);
+      if (!mounted) return;
 
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: _StatCard(
-                    label: 'Total passengers',
-                    value: '$_totalPassengers',
-                    colors: colors),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _StatCard(
-                    label:      'Checked in',
-                    value:      '$_checkedIn',
-                    valueColor: Colors.green,
-                    colors:     colors),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _StatCard(
-                    label: 'Remaining',
-                    value: '$_remaining',
-                    colors: colors),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 32),
-
-          CustomButton(
-            label:             'Register Passenger',
-            icon:              Icons.person_add_outlined,
-            isIconAfterLabel:  false,
-            verticalPadding:   12,
-            horizontalPadding: 28,
-            onPressed: () => context.go(
-              '/checkin/register',
-              extra: flight,
-            ),
-          ),
-
-          const SizedBox(height: 32),
-
-          Container(
-            width:       double.infinity,
-            decoration: BoxDecoration(
-              color:        colors.surface,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                  color: colors.outlineVariant.withValues(alpha: 0.4)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                  child: Text(
-                    'RECENTLY CHECKED IN',
-                    style: TextStyle(
-                      fontSize:      11,
-                      fontWeight:    FontWeight.w600,
-                      letterSpacing: 0.8,
-                      color:         colors.onSurfaceVariant,
+      showDialog(
+        context: context,
+        builder: (ctx) {
+          final colors = Theme.of(ctx).colorScheme;
+          return Dialog(
+            backgroundColor: Colors.transparent,
+            insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 40),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1040),
+              child: Stack(
+                children: [
+                  SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CheckInBoardingPassStep(
+                          ticketNumber:   data['ticketNumber']   ?? '—',
+                          passengerName:  data['passengerName']  ?? '—',
+                          flightNumber:   data['flightNumber']   ?? '—',
+                          flightClass:    data['flightClass']    ?? '—',
+                          seat:           data['seat']           ?? '—',
+                          departDate:     DateTime.tryParse(data['departsTime'] ?? '') ?? DateTime.now(),
+                          bagCount:       data['bagCount']       ?? 0,
+                          departsAirport: data['departsAirport'] ?? '—',
+                          arrivesAirport: data['arrivesAirport'] ?? '—',
+                          departsTime:    data['departsTime']    ?? '—',
+                          arrivesTime:    data['arrivesTime']    ?? '—',
+                          gate:           data['gate']           ?? '—',
+                          onNewPassenger: () {}, 
+                          showActions:    false,
+                        ),
+                      ],
                     ),
                   ),
+                  Positioned(
+                    top:   8,
+                    right: 8,
+                    child: IconButton(
+                      icon: Icon(Icons.close, color: colors.onSurfaceVariant),
+                      onPressed: () => Navigator.of(ctx).pop(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load boarding pass')),
+      );
+    }
+  }
+
+
+  Widget _buildActiveBoardingBody(Map<String, dynamic> flight) {
+  final colors = Theme.of(context).colorScheme;
+
+  final filtered = (_recentPassengers ?? []).where((p) {
+    if (_searchQuery.isEmpty) return true;
+    final name = (p['passengerName'] as String? ?? '').toLowerCase();
+    final seat = (p['seat'] as String? ?? '').toLowerCase();
+    final q    = _searchQuery.toLowerCase();
+    return name.contains(q) || seat.contains(q);
+  }).toList();
+
+  return SingleChildScrollView(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _StatCard(
+                  label: 'Total passengers',
+                  value: '$_totalPassengers',
+                  colors: colors),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _StatCard(
+                  label:      'Checked in',
+                  value:      '$_checkedIn',
+                  valueColor: Colors.green,
+                  colors:     colors),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _StatCard(
+                  label: 'Remaining',
+                  value: '$_remaining',
+                  colors: colors),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 16),
+
+        CheckInPassengerSearchBar(
+          onChanged: (v) => setState(() => _searchQuery = v),
+          onClear:   ()  => setState(() => _searchQuery = ''),
+        ),
+
+        const SizedBox(height: 12),
+
+        Container(
+          width:       double.infinity,
+          decoration: BoxDecoration(
+            color:        colors.surface,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+                color: colors.outlineVariant.withValues(alpha: 0.4)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                child: Text(
+                  'CHECKED IN PASSENGERS',
+                  style: TextStyle(
+                    fontSize:      11,
+                    fontWeight:    FontWeight.w600,
+                    letterSpacing: 0.8,
+                    color:         colors.onSurfaceVariant,
+                  ),
                 ),
-                Divider(
-                    height: 1,
-                    color: colors.outlineVariant.withValues(alpha: 0.4)),
-                (_recentPassengers ?? []).isEmpty
-                    ? Padding(
-                        padding: const EdgeInsets.all(32),
-                        child: Center(
-                          child: Text(
-                            'No passengers registered yet',
-                            style: TextStyle(color: colors.onSurfaceVariant),
-                          ),
+              ),
+
+              Divider(
+                  height: 1,
+                  color: colors.outlineVariant.withValues(alpha: 0.4)),
+
+              filtered.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Center(
+                        child: Text(
+                          _searchQuery.isEmpty
+                              ? 'No passengers registered yet'
+                              : 'No results for "$_searchQuery"',
+                          style: TextStyle(color: colors.onSurfaceVariant),
                         ),
-                      )
-                    : ListView.separated(
-                        shrinkWrap:       true,
-                        physics:          const NeverScrollableScrollPhysics(),
-                        itemCount: (_recentPassengers ?? []).length,
-                        separatorBuilder: (_, __) => Divider(
-                            height: 1,
-                            color: colors.outlineVariant
-                                .withValues(alpha: 0.3)),
-                        itemBuilder: (_, i) {
-                          final p = (_recentPassengers ?? [])[i];
-                          return Padding(
+                      ),
+                    )
+                  : ListView.separated(
+                      shrinkWrap: true,
+                      physics:    const NeverScrollableScrollPhysics(),
+                      itemCount:  filtered.length,
+                      separatorBuilder: (_, __) => Divider(
+                          height: 1,
+                          color:  colors.outlineVariant
+                              .withValues(alpha: 0.3)),
+                      itemBuilder: (_, i) {
+                        final p = filtered[i];
+                        return InkWell(
+                          onTap: () => _showBoardingPassModal(
+                              p['boardingPassId'] as int),
+                          child: Padding(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 16, vertical: 10),
                             child: Row(
@@ -389,30 +477,41 @@ class _CheckInFlightsPageState extends State<CheckInFlightsPage> {
                                         'Seat ${p['seat'] ?? '—'} · ${p['className'] ?? '—'}',
                                         style: TextStyle(
                                             fontSize: 11,
-                                            color:
-                                                colors.onSurfaceVariant),
+                                            color: colors.onSurfaceVariant),
                                       ),
                                     ],
                                   ),
                                 ),
-                                Text(
-                                  _fmtIssuedAt(p['issuedAt'] as String?),
-                                  style: TextStyle(
-                                      fontSize: 11,
-                                      color:    colors.onSurfaceVariant),
+                                Row(
+                                  children: [
+                                    Text(
+                                      _fmtIssuedAt(p['issuedAt'] as String?),
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          color: colors.onSurfaceVariant),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Icon(
+                                      Icons.chevron_right,
+                                      size:  16,
+                                      color: colors.onSurfaceVariant
+                                          .withValues(alpha: 0.5),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
-                          );
-                        },
-                      ),
-              ],
-            ),
+                          ),
+                        );
+                      },
+                    ),
+            ],
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
 
   String _fmtIssuedAt(String? issuedAt) {
     if (issuedAt == null) return '—';
