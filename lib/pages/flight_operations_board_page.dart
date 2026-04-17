@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:go_router/go_router.dart'; 
+import 'package:go_router/go_router.dart';
 
 import '../../models/flight_without_operation_model.dart';
 import '../../models/flight_operation_model.dart';
@@ -19,7 +19,8 @@ class FlightOperationsBoardPage extends StatefulWidget {
   const FlightOperationsBoardPage({super.key});
 
   @override
-  State<FlightOperationsBoardPage> createState() => _FlightOperationsBoardPageState();
+  State<FlightOperationsBoardPage> createState() =>
+      _FlightOperationsBoardPageState();
 }
 
 class _FlightOperationsBoardPageState extends State<FlightOperationsBoardPage> {
@@ -28,7 +29,7 @@ class _FlightOperationsBoardPageState extends State<FlightOperationsBoardPage> {
   List<BoardRow> _rows = [];
   bool _isLoading = true;
   String? _error;
-  
+
   String? _filterStatus;
   String? _filterAircraft;
   int _currentPage = 1;
@@ -41,7 +42,10 @@ class _FlightOperationsBoardPageState extends State<FlightOperationsBoardPage> {
   }
 
   Future<void> _load() async {
-    setState(() { _isLoading = true; _error = null; });
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
     try {
       final results = await Future.wait([
         _apiService.getFlightsWithoutOperation(),
@@ -49,30 +53,47 @@ class _FlightOperationsBoardPageState extends State<FlightOperationsBoardPage> {
       ]);
 
       final flights = results[0] as List<FlightWithoutOperationModel>;
+debugPrint('FLIGHTS WITHOUT OP: ${flights.length}');
+debugPrint('OPERATIONS: ${(results[1] as List).length}');
       final operations = results[1] as List<FlightOperationModel>;
 
       final activeOps = operations
-          .where((o) => activeStatuses.contains(o.statusName))
-          .toList();
+        .where((o) => activeStatuses.contains(o.statusName))
+        .toList();
 
       final rows = <BoardRow>[
         ...activeOps.map(BoardRow.fromOperation),
         ...flights.map(BoardRow.fromFlight),
       ]..sort((a, b) => a.departsDatetime.compareTo(b.departsDatetime));
 
-      if (mounted) setState(() { _rows = rows; _isLoading = false; });
+      if (mounted)
+        setState(() {
+          _rows = rows;
+          _isLoading = false;
+        });
     } catch (e) {
-      if (mounted) setState(() { _error = e.toString(); _isLoading = false; });
+      if (mounted)
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
     }
   }
 
   List<BoardRow> get _filtered => _rows.where((r) {
-        if (_filterStatus != null && _filterStatus != 'All' && r.statusName != _filterStatus) return false;
-        if (_filterAircraft != null && _filterAircraft != 'All' && (r.aircraftModel ?? '—') != _filterAircraft) return false;
-        return true;
-      }).toList();
+    if (_filterStatus != null &&
+        _filterStatus != 'All' &&
+        r.statusName != _filterStatus)
+      return false;
+    if (_filterAircraft != null &&
+        _filterAircraft != 'All' &&
+        (r.aircraftModel ?? '—') != _filterAircraft)
+      return false;
+    return true;
+  }).toList();
 
-  int get _totalPages => (_filtered.length / itemsPerPage).ceil().clamp(1, 9999);
+  int get _totalPages =>
+      (_filtered.length / itemsPerPage).ceil().clamp(1, 9999);
 
   List<BoardRow> get _paginated {
     final start = (_currentPage - 1) * itemsPerPage;
@@ -80,11 +101,19 @@ class _FlightOperationsBoardPageState extends State<FlightOperationsBoardPage> {
     return _filtered.isEmpty ? [] : _filtered.sublist(start, end);
   }
 
-  List<String> get _statusOptions => ['All', ..._rows.map((r) => r.statusName).toSet().toList()..sort()];
+  List<String> get _statusOptions => [
+    'All',
+    ..._rows.map((r) => r.statusName).toSet().toList()..sort(),
+  ];
   List<String> get _aircraftOptions => [
-        'All',
-        ..._rows.map((r) => r.aircraftModel ?? '—').where((a) => a != '—').toSet().toList()..sort(),
-      ];
+    'All',
+    ..._rows
+        .map((r) => r.aircraftModel ?? '—')
+        .where((a) => a != '—')
+        .toSet()
+        .toList()
+      ..sort(),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -92,7 +121,7 @@ class _FlightOperationsBoardPageState extends State<FlightOperationsBoardPage> {
       header: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const OperatorStatusBar(), 
+          const OperatorStatusBar(),
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
             child: Column(
@@ -119,7 +148,7 @@ class _FlightOperationsBoardPageState extends State<FlightOperationsBoardPage> {
           totalItems: _filtered.length,
           itemsPerPage: itemsPerPage,
           hasFiltersApplied: _filterStatus != null || _filterAircraft != null,
-          
+
           onRetry: _load,
           onClearFilters: () {
             setState(() {
@@ -131,7 +160,7 @@ class _FlightOperationsBoardPageState extends State<FlightOperationsBoardPage> {
           onPageChanged: (newPage) {
             setState(() => _currentPage = newPage);
           },
-          
+
           onStartOperation: (row) {
             if (row.flight != null) {
               context.go('/flight-operations/create', extra: row.flight!);
@@ -143,7 +172,6 @@ class _FlightOperationsBoardPageState extends State<FlightOperationsBoardPage> {
             }
           },
         ),
-      
       ),
     );
   }
@@ -156,13 +184,20 @@ class _FlightOperationsBoardPageState extends State<FlightOperationsBoardPage> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Flight Operations', style: Theme.of(context).textTheme.titleLarge),
+            Text(
+              'Flight Operations',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
             const SizedBox(height: 3),
             Row(
               children: [
                 Container(
-                  width: 6, height: 6,
-                  decoration: const BoxDecoration(color: Color(0xFF4ADE80), shape: BoxShape.circle),
+                  width: 6,
+                  height: 6,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF4ADE80),
+                    shape: BoxShape.circle,
+                  ),
                 ),
                 const SizedBox(width: 6),
                 Text(
@@ -176,7 +211,12 @@ class _FlightOperationsBoardPageState extends State<FlightOperationsBoardPage> {
           ],
         ),
         const Spacer(),
-        IconBtn(icon: Icons.refresh_rounded, tooltip: 'Refresh', onTap: _load, colors: colors),
+        IconBtn(
+          icon: Icons.refresh_rounded,
+          tooltip: 'Refresh',
+          onTap: _load,
+          colors: colors,
+        ),
       ],
     );
   }
@@ -192,7 +232,10 @@ class _FlightOperationsBoardPageState extends State<FlightOperationsBoardPage> {
             value: _filterStatus ?? 'All',
             icon: Icons.circle_outlined,
             items: _statusOptions,
-            onChanged: (v) => setState(() { _filterStatus = v == 'All' ? null : v; _currentPage = 1; }),
+            onChanged: (v) => setState(() {
+              _filterStatus = v == 'All' ? null : v;
+              _currentPage = 1;
+            }),
           ),
         ),
         const SizedBox(width: 10),
@@ -203,13 +246,33 @@ class _FlightOperationsBoardPageState extends State<FlightOperationsBoardPage> {
             value: _filterAircraft ?? 'All',
             icon: Icons.airplanemode_active_rounded,
             items: _aircraftOptions,
-            onChanged: (v) => setState(() { _filterAircraft = v == 'All' ? null : v; _currentPage = 1; }),
+            onChanged: (v) => setState(() {
+              _filterAircraft = v == 'All' ? null : v;
+              _currentPage = 1;
+            }),
           ),
         ),
         const Spacer(),
-        if (_filterStatus != null) ActiveChip(label: _filterStatus!, onClear: () => setState(() { _filterStatus = null; _currentPage = 1; }), colors: colors),
-        if (_filterStatus != null && _filterAircraft != null) const SizedBox(width: 6),
-        if (_filterAircraft != null) ActiveChip(label: _filterAircraft!, onClear: () => setState(() { _filterAircraft = null; _currentPage = 1; }), colors: colors),
+        if (_filterStatus != null)
+          ActiveChip(
+            label: _filterStatus!,
+            onClear: () => setState(() {
+              _filterStatus = null;
+              _currentPage = 1;
+            }),
+            colors: colors,
+          ),
+        if (_filterStatus != null && _filterAircraft != null)
+          const SizedBox(width: 6),
+        if (_filterAircraft != null)
+          ActiveChip(
+            label: _filterAircraft!,
+            onClear: () => setState(() {
+              _filterAircraft = null;
+              _currentPage = 1;
+            }),
+            colors: colors,
+          ),
       ],
     );
   }

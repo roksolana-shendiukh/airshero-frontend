@@ -187,6 +187,7 @@ class _CheckInFlightsPageState extends State<CheckInFlightsPage> {
     switch (status) {
       case 'Waiting':  return colors.onSurfaceVariant;
       case 'Boarding': return const Color(0xFF2196F3);
+      case 'Scheduled': return colors.primary;
       default:         return colors.onSurfaceVariant;
     }
   }
@@ -582,19 +583,19 @@ class _CheckInFlightsPageState extends State<CheckInFlightsPage> {
   }
 
   Widget _buildFlightCard(Map<String, dynamic> flight) {
-    final colors        = Theme.of(context).colorScheme;
-    final status        = flight['status']             as String?;
-    final flightNumber  = flight['flightNumber']       as String? ?? '—';
-    final gate          = flight['gateCode']           as String? ?? '—';
-    final departs       = flight['departsDatetime']    as String?;
-    final arrives       = flight['arrivesDatetime']    as String?;
-    final depAirport    = flight['departsAirport']     as String? ?? '—';
-    final arrAirport    = flight['arrivesAirport']     as String? ?? '—';
-    final arrName       = flight['arrivesAirportName'] as String? ?? '—';
-    final boardingStart = flight['boardingStartTime']  as String?;
-    final boardingEnd   = flight['boardingEndTime']    as String?;
-    final statusColor   = _statusColor(status, colors);
-    final isBoarding    = status == 'Boarding';
+    final colors         = Theme.of(context).colorScheme;
+    final status         = flight['status']             as String?;
+    final flightNumber   = flight['flightNumber']       as String? ?? '—';
+    final gate           = flight['gateCode']           as String? ?? '—';
+    final departs        = flight['departsDatetime']    as String?;
+    final arrives        = flight['arrivesDatetime']    as String?;
+    final depAirport     = flight['departsAirport']     as String? ?? '—';
+    final arrAirport     = flight['arrivesAirport']     as String? ?? '—';
+    final arrName        = flight['arrivesAirportName'] as String? ?? '—';
+    final boardingStart  = flight['boardingStartTime']  as String?;
+    final boardingEnd    = flight['boardingEndTime']    as String?;
+    final statusColor    = _statusColor(status, colors);
+    final isBoarding     = status == 'Boarding';
     final isBoardingDone = boardingStart != null && boardingEnd != null;
 
     return Container(
@@ -622,28 +623,27 @@ class _CheckInFlightsPageState extends State<CheckInFlightsPage> {
                         ?.copyWith(fontWeight: FontWeight.w700)),
                 const SizedBox(width: 10),
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     color:        statusColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                        color: statusColor.withValues(alpha: 0.3)),
+                    border:       Border.all(color: statusColor.withValues(alpha: 0.3)),
                   ),
-                  child: Text(status ?? '—',
-                      style: TextStyle(
-                        fontSize:   11,
-                        fontWeight: FontWeight.w600,
-                        color:      statusColor,
-                      )),
+                  child: Text(
+                    status ?? '—',
+                    style: TextStyle(
+                      fontSize:   11,
+                      fontWeight: FontWeight.w600,
+                      color:      statusColor,
+                    ),
+                  ),
                 ),
                 const Spacer(),
                 Icon(Icons.door_sliding_outlined,
                     size: 14, color: colors.onSurfaceVariant),
                 const SizedBox(width: 5),
                 Text('Gate $gate',
-                    style: TextStyle(
-                        fontSize: 13, color: colors.onSurfaceVariant)),
+                    style: TextStyle(fontSize: 13, color: colors.onSurfaceVariant)),
               ],
             ),
 
@@ -660,13 +660,9 @@ class _CheckInFlightsPageState extends State<CheckInFlightsPage> {
                             .titleMedium
                             ?.copyWith(fontWeight: FontWeight.w600)),
                     Text(depAirport,
-                        style: TextStyle(
-                            fontSize: 12,
-                            color: colors.onSurfaceVariant)),
+                        style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant)),
                     Text(_formatDate(departs),
-                        style: TextStyle(
-                            fontSize: 11,
-                            color: colors.onSurfaceVariant)),
+                        style: TextStyle(fontSize: 11, color: colors.onSurfaceVariant)),
                   ],
                 ),
                 Expanded(
@@ -675,20 +671,17 @@ class _CheckInFlightsPageState extends State<CheckInFlightsPage> {
                       Expanded(
                         child: Container(
                             height: 1,
-                            color:
-                                colors.outline.withValues(alpha: 0.3)),
+                            color: colors.outline.withValues(alpha: 0.3)),
                       ),
                       Padding(
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
                         child: Icon(Icons.flight,
                             size: 16, color: colors.onSurfaceVariant),
                       ),
                       Expanded(
                         child: Container(
                             height: 1,
-                            color:
-                                colors.outline.withValues(alpha: 0.3)),
+                            color: colors.outline.withValues(alpha: 0.3)),
                       ),
                     ],
                   ),
@@ -702,13 +695,9 @@ class _CheckInFlightsPageState extends State<CheckInFlightsPage> {
                             .titleMedium
                             ?.copyWith(fontWeight: FontWeight.w600)),
                     Text(arrAirport,
-                        style: TextStyle(
-                            fontSize: 12,
-                            color: colors.onSurfaceVariant)),
+                        style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant)),
                     Text(arrName,
-                        style: TextStyle(
-                            fontSize: 11,
-                            color: colors.onSurfaceVariant),
+                        style: TextStyle(fontSize: 11, color: colors.onSurfaceVariant),
                         overflow: TextOverflow.ellipsis),
                   ],
                 ),
@@ -724,8 +713,7 @@ class _CheckInFlightsPageState extends State<CheckInFlightsPage> {
                   const SizedBox(width: 5),
                   Text(
                     'Boarding completed · ${boardingStart!.substring(0, 5)} — ${boardingEnd!.substring(0, 5)}',
-                    style: const TextStyle(
-                        fontSize: 11, color: Colors.green),
+                    style: const TextStyle(fontSize: 11, color: Colors.green),
                   ),
                 ],
               ),
@@ -737,9 +725,9 @@ class _CheckInFlightsPageState extends State<CheckInFlightsPage> {
               alignment: Alignment.centerRight,
               child: _isActioning
                   ? const SizedBox(
-                      width: 20,
+                      width:  20,
                       height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      child:  CircularProgressIndicator(strokeWidth: 2),
                     )
                   : isBoardingDone
                       ? const SizedBox.shrink()
@@ -752,21 +740,22 @@ class _CheckInFlightsPageState extends State<CheckInFlightsPage> {
                               horizontalPadding: 14,
                               onPressed: () => _startBoarding(flight),
                             )
-                          : CustomButton(
-                              label:             'Join Boarding',
-                              icon:              Icons.login_rounded,
-                              isIconAfterLabel:  false,
-                              verticalPadding:   8,
-                              horizontalPadding: 14,
-                              onPressed: () => _joinBoarding(flight),
-                            ),
+                          : status == 'Boarding'
+                              ? CustomButton(
+                                  label:             'Join Boarding',
+                                  icon:              Icons.login_rounded,
+                                  isIconAfterLabel:  false,
+                                  verticalPadding:   8,
+                                  horizontalPadding: 14,
+                                  onPressed: () => _joinBoarding(flight),
+                                )
+                              : const SizedBox.shrink(), // Scheduled — без кнопки
             ),
           ],
         ),
       ),
     );
   }
-
 
 }
 

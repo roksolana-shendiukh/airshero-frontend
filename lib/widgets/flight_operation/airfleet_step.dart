@@ -85,7 +85,9 @@ class _AirfleetCardState extends State<_AirfleetCard> {
   }
 
   Future<void> _loadPhotos() async {
-    final photos = await widget.apiService.getAirfleetPhotos(widget.airfleet.airfleetId);
+    debugPrint('>>> loading photos for airfleet ${widget.airfleet.airfleetId}');
+  final photos = await widget.apiService.getAirfleetPhotos(widget.airfleet.airfleetId);
+  debugPrint('>>> photos count: ${photos.length}');
     if (mounted) setState(() {
       _photos      = photos;
       _loadedPhotos = true;

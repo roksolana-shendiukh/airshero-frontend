@@ -5,7 +5,11 @@ class CheckInStatusBar extends StatefulWidget {
   final Map<String, dynamic> flight;
   final VoidCallback? onBackToFlights;
 
-  const CheckInStatusBar({super.key, required this.flight, this.onBackToFlights,});
+  const CheckInStatusBar({
+    super.key,
+    required this.flight,
+    this.onBackToFlights,
+  });
 
   @override
   State<CheckInStatusBar> createState() => _CheckInStatusBarState();
@@ -47,14 +51,23 @@ class _CheckInStatusBarState extends State<CheckInStatusBar> {
   bool get _shouldWarn {
     final d = _departsAt;
     if (d == null) return false;
-    return d.difference(_now).inMinutes <= _closeMinutes;
+    final diff = d.difference(_now);
+    if (diff.isNegative) return false;
+    return diff.inMinutes <= 2;
+  }
+
+  bool get _shouldShowTimer {
+    final d = _departsAt;
+    if (d == null) return false;
+    final diff = d.difference(_now);
+    return !diff.isNegative;
   }
 
   String get _countdownLabel {
     final d = _departsAt;
-    if (d == null) return '—';
+    if (d == null) return '';
     final diff = d.difference(_now);
-    if (diff.isNegative) return 'Departed';
+    if (diff.isNegative) return '';
     final h = diff.inHours;
     final m = diff.inMinutes % 60;
     final s = diff.inSeconds % 60;
@@ -64,14 +77,15 @@ class _CheckInStatusBarState extends State<CheckInStatusBar> {
 
   @override
   Widget build(BuildContext context) {
-    final colors       = Theme.of(context).colorScheme;
-    final flightNumber = widget.flight['flightNumber']   as String? ?? '—';
-    final depAirport   = widget.flight['departsAirport'] as String? ?? '—';
-    final arrAirport   = widget.flight['arrivesAirport'] as String? ?? '—';
-    final gate         = widget.flight['gateCode']       as String? ?? '—';
-    final sColor       = const Color(0xFF2196F3);
-    final warnColor    = Colors.orange;
-    final timerColor   = _shouldWarn ? warnColor : sColor;
+    final colors          = Theme.of(context).colorScheme;
+    final flightNumber    = widget.flight['flightNumber']   as String? ?? '—';
+    final depAirport      = widget.flight['departsAirport'] as String? ?? '—';
+    final arrAirport      = widget.flight['arrivesAirport'] as String? ?? '—';
+    final gate            = widget.flight['gateCode']       as String? ?? '—';
+    final sColor          = const Color(0xFF2196F3);
+    final warnColor       = Colors.orange;
+    final lineColor       = _shouldWarn ? warnColor : sColor;
+    final timerBadgeColor = _shouldWarn ? warnColor : sColor;
 
     return Container(
       decoration: BoxDecoration(
@@ -85,7 +99,7 @@ class _CheckInStatusBarState extends State<CheckInStatusBar> {
         ],
         border: Border(
           bottom: BorderSide(
-            color: timerColor.withValues(alpha: 0.4),
+            color: lineColor.withValues(alpha: 0.4),
             width: 2,
           ),
         ),
@@ -100,8 +114,7 @@ class _CheckInStatusBarState extends State<CheckInStatusBar> {
               color:   warnColor.withValues(alpha: 0.08),
               child: Row(
                 children: [
-                  Icon(Icons.warning_amber_outlined,
-                      size: 14, color: warnColor),
+                  Icon(Icons.warning_amber_outlined, size: 14, color: warnColor),
                   const SizedBox(width: 6),
                   Text(
                     'Close boarding soon — less than $_closeMinutes min to departure',
@@ -115,6 +128,7 @@ class _CheckInStatusBarState extends State<CheckInStatusBar> {
               ),
             ),
 
+          // Основний рядок
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 10, 12, 10),
             child: Row(
@@ -142,24 +156,22 @@ class _CheckInStatusBarState extends State<CheckInStatusBar> {
 
                 Text(
                   '· Gate $gate',
-                  style: TextStyle(
-                      fontSize: 13, color: colors.onSurfaceVariant),
+                  style: TextStyle(fontSize: 13, color: colors.onSurfaceVariant),
                 ),
                 const SizedBox(width: 12),
 
+                // Boarding badge
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
                     color:        sColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: sColor.withValues(alpha: 0.3)),
+                    border:       Border.all(color: sColor.withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.door_sliding_outlined,
-                          size: 13, color: sColor),
+                      Icon(Icons.door_sliding_outlined, size: 13, color: sColor),
                       const SizedBox(width: 5),
                       Text(
                         'Boarding',
@@ -172,23 +184,52 @@ class _CheckInStatusBarState extends State<CheckInStatusBar> {
                     ],
                   ),
                 ),
-                const SizedBox(width: 10),     
+
+                // Таймер зворотного відліку
+                if (_shouldShowTimer && _countdownLabel.isNotEmpty) ...[
+                  const SizedBox(width: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                    decoration: BoxDecoration(
+                      color:        timerBadgeColor.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(8),
+                      border:       Border.all(
+                          color: timerBadgeColor.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.timer_outlined, size: 13,
+                            color: timerBadgeColor),
+                        const SizedBox(width: 5),
+                        Text(
+                          _countdownLabel,
+                          style: TextStyle(
+                            color:      timerBadgeColor,
+                            fontSize:   12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
 
                 const Spacer(),
+
                 if (widget.onBackToFlights != null)
                   TextButton.icon(
                     onPressed: widget.onBackToFlights,
                     icon:  const Icon(Icons.people_outline, size: 15),
-                    label: const Text('Passengers', style: TextStyle(fontSize: 13)),
+                    label: const Text('Passengers',
+                        style: TextStyle(fontSize: 13)),
                     style: TextButton.styleFrom(
-                      padding:       const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
                       minimumSize:   Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                   ),
-
-
-
               ],
             ),
           ),

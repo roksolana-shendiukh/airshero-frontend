@@ -76,20 +76,12 @@ class CheckInProgressHeader extends StatelessWidget {
         children: [
           Row(
             children: [
-              if (onBack != null)
-                TextButton.icon(
-                  onPressed: onBack,
-                  icon: const Icon(Icons.arrow_back, size: 16),
-                  label: Text(
-                    currentStep == 'search' ? 'Back to Flights' : 'Back',
-                    style: const TextStyle(fontSize: 13),
-                  ),
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                ),
+             if (onBack != null)
+              IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: onBack,
+                tooltip: 'Back',
+              ),
 
               const SizedBox(width: 8),
 

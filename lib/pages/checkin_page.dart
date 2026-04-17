@@ -6,7 +6,6 @@ import '../../widgets/checkin/checkin_search_step.dart';
 import '../../widgets/checkin/checkin_progress_header.dart';
 import '../../widgets/checkin/checkin_confirm_passenger_step.dart';
 import '../../widgets/checkin/checkin_seat_map_step.dart';
-import '../../widgets/checkin/checkin_flight_select_modal.dart';
 import '../../widgets/checkin/checkin_baggage_step.dart';
 import '../../widgets/checkin/checkin_boarding_pass_step.dart';
 import '../pages/payment/checkin_payment_step.dart';
@@ -65,22 +64,10 @@ class _CheckInPageState extends State<CheckInPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (widget.preselectedFlight != null) {
         _handleFlightSelected(widget.preselectedFlight!);
-      } else {
-        _showFlightModal();
       }
     });
   }
 
-  void _showFlightModal() {
-    showDialog(
-      context:            context,
-      barrierDismissible: false,
-      builder: (_) => CheckInFlightSelectModal(
-        authService:      widget.authService,
-        onFlightSelected: _handleFlightSelected,
-      ),
-    );
-  }
 
   void _handleFlightSelected(Map<String, dynamic> flight) {
     if (Navigator.of(context).canPop()) {

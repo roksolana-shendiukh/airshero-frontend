@@ -48,8 +48,7 @@ class _FlightOperationCreatePageState
 
   Future<void> _loadAirfleets() async {
     setState(() => _loadingAirfleets = true);
-    final list = await _apiService.getAirfleets(
-        flightId: widget.flight.flightId);
+    final list = await _apiService.getAirfleets(flightId: widget.flight.flightId);
     if (!mounted) return;
     setState(() {
       _airfleets        = list;
@@ -60,8 +59,7 @@ class _FlightOperationCreatePageState
 
   Future<void> _loadGates() async {
     setState(() => _loadingGates = true);
-    final list =
-        await _apiService.getGates(flightId: widget.flight.flightId);
+    final list = await _apiService.getGates(flightId: widget.flight.flightId);
     if (!mounted) return;
     setState(() {
       _gates        = list;
@@ -127,16 +125,15 @@ class _FlightOperationCreatePageState
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(
-              color: colors.outlineVariant.withValues(alpha: 0.4)),
+          bottom: BorderSide(color: colors.outlineVariant.withValues(alpha: 0.4)),
         ),
       ),
       child: Row(
         children: [
           IconButton(
-            icon:    const Icon(Icons.arrow_back_rounded),
+            icon:     const Icon(Icons.arrow_back_rounded),
             onPressed: () => context.go('/flight-operations'),
-            tooltip: 'Back to board',
+            tooltip:  'Back to board',
           ),
           const SizedBox(width: 8),
           Column(
@@ -144,32 +141,25 @@ class _FlightOperationCreatePageState
             children: [
               Row(
                 children: [
-                  Text(
-                    widget.flight.flightNumber,
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
+                  Text(widget.flight.flightNumber,
+                      style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(width: 12),
                   Text(
                     '${widget.flight.departsCode} → ${widget.flight.arrivesCode}',
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: colors.onSurfaceVariant,
-                        ),
+                          color: colors.onSurfaceVariant),
                   ),
                   const SizedBox(width: 12),
                   Text(
                     _fmtTime(widget.flight.departsDatetime),
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: colors.onSurfaceVariant,
-                        ),
+                          color: colors.onSurfaceVariant),
                   ),
                 ],
               ),
               const SizedBox(height: 4),
-              Text(
-                'Select aircraft and gate',
-                style: TextStyle(
-                    fontSize: 12, color: colors.onSurfaceVariant),
-              ),
+              Text('Select aircraft and gate',
+                  style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant)),
             ],
           ),
         ],
@@ -225,11 +215,12 @@ class _FlightOperationCreatePageState
                               ),
                             )
                           : _selectedAirfleet != null
-                              ? Padding(
+                              ? SingleChildScrollView(
                                   padding: const EdgeInsets.all(20),
                                   child: _SelectedAircraftCard(
-                                    airfleet: _selectedAirfleet!,
-                                    colors:   colors,
+                                    airfleet:   _selectedAirfleet!,
+                                    colors:     colors,
+                                    apiService: _apiService,
                                   ),
                                 )
                               : Center(
@@ -272,8 +263,7 @@ class _FlightOperationCreatePageState
     );
   }
 
-  Widget _buildSectionHeader(String title, IconData icon,
-      {Widget? trailing}) {
+  Widget _buildSectionHeader(String title, IconData icon, {Widget? trailing}) {
     final colors = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
@@ -290,10 +280,7 @@ class _FlightOperationCreatePageState
           Text(
             title.toUpperCase(),
             style: const TextStyle(
-              fontSize:      11,
-              fontWeight:    FontWeight.w700,
-              letterSpacing: 1.0,
-            ),
+              fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.0),
           ),
           const Spacer(),
           if (trailing != null) trailing,
@@ -334,81 +321,64 @@ class _FlightOperationCreatePageState
               child: Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: gates
-                    .map((gate) => GestureDetector(
-                          onTap: gate.isAvailable
-                              ? () => setState(() => _selectedGate =
-                                  _selectedGate?.gateId == gate.gateId
-                                      ? null
-                                      : gate)
-                              : null,
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 150),
-                            width:  72,
-                            height: 56,
-                            decoration: BoxDecoration(
-                              color: !gate.isAvailable
-                                  ? colors.surfaceContainerHighest
-                                      .withValues(alpha: 0.5)
-                                  : _selectedGate?.gateId == gate.gateId
-                                      ? colors.primaryContainer
-                                          .withValues(alpha: 0.35)
-                                      : colors.surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: !gate.isAvailable
-                                    ? colors.outlineVariant
-                                        .withValues(alpha: 0.4)
-                                    : _selectedGate?.gateId == gate.gateId
-                                        ? colors.primary
-                                        : colors.outlineVariant,
-                                width:
-                                    _selectedGate?.gateId == gate.gateId
-                                        ? 1.5
-                                        : 1,
-                              ),
-                            ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                if (!gate.isAvailable)
-                                  Icon(Icons.lock_outline,
-                                      size: 12,
-                                      color: colors.onSurfaceVariant
-                                          .withValues(alpha: 0.4)),
-                                Text(
-                                  gate.gateCode,
-                                  style: TextStyle(
-                                    fontSize:   16,
-                                    fontWeight: FontWeight.w600,
-                                    color: !gate.isAvailable
-                                        ? colors.onSurfaceVariant
-                                            .withValues(alpha: 0.4)
-                                        : _selectedGate?.gateId ==
-                                                gate.gateId
-                                            ? colors.primary
-                                            : colors.onSurface,
-                                  ),
-                                ),
-                                Text(
-                                  gate.isAvailable ? 'Gate' : 'Busy',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: !gate.isAvailable
-                                        ? colors.onSurfaceVariant
-                                            .withValues(alpha: 0.4)
-                                        : _selectedGate?.gateId ==
-                                                gate.gateId
-                                            ? colors.primary
-                                                .withValues(alpha: 0.7)
-                                            : colors.onSurfaceVariant,
-                                  ),
-                                ),
-                              ],
-                            ),
+                children: gates.map((gate) => GestureDetector(
+                  onTap: gate.isAvailable
+                      ? () => setState(() => _selectedGate =
+                          _selectedGate?.gateId == gate.gateId ? null : gate)
+                      : null,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    width: 72, height: 56,
+                    decoration: BoxDecoration(
+                      color: !gate.isAvailable
+                          ? colors.surfaceContainerHighest.withValues(alpha: 0.5)
+                          : _selectedGate?.gateId == gate.gateId
+                              ? colors.primaryContainer.withValues(alpha: 0.35)
+                              : colors.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: !gate.isAvailable
+                            ? colors.outlineVariant.withValues(alpha: 0.4)
+                            : _selectedGate?.gateId == gate.gateId
+                                ? colors.primary
+                                : colors.outlineVariant,
+                        width: _selectedGate?.gateId == gate.gateId ? 1.5 : 1,
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (!gate.isAvailable)
+                          Icon(Icons.lock_outline,
+                              size: 12,
+                              color: colors.onSurfaceVariant
+                                  .withValues(alpha: 0.4)),
+                        Text(
+                          gate.gateCode,
+                          style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w600,
+                            color: !gate.isAvailable
+                                ? colors.onSurfaceVariant.withValues(alpha: 0.4)
+                                : _selectedGate?.gateId == gate.gateId
+                                    ? colors.primary
+                                    : colors.onSurface,
                           ),
-                        ))
-                    .toList(),
+                        ),
+                        Text(
+                          gate.isAvailable ? 'Gate' : 'Busy',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: !gate.isAvailable
+                                ? colors.onSurfaceVariant.withValues(alpha: 0.4)
+                                : _selectedGate?.gateId == gate.gateId
+                                    ? colors.primary.withValues(alpha: 0.7)
+                                    : colors.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )).toList(),
               ),
             ),
         ],
@@ -443,8 +413,7 @@ class _FlightOperationCreatePageState
                     Expanded(
                       child: Text(_errorMessage!,
                           style: TextStyle(
-                              color:    colors.onErrorContainer,
-                              fontSize: 12)),
+                              color: colors.onErrorContainer, fontSize: 12)),
                     ),
                   ],
                 ),
@@ -452,10 +421,9 @@ class _FlightOperationCreatePageState
             ),
           const Spacer(),
           SizedBox(
-            width:  200,
-            height: 44,
+            width: 200, height: 44,
             child: CustomButton(
-              label:     _isSubmitting ? 'Creating...' : 'Create Operation',
+              label: _isSubmitting ? 'Creating...' : 'Create Operation',
               onPressed: (_selectedAirfleet != null &&
                           _selectedGate != null &&
                           !_isSubmitting)
@@ -475,44 +443,237 @@ class _FlightOperationCreatePageState
   }
 }
 
-class _SelectedAircraftCard extends StatelessWidget {
-  final AirfleetModel airfleet;
-  final ColorScheme   colors;
 
-  const _SelectedAircraftCard(
-      {required this.airfleet, required this.colors});
+class _SelectedAircraftCard extends StatefulWidget {
+  final AirfleetModel             airfleet;
+  final ColorScheme               colors;
+  final FlightOperationApiService apiService;
+
+  const _SelectedAircraftCard({
+    required this.airfleet,
+    required this.colors,
+    required this.apiService,
+  });
+
+  @override
+  State<_SelectedAircraftCard> createState() => _SelectedAircraftCardState();
+}
+
+class _SelectedAircraftCardState extends State<_SelectedAircraftCard> {
+  List<String> _photos     = [];
+  int          _photoIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPhotos();
+  }
+
+  Future<void> _loadPhotos() async {
+    final photos =
+        await widget.apiService.getAirfleetPhotos(widget.airfleet.airfleetId);
+    if (mounted) setState(() => _photos = photos);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final colors = widget.colors;
+    final a      = widget.airfleet;
+
     return Container(
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color:        colors.primary.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         border:       Border.all(color: colors.primary.withValues(alpha: 0.2)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Icon(Icons.airplanemode_active_rounded,
-              color: colors.primary, size: 22),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+
+          if (_photos.isNotEmpty)
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
+              child: SizedBox(
+                height: 200,
+                child: Stack(
+                  children: [
+                    Image.network(
+                      _photos[_photoIndex],
+                      width: double.infinity, height: 200,
+                      fit:   BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        color: colors.surfaceContainerHigh,
+                        child: Icon(Icons.broken_image_outlined,
+                            color: colors.onSurfaceVariant),
+                      ),
+                    ),
+                    if (_photos.length > 1) ...[
+                      Positioned(
+                        left: 6, top: 0, bottom: 0,
+                        child: Center(
+                          child: _NavBtn(
+                            icon:  Icons.chevron_left,
+                            onTap: () => setState(() => _photoIndex =
+                                (_photoIndex - 1 + _photos.length) %
+                                    _photos.length),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        right: 6, top: 0, bottom: 0,
+                        child: Center(
+                          child: _NavBtn(
+                            icon:  Icons.chevron_right,
+                            onTap: () => setState(() => _photoIndex =
+                                (_photoIndex + 1) % _photos.length),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 8, left: 0, right: 0,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(
+                            _photos.length,
+                            (i) => AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              margin: const EdgeInsets.symmetric(horizontal: 3),
+                              width:  i == _photoIndex ? 16 : 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: i == _photoIndex
+                                    ? Colors.white
+                                    : Colors.white.withValues(alpha: 0.5),
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                    
+                  ],
+                ),
+              ),
+            )
+          else
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
+              child: Container(
+                height: 80,
+                color: colors.surfaceContainerHigh,
+                child: Center(
+                  child: Icon(Icons.airplanemode_active_outlined,
+                      size: 32,
+                      color: colors.onSurfaceVariant.withValues(alpha: 0.4)),
+                ),
+              ),
+            ),
+
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+            child: Row(
               children: [
-                Text(airfleet.aircraftModel,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 15)),
-                if (airfleet.manufacturerName != null)
-                  Text(airfleet.manufacturerName!,
-                      style: TextStyle(
-                          color: colors.onSurfaceVariant, fontSize: 12)),
-              ],
+                Icon(Icons.airplanemode_active_rounded,
+                    color: colors.primary, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(a.aircraftModel,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700, fontSize: 16)),
+                      if (a.manufacturerName != null)
+                        Text(a.manufacturerName!,
+                            style: TextStyle(
+                                color: colors.onSurfaceVariant, fontSize: 12)),
+                    ],
+                  ),
+                ),
+                ],
             ),
           ),
-          Icon(Icons.check_circle_rounded,
-              color: colors.primary, size: 22),
+
+        Divider(height: 1, color: colors.outlineVariant.withValues(alpha: 0.5)),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                children: [
+                  if (a.seatCapacity != null) ...[
+                    _buildSpecCell(colors, Icons.airline_seat_recline_normal_outlined, 'Seats', '${a.seatCapacity}', borderRight: true),
+                    Divider(height: 1, color: colors.outlineVariant.withValues(alpha: 0.5)),
+                  ],
+                  if (a.aircraftSpeed != null) ...[
+                    _buildSpecCell(colors, Icons.speed_outlined, 'Speed', '${a.aircraftSpeed!.round()} km/h', borderRight: true),
+                    Divider(height: 1, color: colors.outlineVariant.withValues(alpha: 0.5)),
+                  ],
+                  if (a.aircraftFuelConsumption != null)
+                    _buildSpecCell(colors, Icons.local_gas_station_outlined, 'Fuel', '${a.aircraftFuelConsumption} L/h', borderRight: true),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Column(
+                children: [
+                  if (a.aircraftRangeKm != null) ...[
+                    _buildSpecCell(colors, Icons.route_outlined, 'Range', '${a.aircraftRangeKm!.round()} km', borderRight: false),
+                    Divider(height: 1, color: colors.outlineVariant.withValues(alpha: 0.5)),
+                  ],
+                  if (a.baggageCapacity != null)
+                    _buildSpecCell(colors, Icons.luggage_outlined, 'Baggage', '${a.baggageCapacity!.round()} kg', borderRight: false),
+                ],
+              ),
+            ),
+          ],
+        ),
         ],
+      ),
+    );
+  }
+  Widget _buildSpecCell(ColorScheme colors, IconData icon, String label, String value, {required bool borderRight}) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+    decoration: borderRight
+        ? BoxDecoration(
+            border: Border(
+              right: BorderSide(color: colors.outlineVariant.withValues(alpha: 0.5)),
+            ),
+          )
+        : null,
+    child: Row(
+      children: [
+        Icon(icon, size: 13, color: colors.onSurfaceVariant),
+        const SizedBox(width: 6),
+        Text(label, style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant)),
+        const Spacer(),
+        Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: colors.onSurface)),
+      ],
+    ),
+  );
+}
+
+  
+}
+
+class _NavBtn extends StatelessWidget {
+  final IconData     icon;
+  final VoidCallback onTap;
+  const _NavBtn({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 30, height: 30,
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.35),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, color: Colors.white, size: 20),
       ),
     );
   }

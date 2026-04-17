@@ -83,17 +83,21 @@ class _ResponsiveLayoutState extends State<ResponsiveLayout> {
                       child: Column(
                         children: [
                           if (currentUser?.role == UserRole.checkInAgent)
-                            Consumer<CheckInService>(
-                              builder: (context, checkinService, _) {
-                                final flight = checkinService.activeFlight;
-                                if (flight == null) return const SizedBox.shrink();
-                                final currentPath = GoRouterState.of(context).uri.path;
-                                return CheckInStatusBar(
-                                  flight:          flight,
-                                  onBackToFlights: currentPath == '/checkin' ? null : () => context.go('/checkin'),
-                                );
-                              },
-                            ),
+                           Consumer<CheckInService>(
+  builder: (context, checkinService, _) {
+    final flight = checkinService.activeFlight;
+    if (flight == null) return const SizedBox.shrink();
+    final status = flight['status'] as String? ?? '';
+    if (status == 'Departed' || status == 'Arrived' || status == 'Completed') {
+      return const SizedBox.shrink();
+    }
+    final currentPath = GoRouterState.of(context).uri.path;
+    return CheckInStatusBar(
+      flight:          flight,
+      onBackToFlights: currentPath == '/checkin' ? null : () => context.go('/checkin'),
+    );
+  },
+),
                           if (widget.header != null) widget.header!,
                           Expanded(
                             child: widget.scrollable

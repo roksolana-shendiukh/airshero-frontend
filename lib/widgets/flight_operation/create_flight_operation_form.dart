@@ -464,40 +464,144 @@ class _CreateFlightOperationFormState extends State<CreateFlightOperationForm> {
   }
 }
 
-class _SelectedAircraftCard extends StatelessWidget {
+class _SelectedAircraftCard extends StatefulWidget {
   final AirfleetModel airfleet;
   final ColorScheme   colors;
+  final FlightOperationApiService apiService;
 
-  const _SelectedAircraftCard({required this.airfleet, required this.colors});
+  const _SelectedAircraftCard({
+    required this.airfleet,
+    required this.colors,
+    required this.apiService,
+  });
+
+  @override
+  State<_SelectedAircraftCard> createState() => _SelectedAircraftCardState();
+}
+
+class _SelectedAircraftCardState extends State<_SelectedAircraftCard> {
+  List<String> _photos = [];
+  int _photoIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPhotos();
+  }
+
+  Future<void> _loadPhotos() async {
+    final photos = await widget.apiService.getAirfleetPhotos(widget.airfleet.airfleetId);
+    if (mounted) setState(() => _photos = photos);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final colors = widget.colors;
+
     return Container(
-      padding:    const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color:        colors.primary.withOpacity(0.04),
-        borderRadius: BorderRadius.circular(6),
-        border:       Border.all(color: colors.primary.withOpacity(0.2)),
+        color:        colors.primary.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(8),
+        border:       Border.all(color: colors.primary.withValues(alpha: 0.2)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Icon(Icons.airplanemode_active_rounded, color: colors.primary, size: 20),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          if (_photos.isNotEmpty)
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(7)),
+              child: SizedBox(
+                height: 160,
+                child: Stack(
+                  children: [
+                    Image.network(
+                      _photos[_photoIndex],
+                      width:  double.infinity,
+                      height: 160,
+                      fit:    BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        color: colors.surfaceContainerHigh,
+                        child: Icon(Icons.broken_image_outlined,
+                            color: colors.onSurfaceVariant),
+                      ),
+                    ),
+                    if (_photos.length > 1) ...[
+                      Positioned(
+                        left: 6, top: 0, bottom: 0,
+                        child: Center(
+                          child: _NavBtn(
+                            icon:  Icons.chevron_left,
+                            onTap: () => setState(() =>
+                                _photoIndex = (_photoIndex - 1 + _photos.length) % _photos.length),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        right: 6, top: 0, bottom: 0,
+                        child: Center(
+                          child: _NavBtn(
+                            icon:  Icons.chevron_right,
+                            onTap: () => setState(() =>
+                                _photoIndex = (_photoIndex + 1) % _photos.length),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
               children: [
-                Text(airfleet.aircraftModel,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                if (airfleet.manufacturerName != null)
-                  Text(airfleet.manufacturerName!,
-                      style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12)),
+                Icon(Icons.airplanemode_active_rounded,
+                    color: colors.primary, size: 22),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(widget.airfleet.aircraftModel,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 15)),
+                      if (widget.airfleet.manufacturerName != null)
+                        Text(widget.airfleet.manufacturerName!,
+                            style: TextStyle(
+                                color: colors.onSurfaceVariant, fontSize: 12)),
+                    ],
+                  ),
+                ),
+                Icon(Icons.check_circle_rounded,
+                    color: colors.primary, size: 22),
               ],
             ),
           ),
-          Icon(Icons.check_circle_rounded, color: colors.primary, size: 22),
         ],
       ),
     );
   }
 }
+
+class _NavBtn extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  const _NavBtn({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 30, height: 30,
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.35),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, color: Colors.white, size: 20),
+      ),
+    );
+  }
+}
+

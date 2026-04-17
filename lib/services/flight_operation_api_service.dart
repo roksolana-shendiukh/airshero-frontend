@@ -169,7 +169,6 @@ class FlightOperationApiService {
         headers: await _headers(),
       );
       if (response.statusCode == 200) {
-         debugPrint('[API response] ${response.body}');
         final List<dynamic> data = jsonDecode(response.body);
         return data.map((e) => FlightOperationModel.fromJson(e)).toList();
       }
