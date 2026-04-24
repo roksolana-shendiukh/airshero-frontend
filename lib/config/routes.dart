@@ -14,11 +14,16 @@ import '../pages/flight_operation_page.dart';
 import '../pages/flight_operation_create_page.dart';
 import '../pages/planning/planning_overview_page.dart';
 import '../pages/planning/planning_flights_page.dart';
-import '../pages/planning/create_flight_page.dart';
 import '../pages/planning/create_route_page.dart';
 import '../pages/flight_operation_crew_page.dart';
 import '../pages/checkin_flight_page.dart';
 import '../pages/flight_operations_board_page.dart';
+import '../pages/planning/flight_setup_page.dart';
+import '../pages/planning/flight_config_page.dart';
+import '../pages/planning/pricing_page.dart';
+import '../pages/my_bookings_page.dart';
+import '../pages/boarding_passes_page.dart';
+import '../pages/crew/crew_page.dart';
 
 import '../models/args/search_results_args.dart';
 import '../models/args/baggage_selection_args.dart';
@@ -36,6 +41,8 @@ export '../utils/url_helpers.dart';
 import '../services/checkin_service.dart';
 import '../widgets/responsive_layout.dart';
 import '../pages/admin/admin_audit_page.dart';
+import '../pages/profile_page.dart';
+
 
 class AppRouter {
   static Page<void> _fade(GoRouterState state, Widget child) =>
@@ -237,7 +244,6 @@ class AppRouter {
         },
       ),
 
-
       GoRoute(
         path:        '/admin/users',
         pageBuilder: (c, s) => _fade(s, const AdminUsersPage()),
@@ -303,14 +309,57 @@ class AppRouter {
       ),
 
       GoRoute(
-        path:        '/planning/create-flight',
-        pageBuilder: (c, s) => _fade(s, const CreateFlightPage()),
+        path:        '/planning/setup',
+        pageBuilder: (c, s) => _fade(s, const FlightSetupPage()),
       ),
 
       GoRoute(
         path:        '/planning/create-route',
         pageBuilder: (c, s) => _fade(s, const CreateRoutePage()),
       ),
+    
+      GoRoute(
+        path: '/planning/setup/flights',
+        pageBuilder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          if (extra == null) {
+            WidgetsBinding.instance.addPostFrameCallback(
+                (_) => context.go('/planning/setup'));
+            return _fade(state, const SizedBox.shrink());
+          }
+          final flights = (extra['flights'] as List)
+              .cast<Map<String, dynamic>>();
+          return _fade(state, FlightConfigPage(flights: flights));
+        },
+      ),
+
+      GoRoute(
+        path: '/planning/pricing',
+        pageBuilder: (c, s) => _fade(s, const PricingPage()),
+      ),
+    
+      GoRoute(
+        path: '/profile',
+        pageBuilder: (c, s) => _fade(s, const ProfilePage()),
+      ),
+
+      GoRoute(
+        path: '/sales/my-bookings',
+        builder: (context, state) => const MyBookingsPage(),
+      ),
+
+      GoRoute(
+        path: '/checkin/boarding-passes',
+        builder: (context, state) => const BoardingPassesPage(),
+      ),
+    
+      GoRoute(
+        path: '/crew',
+        builder: (context, state) => CrewPage(
+          authService: context.read<AuthService>(),
+        ),
+      ),
+
     ],
   );
 
@@ -347,8 +396,6 @@ class AppRouter {
       leg2ToCity:           args.leg2ToCity,
     );
   }
-
-
 }
 
 class _NoActiveFlightPage extends StatelessWidget {

@@ -32,6 +32,7 @@ dependencies:
   firebase_core: ^3.0.0
   cloud_firestore: ^5.0.0
   fl_chart: ^0.70.2
+  file_picker: ^8.0.0
   
 dev_dependencies:
   flutter_test:

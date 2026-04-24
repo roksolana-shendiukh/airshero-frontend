@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'route_confirm_aircraft_card.dart';
+import 'route_confirm_route_card.dart';
+import 'route_confirm_schedule_card.dart';
 
 class Step3RouteConfirm extends StatelessWidget {
   final Map<String, dynamic> airfleet;
@@ -7,11 +10,6 @@ class Step3RouteConfirm extends StatelessWidget {
   final List<Map<String, dynamic>> scheduleGroups;
   final DateTime flightStartDate;
   final DateTime flightEndDate;
-
-  static const _dayNames = {
-    1: 'Mon', 2: 'Tue', 3: 'Wed',
-    4: 'Thu', 5: 'Fri', 6: 'Sat', 7: 'Sun',
-  };
 
   const Step3RouteConfirm({
     super.key,
@@ -47,64 +45,79 @@ class Step3RouteConfirm extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildHeader(context, colors),
-        const SizedBox(height: 24),
-        _buildSection(
-          context,
-          icon: Icons.airplanemode_active_outlined,
-          title: 'Aircraft',
-          child: _buildAircraftCard(colors),
-        ),
+        const SizedBox(height: 28),
+
+        _buildSection(context,
+            icon: Icons.airplanemode_active_outlined,
+            title: 'Aircraft',
+            child: RouteConfirmAircraftCard(airfleet: airfleet)),
         const SizedBox(height: 16),
-        _buildSection(
-          context,
-          icon: Icons.connecting_airports_outlined,
-          title: 'Route',
-          child: _buildRouteCard(colors),
-        ),
+
+        _buildSection(context,
+            icon: Icons.connecting_airports_outlined,
+            title: 'Route',
+            child: RouteConfirmRouteCard(
+              departsAirport: departsAirport,
+              arrivesAirport: arrivesAirport,
+            )),
         const SizedBox(height: 16),
-        _buildSection(
-          context,
-          icon: Icons.schedule_outlined,
-          title: 'Schedule',
-          child: _buildScheduleCard(colors),
-        ),
+
+        _buildSection(context,
+            icon: Icons.schedule_outlined,
+            title: 'Schedule',
+            child: RouteConfirmScheduleCard(
+              scheduleGroups: scheduleGroups,
+              flightStartDate: flightStartDate,
+              flightEndDate: flightEndDate,
+            )),
         const SizedBox(height: 16),
-        _buildFlightsEstimate(context, colors),
+
+        _buildEstimate(context, colors),
       ],
     );
   }
 
   Widget _buildHeader(BuildContext context, ColorScheme colors) {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: colors.primaryContainer.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(10),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colors.primaryContainer.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: colors.primary.withValues(alpha: 0.15)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: colors.primaryContainer.withValues(alpha: 0.6),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(Icons.fact_check_outlined,
+                color: colors.primary, size: 22),
           ),
-          child: Icon(Icons.add_road,
-              color: colors.primary, size: 24),
-        ),
-        const SizedBox(width: 14),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Review route',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Review & confirm',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+                Text(
+                  'Please review all details before creating the route',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                ),
+              ],
             ),
-            Text(
-              'Please review all details before creating',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colors.onSurfaceVariant,
-                  ),
-            ),
-          ],
-        ),
-      ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -123,12 +136,12 @@ class Step3RouteConfirm extends StatelessWidget {
             Icon(icon, size: 15, color: colors.onSurfaceVariant),
             const SizedBox(width: 6),
             Text(
-              title,
+              title.toUpperCase(),
               style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
                 color: colors.onSurfaceVariant,
-                letterSpacing: 0.4,
+                letterSpacing: 0.8,
               ),
             ),
           ],
@@ -139,235 +152,19 @@ class Step3RouteConfirm extends StatelessWidget {
     );
   }
 
-  Widget _buildAircraftCard(ColorScheme colors) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-            color: colors.outline.withValues(alpha: 0.15)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.flight,
-              size: 20, color: colors.onSurfaceVariant),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  airfleet['aircraftModel'] as String,
-                  style: const TextStyle(
-                      fontSize: 14, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '${airfleet['manufacturerName']}  ·  '
-                  '${airfleet['seatCapacity']} seats  ·  '
-                  '${(airfleet['aircraftRangeKm'] as num?)?.toStringAsFixed(0) ?? '—'} km range',
-                  style: TextStyle(
-                      fontSize: 12, color: colors.onSurfaceVariant),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRouteCard(ColorScheme colors) {
-    final isInternational =
-        departsAirport['countryName'] != arrivesAirport['countryName'];
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-            color: colors.outline.withValues(alpha: 0.15)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              _buildAirportInfo(
-                  code: departsAirport['airportCode'] as String,
-                  city: departsAirport['cityName'] as String,
-                  country: departsAirport['countryName'] as String,
-                  colors: colors),
-              const SizedBox(width: 12),
-              Column(
-                children: [
-                  Icon(Icons.arrow_forward,
-                      size: 18, color: colors.onSurfaceVariant),
-                  const SizedBox(height: 2),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: isInternational
-                          ? colors.primaryContainer
-                              .withValues(alpha: 0.5)
-                          : colors.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      isInternational ? 'Intl' : 'Dom',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: isInternational
-                            ? colors.primary
-                            : colors.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(width: 12),
-              _buildAirportInfo(
-                  code: arrivesAirport['airportCode'] as String,
-                  city: arrivesAirport['cityName'] as String,
-                  country: arrivesAirport['countryName'] as String,
-                  colors: colors),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAirportInfo({
-    required String code,
-    required String city,
-    required String country,
-    required ColorScheme colors,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          code,
-          style: const TextStyle(
-              fontSize: 20, fontWeight: FontWeight.w700),
-        ),
-        Text(
-          city,
-          style: const TextStyle(fontSize: 12),
-        ),
-        Text(
-          country,
-          style: TextStyle(
-              fontSize: 11, color: colors.onSurfaceVariant),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildScheduleCard(ColorScheme colors) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-            color: colors.outline.withValues(alpha: 0.15)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.date_range_outlined,
-                  size: 16, color: colors.onSurfaceVariant),
-              const SizedBox(width: 6),
-              Text(
-                '${_fmt(flightStartDate)}  →  ${_fmt(flightEndDate)}',
-                style: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w500),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ...scheduleGroups.asMap().entries.map((entry) {
-            final i = entry.key;
-            final group = entry.value;
-            final dayIds =
-                List<int>.from(group['dayIds'] as List)..sort();
-            final dayLabels =
-                dayIds.map((d) => _dayNames[d] ?? '').join(', ');
-            final depTime = group['departureTime'] as String;
-            final arrTime = group['arrivalTime'] as String;
-
-            return Padding(
-              padding: EdgeInsets.only(
-                  top: i > 0 ? 10 : 0),
-              child: Row(
-                children: [
-                  Container(
-                    width: 20,
-                    height: 20,
-                    decoration: BoxDecoration(
-                      color: colors.primary.withValues(alpha: 0.12),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: Text(
-                        '${i + 1}',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          color: colors.primary,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      dayLabels,
-                      style: const TextStyle(
-                          fontSize: 13, fontWeight: FontWeight.w500),
-                    ),
-                  ),
-                  Text(
-                    '$depTime  →  $arrTime',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: colors.primary,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFlightsEstimate(
-      BuildContext context, ColorScheme colors) {
+  Widget _buildEstimate(BuildContext context, ColorScheme colors) {
     final count = _estimatedFlights();
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: colors.primaryContainer.withValues(alpha: 0.25),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-            color: colors.primary.withValues(alpha: 0.2)),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: colors.primary.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
-          Icon(Icons.flight_takeoff,
-              size: 18, color: colors.primary),
-          const SizedBox(width: 12),
+          Icon(Icons.flight_takeoff, size: 20, color: colors.primary),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -380,7 +177,7 @@ class Step3RouteConfirm extends StatelessWidget {
                 Text(
                   '$count flights',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 18,
                     fontWeight: FontWeight.w700,
                     color: colors.primary,
                   ),
@@ -388,10 +185,25 @@ class Step3RouteConfirm extends StatelessWidget {
               ],
             ),
           ),
-          Text(
-            '${_fmt(flightStartDate)} – ${_fmt(flightEndDate)}',
-            style: TextStyle(
-                fontSize: 12, color: colors.onSurfaceVariant),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                _fmt(flightStartDate),
+                style: const TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.w500),
+              ),
+              Text(
+                '↓',
+                style: TextStyle(
+                    fontSize: 12, color: colors.onSurfaceVariant),
+              ),
+              Text(
+                _fmt(flightEndDate),
+                style: const TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.w500),
+              ),
+            ],
           ),
         ],
       ),

@@ -35,7 +35,7 @@ class _FlightOperationCrewPageState extends State<FlightOperationCrewPage> {
   bool _loadingCrew      = false;
   bool _loadingAvailable = false;
 
-  String?  _filterPosition;
+  String?  _filterPosition = 'Pilot';
   String?  _filterLicense;
   Timer?   _debounce;
 
@@ -98,7 +98,8 @@ class _FlightOperationCrewPageState extends State<FlightOperationCrewPage> {
     setState(() => _loadingAvailable = true);
     final list = await _apiService.getAvailableCrew(
       _operation!.flightOperationId,
-      search: search,
+      search:   search,
+      position: _filterPosition,
     );
     if (!mounted) return;
     setState(() { _available = list; _loadingAvailable = false; });
@@ -162,9 +163,9 @@ class _FlightOperationCrewPageState extends State<FlightOperationCrewPage> {
     return null;
   }
 
+  // Фільтрація тільки по ліцензії — позиція фільтрується на бекенді
   List<FlightCrewModel> get _filtered => _available.where((c) {
-        if (_filterPosition != null && c.position != _filterPosition) return false;
-        if (_filterLicense  != null && c.licenseType != _filterLicense) return false;
+        if (_filterLicense != null && c.licenseType != _filterLicense) return false;
         return true;
       }).toList();
 
@@ -346,7 +347,7 @@ class _FlightOperationCrewPageState extends State<FlightOperationCrewPage> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-       Expanded(
+        Expanded(
           flex: 6,
           child: Column(
             children: [
@@ -385,51 +386,53 @@ class _FlightOperationCrewPageState extends State<FlightOperationCrewPage> {
         ),
       ),
       child: Row(
-  children: [
-    Expanded(
-      flex: 2,
-      child: CustomInputField(
-        label:     'Search by name',
-        value:     '',
-        icon:      Icons.search,
-        onChanged: (v) {
-          _debounce?.cancel();
-          _debounce = Timer(
-            const Duration(milliseconds: 400),
-            () => _loadAvailable(search: v.isNotEmpty ? v : null),
-          );
-        },
+        children: [
+          Expanded(
+            flex: 2,
+            child: CustomInputField(
+              label:     'Search by name',
+              value:     '',
+              icon:      Icons.search,
+              onChanged: (v) {
+                _debounce?.cancel();
+                _debounce = Timer(
+                  const Duration(milliseconds: 400),
+                  () => _loadAvailable(search: v.isNotEmpty ? v : null),
+                );
+              },
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: CustomSelectField(
+              label:      'Position',
+              icon:       Icons.badge_outlined,
+              value:      _filterPosition ?? '',
+              items:      ['', ..._positionItems],
+              itemLabels: ['All', ..._positionItems],
+              searchable: false,
+              onChanged: (v) {
+                setState(() =>
+                    _filterPosition = (v == null || v.isEmpty) ? null : v);
+                _loadAvailable();
+              },
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: CustomSelectField(
+              label:      'License',
+              icon:       Icons.card_membership_outlined,
+              value:      _filterLicense ?? '',
+              items:      ['', ..._licenseItems],
+              itemLabels: ['All', ..._licenseLabels],
+              searchable: false,
+              onChanged: (v) => setState(() =>
+                  _filterLicense = (v == null || v.isEmpty) ? null : v),
+            ),
+          ),
+        ],
       ),
-    ),
-    const SizedBox(width: 8),
-    Expanded(
-      child: CustomSelectField(
-        label:      'Position',
-        icon:       Icons.badge_outlined,
-        value:      _filterPosition ?? '',
-        items:      ['', ..._positionItems],
-        itemLabels: ['All', ..._positionItems],
-        searchable: false,
-        onChanged: (v) => setState(() =>
-            _filterPosition = (v == null || v.isEmpty) ? null : v),
-      ),
-    ),
-    const SizedBox(width: 8),
-    Expanded(
-      child: CustomSelectField(
-        label:      'License',
-        icon:       Icons.card_membership_outlined,
-        value:      _filterLicense ?? '',
-        items:      ['', ..._licenseItems],
-        itemLabels: ['All', ..._licenseLabels],
-        searchable: false,
-        onChanged: (v) => setState(() =>
-            _filterLicense = (v == null || v.isEmpty) ? null : v),
-      ),
-    ),
-  ],
-),
-    
     );
   }
 
@@ -514,8 +517,6 @@ class _FlightOperationCrewPageState extends State<FlightOperationCrewPage> {
     );
   }
 
-  // ── Assigned (right) ──────────────────────────────────────────────────────
-
   Widget _buildAssignedHeader(ColorScheme colors) {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
@@ -533,9 +534,9 @@ class _FlightOperationCrewPageState extends State<FlightOperationCrewPage> {
               Icon(Icons.people_outline,
                   size: 16, color: colors.primary),
               const SizedBox(width: 8),
-              Text(
+              const Text(
                 'ASSIGNED',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize:      11,
                   fontWeight:    FontWeight.w700,
                   letterSpacing: 1.0,

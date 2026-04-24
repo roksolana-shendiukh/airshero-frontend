@@ -84,20 +84,20 @@ class _ResponsiveLayoutState extends State<ResponsiveLayout> {
                         children: [
                           if (currentUser?.role == UserRole.checkInAgent)
                            Consumer<CheckInService>(
-  builder: (context, checkinService, _) {
-    final flight = checkinService.activeFlight;
-    if (flight == null) return const SizedBox.shrink();
-    final status = flight['status'] as String? ?? '';
-    if (status == 'Departed' || status == 'Arrived' || status == 'Completed') {
-      return const SizedBox.shrink();
-    }
-    final currentPath = GoRouterState.of(context).uri.path;
-    return CheckInStatusBar(
-      flight:          flight,
-      onBackToFlights: currentPath == '/checkin' ? null : () => context.go('/checkin'),
-    );
-  },
-),
+                              builder: (context, checkinService, _) {
+                                final flight = checkinService.activeFlight;
+                                if (flight == null) return const SizedBox.shrink();
+                                final status = flight['status'] as String? ?? '';
+                                if (status == 'Departed' || status == 'Arrived' || status == 'Completed') {
+                                  return const SizedBox.shrink();
+                                }
+                                final currentPath = GoRouterState.of(context).uri.path;
+                                return CheckInStatusBar(
+                                  flight:          flight,
+                                  onBackToFlights: currentPath == '/checkin' ? null : () => context.go('/checkin'),
+                                );
+                              },
+                            ),
                           if (widget.header != null) widget.header!,
                           Expanded(
                             child: widget.scrollable
@@ -167,6 +167,23 @@ class _ResponsiveLayoutState extends State<ResponsiveLayout> {
     final currentPath = GoRouterState.of(context).uri.path;
     final menuItems = currentUser.role.menuItems;
 
+    dynamic activeMenuItem; 
+    int longestMatchLength = -1;
+
+    for (final item in menuItems) {
+      if (currentPath == item.route) {
+        activeMenuItem = item;
+        break; 
+      }
+      final routePrefix = item.route.endsWith('/') ? item.route : '${item.route}/';
+      if (currentPath.startsWith(routePrefix)) {
+        if (item.route.length > longestMatchLength) {
+          longestMatchLength = item.route.length;
+          activeMenuItem = item;
+        }
+      }
+    }
+
     return Column(
       children: [
         Padding(
@@ -218,15 +235,19 @@ class _ResponsiveLayoutState extends State<ResponsiveLayout> {
         Expanded(
           child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 8),
-            children: menuItems.map((item) => _SidebarItem(
-              icon: item.icon,
-              title: item.title,
-              isActive: currentPath == item.route || currentPath.startsWith(item.route + '/'),
-              collapsed: collapsed,
-              onTap: () {
-                context.go(item.route);
-              },
-            )).toList(),
+            children: menuItems.map((item) {
+              final bool isActive = item == activeMenuItem;
+
+              return _SidebarItem(
+                icon: item.icon,
+                title: item.title,
+                isActive: isActive,
+                collapsed: collapsed,
+                onTap: () {
+                  context.go(item.route);
+                },
+              );
+            }).toList(),
           ),
         ),
 
@@ -270,28 +291,47 @@ class _ResponsiveLayoutState extends State<ResponsiveLayout> {
     final colors = Theme.of(context).colorScheme;
     return PopupMenuButton<String>(
       offset: const Offset(0, 45),
-      child: CircleAvatar(
-        radius: 16,
-        backgroundColor: colors.primary,
-        child: Text(
-          user.firstName.isNotEmpty 
-              ? user.firstName[0].toUpperCase() 
-              : (user.email.isNotEmpty ? user.email[0].toUpperCase() : '?'),
-          style: TextStyle(
-            color: colors.onPrimary, 
-            fontSize: 13, 
-            fontWeight: FontWeight.bold
-          ),
-        ),
-      ),
+      child: user.avatarUrl != null
+          ? CircleAvatar(
+              radius: 16,
+              backgroundImage: NetworkImage(user.avatarUrl!),
+            )
+          : CircleAvatar(
+              radius: 16,
+              backgroundColor: colors.primary,
+              child: Text(
+                user.firstName.isNotEmpty
+                    ? user.firstName[0].toUpperCase()
+                    : (user.email.isNotEmpty
+                        ? user.email[0].toUpperCase()
+                        : '?'),
+                style: TextStyle(
+                  color: colors.onPrimary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
       itemBuilder: (context) => [
         PopupMenuItem(
           enabled: false,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(user.fullName, style: const TextStyle(fontWeight: FontWeight.bold)),
-              Text(user.role.displayName, style: TextStyle(fontSize: 12, color: colors.outline)),
+              Text(user.fullName,
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text(user.role.displayName,
+                  style: TextStyle(fontSize: 12, color: colors.outline)),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'profile',
+          child: Row(
+            children: [
+              Icon(Icons.person_outline, size: 18, color: colors.onSurface),
+              const SizedBox(width: 8),
+              const Text('Edit profile'),
             ],
           ),
         ),
@@ -311,11 +351,13 @@ class _ResponsiveLayoutState extends State<ResponsiveLayout> {
         if (val == 'logout') {
           authService.logout();
           context.go('/');
+        } else if (val == 'profile') {
+          context.go('/profile');
         }
       },
     );
   }
-
+  
   Widget _buildDrawer(BuildContext context, UserModel? currentUser) {
     return Drawer(
       width: _expandedWidth,

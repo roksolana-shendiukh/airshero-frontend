@@ -216,12 +216,14 @@ class FlightOperationApiService {
   Future<List<FlightCrewModel>> getAvailableCrew(
     int operationId, {
     String? search,
+    String? position,
   }) async {
     try {
       final uri = Uri.parse(
         '${AppConfig.baseUrl}/flight-operations/$operationId/crew/available',
       ).replace(queryParameters: {
-        if (search != null && search.isNotEmpty) 'search': search,
+        if (search   != null && search.isNotEmpty)   'search':   search,
+        if (position != null && position.isNotEmpty) 'position': position,
       });
       final response = await http.get(uri, headers: await _headers());
       if (response.statusCode == 200) {
@@ -234,7 +236,7 @@ class FlightOperationApiService {
       return [];
     }
   }
-  
+
   Future<CrewValidationModel?> validateCrew(int operationId) async {
     try {
       final response = await http.get(

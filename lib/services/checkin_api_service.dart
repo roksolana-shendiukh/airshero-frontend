@@ -209,6 +209,7 @@ class CheckInApiService {
     }
     return {'alreadyCheckedIn': false};
   }
+  
   Future<Map<String, dynamic>> getCheckedBaggageWeight(int flightOperationId) async {
     final uri = Uri.parse(
       '${AppConfig.baseUrl}/checkin/checked-baggage-weight/$flightOperationId',
@@ -275,6 +276,99 @@ class CheckInApiService {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
     throw Exception('Failed to load boarding pass');
+  }
+
+  Future<List<Map<String, dynamic>>> getBoardingPassBaggage(int boardingPassId) async {
+    try {
+      final uri = Uri.parse(
+          '${AppConfig.baseUrl}/checkin/boarding-pass/$boardingPassId/baggage');
+      final response = await http.get(uri, headers: await _headers());
+      if (response.statusCode == 200) {
+        return List<Map<String, dynamic>>.from(jsonDecode(response.body));
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Network error (getBoardingPassBaggage): $e');
+      return [];
+    }
+  }
+
+  Future<List<String>> getBoardingPassClasses() async {
+    try {
+      final uri = Uri.parse('${AppConfig.baseUrl}/checkin/boarding-passes/classes');
+      final response = await http.get(uri, headers: await _headers());
+      if (response.statusCode == 200) {
+        return List<String>.from(jsonDecode(response.body));
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Network error (getBoardingPassClasses): $e');
+      return [];
+    }
+  }
+
+  Future<List<String>> getBoardingPassCities() async {
+    try {
+      final uri = Uri.parse('${AppConfig.baseUrl}/checkin/boarding-passes/cities');
+      final response = await http.get(uri, headers: await _headers());
+      if (response.statusCode == 200) {
+        return List<String>.from(jsonDecode(response.body));
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Network error (getBoardingPassCities): $e');
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getBoardingPassesHistory({
+    String? search,
+    String? routeCity,
+    String? className,
+    String dateFilter = 'today',
+    int skip = 0,
+    int limit = 50,
+  }) async {
+    try {
+      final params = {
+        'date_filter': dateFilter,
+        'skip': skip.toString(),
+        'limit': limit.toString(),
+        if (search != null && search.isNotEmpty) 'search': search,
+        if (routeCity != null) 'route_city': routeCity,
+        if (className != null) 'class_name': className,
+      };
+      final uri = Uri.parse('${AppConfig.baseUrl}/checkin/boarding-passes')
+          .replace(queryParameters: params);
+      final response = await http.get(uri, headers: await _headers());
+      if (response.statusCode == 200) {
+        return List<Map<String, dynamic>>.from(jsonDecode(response.body));
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Network error (getBoardingPassesHistory): $e');
+      return [];
+    }
+  }
+
+  Future<void> reprintBoardingPass(int boardingPassId) async {
+    final uri = Uri.parse('${AppConfig.baseUrl}/checkin/boarding-pass/$boardingPassId/reprint');
+    final response = await http.put(uri, headers: await _headers());
+    if (response.statusCode != 200) {
+      throw Exception('Failed to reprint boarding pass');
+    }
+  }
+
+  Future<void> updateBoardingPassSeat(int boardingPassId, int seatLayoutId) async {
+    final uri = Uri.parse('${AppConfig.baseUrl}/checkin/boarding-pass/$boardingPassId/seat');
+    final response = await http.put(
+      uri,
+      headers: await _headers(),
+      body: jsonEncode({'seat_layout_id': seatLayoutId}),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to update seat');
+    }
   }
 
 

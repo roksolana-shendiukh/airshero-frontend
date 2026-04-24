@@ -122,8 +122,7 @@ class PlanningService {
 
   Future<List<Map<String, dynamic>>> getSeatLayout(int airfleetId) async {
     try {
-      final uri = Uri.parse(
-          '${AppConfig.baseUrl}/planning/seat-layout/$airfleetId');
+      final uri = Uri.parse('${AppConfig.baseUrl}/planning/airfleet/$airfleetId/seat-layout');
       final response = await http.get(uri, headers: await _headers());
       if (response.statusCode == 200) {
         debugPrint('SEAT LAYOUT: ${response.body}');
@@ -311,4 +310,174 @@ class PlanningService {
     return [];
   }
 
+  Future<Duration?> getRouteDuration({
+    required int airfleetId,
+    required int departsAirportId,
+    required int arrivesAirportId,
+  }) async {
+    try {
+      final uri = Uri.parse('${AppConfig.baseUrl}/planning/routes/duration')
+          .replace(queryParameters: {
+        'airfleet_id': airfleetId.toString(),
+        'departs_airport_id': departsAirportId.toString(),
+        'arrives_airport_id': arrivesAirportId.toString(),
+      });
+      final response = await http.get(uri, headers: await _headers());
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final duration = data['duration'] as String; // "HH:MM:SS"
+        final parts = duration.split(':');
+        return Duration(
+          hours: int.parse(parts[0]),
+          minutes: int.parse(parts[1]),
+        );
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Network error (getRouteDuration): $e');
+      return null;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getRoutesWithPlannedFlights() async {
+    final uri = Uri.parse(
+        '${AppConfig.baseUrl}/planning/setup/routes');
+    final response = await http.get(uri, headers: await _headers());
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.cast<Map<String, dynamic>>();
+    }
+    throw Exception('Failed to load routes: ${response.statusCode}');
+  }
+
+  Future<List<Map<String, dynamic>>> getPlannedFlightsForRoute(
+      int routeId) async {
+    final uri = Uri.parse(
+        '${AppConfig.baseUrl}/planning/setup/routes/$routeId/flights');
+    final response = await http.get(uri, headers: await _headers());
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.cast<Map<String, dynamic>>();
+    }
+    throw Exception('Failed to load flights: ${response.statusCode}');
+  }
+
+  Future<void> configureFlight({
+    required int flightId,
+    required List<Map<String, dynamic>> classPrices,
+  }) async {
+    final uri = Uri.parse(
+        '${AppConfig.baseUrl}/planning/flights/$flightId/configure');
+    final response = await http.post(
+      uri,
+      headers: await _headers(),
+      body: jsonEncode({'classPrices': classPrices}),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to configure flight: ${response.body}');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getFlightsForPricing() async {
+    final uri = Uri.parse('${AppConfig.baseUrl}/planning/pricing/flights');
+    final response = await http.get(uri, headers: await _headers());
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.cast<Map<String, dynamic>>();
+    }
+    throw Exception('Failed to load flights: ${response.statusCode}');
+  }
+
+  Future<List<Map<String, dynamic>>> getFlightPriceHistory(
+      int flightId) async {
+    final uri = Uri.parse(
+        '${AppConfig.baseUrl}/planning/pricing/flights/$flightId/history');
+    final response = await http.get(uri, headers: await _headers());
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.cast<Map<String, dynamic>>();
+    }
+    throw Exception('Failed to load price history: ${response.statusCode}');
+  }
+
+  Future<void> updateFlightPrices({
+    required int flightId,
+    required List<Map<String, dynamic>> classPrices,
+  }) async {
+    final uri = Uri.parse(
+        '${AppConfig.baseUrl}/planning/pricing/flights/$flightId/prices');
+    final response = await http.post(
+      uri,
+      headers: await _headers(),
+      body: jsonEncode({'classPrices': classPrices}),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to update prices: ${response.body}');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getRoutesWithPricingFlights() async {
+    final uri = Uri.parse(
+        '${AppConfig.baseUrl}/planning/pricing/routes');
+    final response = await http.get(uri, headers: await _headers());
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.cast<Map<String, dynamic>>();
+    }
+    throw Exception('Failed to load routes: ${response.statusCode}');
+  }
+
+  Future<List<Map<String, dynamic>>> getPricingFlightsForRoute(
+      int routeId) async {
+    final uri = Uri.parse(
+        '${AppConfig.baseUrl}/planning/pricing/routes/$routeId/flights');
+    final response = await http.get(uri, headers: await _headers());
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.cast<Map<String, dynamic>>();
+    }
+    throw Exception('Failed to load flights: ${response.statusCode}');
+  }
+
+  Future<List<Map<String, dynamic>>> getAllFlightsForRoute(int routeId) async {
+    final uri = Uri.parse(
+        '${AppConfig.baseUrl}/planning/setup/routes/$routeId/all-flights');
+    final response = await http.get(uri, headers: await _headers());
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.cast<Map<String, dynamic>>();
+    }
+    throw Exception('Failed to load flights: ${response.statusCode}');
+  }
+
+  Future<void> confirmFlights(List<int> flightIds) async {
+    final uri = Uri.parse(
+        '${AppConfig.baseUrl}/planning/setup/flights/confirm');
+    final response = await http.post(
+      uri,
+      headers: await _headers(),
+      body: jsonEncode({'flightIds': flightIds}),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to confirm flights: ${response.body}');
+    }
+  }
+
+  Future<void> updateFlightClasses({
+    required int flightId,
+    required List<int> classIds,
+  }) async {
+    final uri = Uri.parse(
+        '${AppConfig.baseUrl}/planning/setup/flights/$flightId/classes');
+    final response = await http.post(
+      uri,
+      headers: await _headers(),
+      body: jsonEncode({'classIds': classIds}),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to update classes: ${response.body}');
+    }
+  }
+
 }
+

@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import '../../../widgets/planning/schedule_date_picker.dart';
-import '../../../widgets/planning/planning_time_picker.dart';
-import '../../../widgets/custom/custom_input_field.dart';
+import '../../../models/schedule_group_model.dart';
+import '../../../widgets/planning/schedule_date_input_field.dart';
+import '../../../widgets/planning/schedule_group_card.dart';
 
 class Step2Schedule extends StatefulWidget {
   final List<Map<String, dynamic>> scheduleGroups;
   final DateTime? flightStartDate;
   final DateTime? flightEndDate;
+  final Duration? flightDuration;
   final void Function({
     required List<Map<String, dynamic>> scheduleGroups,
     required DateTime? flightStartDate,
@@ -20,6 +20,7 @@ class Step2Schedule extends StatefulWidget {
     required this.flightStartDate,
     required this.flightEndDate,
     required this.onChanged,
+    this.flightDuration,
   });
 
   @override
@@ -27,7 +28,7 @@ class Step2Schedule extends StatefulWidget {
 }
 
 class _Step2ScheduleState extends State<Step2Schedule> {
-  late List<_ScheduleGroup> _groups;
+  late List<ScheduleGroup> _groups;
   late DateTime? _startDate;
   late DateTime? _endDate;
 
@@ -46,14 +47,10 @@ class _Step2ScheduleState extends State<Step2Schedule> {
     super.initState();
     _startDate = widget.flightStartDate;
     _endDate = widget.flightEndDate;
-    _groups = widget.scheduleGroups.map((g) {
-      return _ScheduleGroup(
-        dayIds: Set<int>.from(g['dayIds'] as List),
-        departureTime: g['departureTime'] as String,
-        arrivalTime: g['arrivalTime'] as String,
-      );
-    }).toList();
-    if (_groups.isEmpty) _groups.add(_ScheduleGroup());
+    _groups = widget.scheduleGroups
+        .map(ScheduleGroup.fromMap)
+        .toList();
+    if (_groups.isEmpty) _groups.add(ScheduleGroup());
   }
 
   Set<int> get _usedDayIds =>
@@ -62,15 +59,8 @@ class _Step2ScheduleState extends State<Step2Schedule> {
   void _notify() {
     widget.onChanged(
       scheduleGroups: _groups
-          .where((g) =>
-              g.dayIds.isNotEmpty &&
-              g.departureTime.isNotEmpty &&
-              g.arrivalTime.isNotEmpty)
-          .map((g) => {
-                'dayIds': g.dayIds.toList(),
-                'departureTime': g.departureTime,
-                'arrivalTime': g.arrivalTime,
-              })
+          .where((g) => g.dayIds.isNotEmpty && g.departureTime.isNotEmpty)
+          .map((g) => g.toMap())
           .toList(),
       flightStartDate: _startDate,
       flightEndDate: _endDate,
@@ -78,7 +68,7 @@ class _Step2ScheduleState extends State<Step2Schedule> {
   }
 
   void _addGroup() {
-    setState(() => _groups.add(_ScheduleGroup()));
+    setState(() => _groups.add(ScheduleGroup()));
     _notify();
   }
 
@@ -101,6 +91,24 @@ class _Step2ScheduleState extends State<Step2Schedule> {
     return count;
   }
 
+  String _calcArrival(String departureTime) {
+    if (departureTime.isEmpty || widget.flightDuration == null) return '';
+    final parts = departureTime.split(':');
+    if (parts.length != 2) return '';
+    final h = int.tryParse(parts[0]);
+    final m = int.tryParse(parts[1]);
+    if (h == null || m == null) return '';
+    final dep = Duration(hours: h, minutes: m);
+    final arr = dep + widget.flightDuration!;
+    final totalMin = arr.inMinutes % (24 * 60);
+    final arrH = totalMin ~/ 60;
+    final arrM = totalMin % 60;
+    final nextDay =
+        dep + widget.flightDuration! >= const Duration(hours: 24);
+    return '${arrH.toString().padLeft(2, '0')}:${arrM.toString().padLeft(2, '0')}'
+        '${nextDay ? ' (+1)' : ''}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
@@ -112,23 +120,26 @@ class _Step2ScheduleState extends State<Step2Schedule> {
             context, Icons.date_range_outlined, 'Schedule period'),
         const SizedBox(height: 12),
         _buildDateRow(),
+
         const SizedBox(height: 28),
         _buildSectionLabel(
             context, Icons.schedule_outlined, 'Day & time groups'),
         const SizedBox(height: 4),
         Text(
-          'Add groups of days that share the same departure and arrival time.',
+          'Add groups of days that share the same departure time. '
+          'Arrival time is calculated automatically.',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: colors.onSurfaceVariant,
               ),
         ),
         const SizedBox(height: 12),
+
         ..._groups.asMap().entries.map((entry) {
           final index = entry.key;
           final group = entry.value;
           return Padding(
             padding: const EdgeInsets.only(bottom: 12),
-            child: _GroupCard(
+            child: ScheduleGroupCard(
               group: group,
               index: index,
               days: _days,
@@ -139,9 +150,11 @@ class _Step2ScheduleState extends State<Step2Schedule> {
                 setState(() {});
                 _notify();
               },
+              calcArrival: _calcArrival,
             ),
           );
         }),
+
         const SizedBox(height: 4),
         TextButton.icon(
           onPressed: _usedDayIds.length < 7 ? _addGroup : null,
@@ -152,6 +165,7 @@ class _Step2ScheduleState extends State<Step2Schedule> {
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           ),
         ),
+
         if (_startDate != null &&
             _endDate != null &&
             _groups.any((g) => g.dayIds.isNotEmpty)) ...[
@@ -184,7 +198,7 @@ class _Step2ScheduleState extends State<Step2Schedule> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
-          child: _DateInputField(
+          child: ScheduleDateInputField(
             label: 'Start date',
             date: _startDate,
             minDate: DateTime.now(),
@@ -201,12 +215,14 @@ class _Step2ScheduleState extends State<Step2Schedule> {
         ),
         Padding(
           padding: const EdgeInsets.only(top: 18, left: 12, right: 12),
-          child: Icon(Icons.arrow_forward,
-              size: 16,
-              color: Theme.of(context).colorScheme.onSurfaceVariant),
+          child: Icon(
+            Icons.arrow_forward,
+            size: 16,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
         Expanded(
-          child: _DateInputField(
+          child: ScheduleDateInputField(
             label: 'End date',
             date: _endDate,
             minDate: _startDate ?? DateTime.now(),
@@ -244,447 +260,6 @@ class _Step2ScheduleState extends State<Step2Schedule> {
               fontWeight: FontWeight.w700,
               color: colors.primary,
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ScheduleGroup {
-  Set<int> dayIds;
-  String departureTime;
-  String arrivalTime;
-
-  _ScheduleGroup({
-    Set<int>? dayIds,
-    this.departureTime = '',
-    this.arrivalTime = '',
-  }) : dayIds = dayIds ?? {};
-}
-
-
-class _DateInputField extends StatefulWidget {
-  final String label;
-  final DateTime? date;
-  final DateTime minDate;
-  final ValueChanged<DateTime> onDateChanged;
-
-  const _DateInputField({
-    required this.label,
-    required this.date,
-    required this.minDate,
-    required this.onDateChanged,
-  });
-
-  @override
-  State<_DateInputField> createState() => _DateInputFieldState();
-}
-
-class _DateInputFieldState extends State<_DateInputField> {
-  final LayerLink _layerLink = LayerLink();
-  OverlayEntry? _overlay;
-  bool _isOpen = false;
-
-  static String _fmt(DateTime d) =>
-      '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}';
-
-  void _openOverlay() {
-    if (_isOpen) {
-      _closeOverlay();
-      return;
-    }
-
-    _isOpen = true;
-    _overlay = OverlayEntry(
-      builder: (context) => CompositedTransformFollower(
-        link: _layerLink,
-        showWhenUnlinked: false,
-        targetAnchor: Alignment.bottomLeft,
-        followerAnchor: Alignment.topLeft,
-        offset: const Offset(0, 4),
-        child: Align(
-          alignment: Alignment.topLeft,
-          child: TapRegion(
-            onTapOutside: (_) => _closeOverlay(),
-            child: Material(
-              elevation: 4,
-              borderRadius: BorderRadius.circular(12),
-              child: ScheduleDatePicker(
-                selectedDate: widget.date,
-                minDate: widget.minDate,
-                onDateSelected: (picked) {
-                  _closeOverlay();
-                  widget.onDateChanged(picked);
-                },
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-
-    Overlay.of(context).insert(_overlay!);
-  }
-
-  void _closeOverlay() {
-    _overlay?.remove();
-    _overlay = null;
-    if (mounted) setState(() => _isOpen = false);
-  }
-
-  @override
-  void dispose() {
-    _overlay?.remove();
-    _overlay = null;
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return CompositedTransformTarget(
-      link: _layerLink,
-      child: CustomInputField(
-        label: widget.label,
-        value: widget.date != null ? _fmt(widget.date!) : '',
-        icon: Icons.calendar_today_outlined,
-        readOnly: true,
-        onTap: _openOverlay,
-        onIconTap: _openOverlay,
-      ),
-    );
-  }
-}
-
-class _TimeInputField extends StatefulWidget {
-  final String label;
-  final String value;
-  final void Function(String) onChanged;
-
-  const _TimeInputField({
-    required this.label,
-    required this.value,
-    required this.onChanged,
-  });
-
-  @override
-  State<_TimeInputField> createState() => _TimeInputFieldState();
-}
-
-class _TimeInputFieldState extends State<_TimeInputField> {
-  final LayerLink _layerLink = LayerLink();
-  OverlayEntry? _overlay;
-  bool _isWheelOpen = false;
-
-  // Key дозволяє повністю перестворити CustomInputField
-  // коли wheel змінює значення — обходить внутрішній стан контролера
-  Key _fieldKey = UniqueKey();
-
-  @override
-  void dispose() {
-    _overlay?.remove();
-    _overlay = null;
-    super.dispose();
-  }
-
-  // ── Wheel overlay ──────────────────────────────────────────────
-
-  void _openWheel() {
-    if (_isWheelOpen) {
-      _closeWheel();
-      return;
-    }
-    setState(() => _isWheelOpen = true);
-
-    _overlay = OverlayEntry(
-      builder: (ctx) => CompositedTransformFollower(
-        link: _layerLink,
-        showWhenUnlinked: false,
-        targetAnchor: Alignment.bottomLeft,
-        followerAnchor: Alignment.topLeft,
-        offset: const Offset(0, 4),
-        child: Align(
-          alignment: Alignment.topLeft,
-          child: TapRegion(
-            onTapOutside: (_) => _closeWheel(),
-            child: Material(
-              elevation: 4,
-              borderRadius: BorderRadius.circular(12),
-              child: SizedBox(
-                width: 200,
-                child: PlanningTimePickerOverlay(
-                  initialTime: widget.value.isNotEmpty ? widget.value : '00:00',
-                  onTimeSelected: (v) {
-                    // ✅ Перестворюємо CustomInputField з новим key —
-                    // це змушує його побудувати свіжий внутрішній контролер
-                    // з актуальним значенням, ігноруючи старий стан
-                    setState(() => _fieldKey = UniqueKey());
-                    widget.onChanged(v);
-                  },
-                  onClose: _closeWheel,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-
-    Overlay.of(context).insert(_overlay!);
-  }
-
-  void _closeWheel() {
-    _overlay?.remove();
-    _overlay = null;
-    if (mounted) setState(() => _isWheelOpen = false);
-  }
-
-  // ── Manual input ───────────────────────────────────────────────
-
-  void _onChanged(String raw) {
-    final digits = raw.replaceAll(':', '');
-    if (digits.length == 4) {
-      final h = int.tryParse(digits.substring(0, 2));
-      final m = int.tryParse(digits.substring(2, 4));
-      if (h != null && m != null && h >= 0 && h <= 23 && m >= 0 && m <= 59) {
-        widget.onChanged(
-          '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}',
-        );
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return CompositedTransformTarget(
-      link: _layerLink,
-      child: CustomInputField(
-        key: _fieldKey,
-        label: widget.label,
-        value: widget.value,
-        icon: Icons.access_time_outlined,
-        isSelected: _isWheelOpen,
-        onIconTap: _openWheel,
-        onTap: null,
-        onChanged: _onChanged,
-        keyboardType: TextInputType.number,
-        inputFormatters: [
-          FilteringTextInputFormatter.allow(RegExp(r'[\d:]')),
-          _TimeInputFormatter(),
-        ],
-        focusHint: 'Format: HH:MM  (e.g. 14:30)',
-      ),
-    );
-  }
-}
-
-// ─── Форматтер з валідацією діапазонів ────────────────────────────────────
-//
-// Правила:
-//  • Перша цифра години: лише 0–2
-//  • Якщо перша цифра = 2, друга: лише 0–3  → години 00–23
-//  • Перша цифра хвилин: лише 0–5           → хвилини 00–59
-//  • Автоматично вставляє ':' після 2 цифр години
-
-class _TimeInputFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    // Беремо тільки цифри
-    final digits = newValue.text.replaceAll(RegExp(r'[^\d]'), '');
-    if (digits.isEmpty) return newValue.copyWith(text: '');
-
-    // Валідуємо і обрізаємо по одній цифрі
-    final validated = _validateDigits(digits);
-
-    final formatted = validated.length <= 2
-        ? validated
-        : '${validated.substring(0, 2)}:${validated.substring(2)}';
-
-    return newValue.copyWith(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
-  }
-
-  String _validateDigits(String digits) {
-    final buf = StringBuffer();
-
-    for (int i = 0; i < digits.length && i < 4; i++) {
-      final d = int.parse(digits[i]);
-
-      if (i == 0) {
-        // Перша цифра години: 0, 1, або 2
-        if (d > 2) break;
-      } else if (i == 1) {
-        // Друга цифра години
-        final firstHour = int.parse(digits[0]);
-        if (firstHour == 2 && d > 3) break; // макс 23
-      } else if (i == 2) {
-        // Перша цифра хвилин: 0–5
-        if (d > 5) break;
-      }
-      // i == 3: будь-яка цифра 0–9 дозволена
-
-      buf.write(digits[i]);
-    }
-
-    return buf.toString();
-  }
-}
-
-class _GroupCard extends StatelessWidget {
-  final _ScheduleGroup group;
-  final int index;
-  final List<({int id, String label})> days;
-  final Set<int> usedDayIds;
-  final bool canRemove;
-  final VoidCallback onRemove;
-  final VoidCallback onChanged;
-
-  const _GroupCard({
-    required this.group,
-    required this.index,
-    required this.days,
-    required this.usedDayIds,
-    required this.canRemove,
-    required this.onRemove,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: colors.outline.withValues(alpha: 0.2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(
-                'Group ${index + 1}',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: colors.onSurfaceVariant,
-                ),
-              ),
-              const Spacer(),
-              if (canRemove)
-                IconButton(
-                  onPressed: onRemove,
-                  icon: const Icon(Icons.close, size: 16),
-                  style: IconButton.styleFrom(
-                    foregroundColor: colors.onSurfaceVariant,
-                    minimumSize: const Size(28, 28),
-                    padding: EdgeInsets.zero,
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: days.map((d) {
-              final isSelected = group.dayIds.contains(d.id);
-              final isDisabled =
-                  !isSelected && usedDayIds.contains(d.id);
-              return MouseRegion(
-                cursor: isDisabled
-                    ? SystemMouseCursors.basic
-                    : SystemMouseCursors.click,
-                child: GestureDetector(
-                  onTap: isDisabled
-                      ? null
-                      : () {
-                          if (isSelected) {
-                            group.dayIds.remove(d.id);
-                          } else {
-                            group.dayIds.add(d.id);
-                          }
-                          onChanged();
-                        },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 120),
-                    width: 44,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? colors.primary
-                          : isDisabled
-                              ? colors.surfaceContainerHighest
-                                  .withValues(alpha: 0.3)
-                              : colors.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                        color: isSelected
-                            ? colors.primary
-                            : colors.outline.withValues(alpha: 0.2),
-                      ),
-                    ),
-                    child: Center(
-                      child: Text(
-                        d.label,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: isSelected
-                              ? FontWeight.w600
-                              : FontWeight.normal,
-                          color: isSelected
-                              ? colors.onPrimary
-                              : isDisabled
-                                  ? colors.onSurfaceVariant
-                                      .withValues(alpha: 0.35)
-                                  : colors.onSurface,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ✅ Виправлення 3: прибрано зайві TapRegion навколо _TimeInputField
-              Expanded(
-                child: _TimeInputField(
-                  label: 'Departure',
-                  value: group.departureTime,
-                  onChanged: (v) {
-                    group.departureTime = v;
-                    onChanged();
-                  },
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(top: 18, left: 12, right: 12),
-                child: Icon(Icons.arrow_forward,
-                    size: 16, color: colors.onSurfaceVariant),
-              ),
-              Expanded(
-                child: _TimeInputField(
-                  label: 'Arrival',
-                  value: group.arrivalTime,
-                  onChanged: (v) {
-                    group.arrivalTime = v;
-                    onChanged();
-                  },
-                ),
-              ),
-            ],
           ),
         ],
       ),

@@ -10,6 +10,7 @@ import 'config/routes.dart';
 import 'config/theme_notifier.dart';
 import 'services/auth_service.dart';
 import 'services/checkin_service.dart';
+import '../services/checkin_api_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,7 +25,8 @@ void main() async {
 
   final checkinService = CheckInService();
   if (authService.currentUser?.id != null) {
-    await checkinService.init(authService.currentUser!.id);
+    final checkinApiService = CheckInApiService(authService);
+    await checkinService.init(authService.currentUser!.id, checkinApiService);
   }
 
   final prefs        = await SharedPreferences.getInstance();

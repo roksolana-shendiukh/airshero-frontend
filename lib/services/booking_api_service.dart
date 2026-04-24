@@ -89,7 +89,6 @@ class BookingApiService {
     }
   }
 
-
   Future<List<String>> getAvailableDates(int fromCityId, int toCityId) async {
     try {
       final uri = Uri.parse('${AppConfig.baseUrl}/cities/available-dates').replace(
@@ -213,48 +212,48 @@ class BookingApiService {
   }
 
   Future<List<FlightModel>> filterFlights({
-  required List<int> flightIds,
-  List<String>? classNames,
-  double? minPrice,
-  double? maxPrice,
-  List<String>? airlineNames,
-  String sortBy = 'price_asc',
-  List<String>? departureSlots,
-}) async {
-  try {
-    final uri = Uri.parse('${AppConfig.baseUrl}/flights/filter');
-    
-    // Збираємо тільки non-null значення
-    final Map<String, dynamic> body = {
-      'flightIds': flightIds,
-      'sortBy': sortBy,
-    };
-    if (classNames != null && classNames.isNotEmpty) body['classNames'] = classNames;
-    if (minPrice != null) body['minPrice'] = minPrice;
-    if (maxPrice != null) body['maxPrice'] = maxPrice;
-    if (airlineNames != null && airlineNames.isNotEmpty) body['airlineNames'] = airlineNames;
-    if (departureSlots != null && departureSlots.isNotEmpty) body['departureSlots'] = departureSlots;
+    required List<int> flightIds,
+    List<String>? classNames,
+    double? minPrice,
+    double? maxPrice,
+    List<String>? airlineNames,
+    String sortBy = 'price_asc',
+    List<String>? departureSlots,
+  }) async {
+    try {
+      final uri = Uri.parse('${AppConfig.baseUrl}/flights/filter');
+      
+      // Збираємо тільки non-null значення
+      final Map<String, dynamic> body = {
+        'flightIds': flightIds,
+        'sortBy': sortBy,
+      };
+      if (classNames != null && classNames.isNotEmpty) body['classNames'] = classNames;
+      if (minPrice != null) body['minPrice'] = minPrice;
+      if (maxPrice != null) body['maxPrice'] = maxPrice;
+      if (airlineNames != null && airlineNames.isNotEmpty) body['airlineNames'] = airlineNames;
+      if (departureSlots != null && departureSlots.isNotEmpty) body['departureSlots'] = departureSlots;
 
-    debugPrint('filterFlights body: ${jsonEncode(body)}');
+      debugPrint('filterFlights body: ${jsonEncode(body)}');
 
-    final response = await http.post(
-      uri,
-      headers: await _headers(),
-      body: jsonEncode(body),
-    );
+      final response = await http.post(
+        uri,
+        headers: await _headers(),
+        body: jsonEncode(body),
+      );
 
-    debugPrint('filterFlights response: ${response.statusCode} ${response.body}');
+      debugPrint('filterFlights response: ${response.statusCode} ${response.body}');
 
-    if (response.statusCode == 200) {
-      final List<dynamic> data = jsonDecode(response.body);
-      return data.map((json) => FlightModel.fromJson(json as Map<String, dynamic>)).toList();
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((json) => FlightModel.fromJson(json as Map<String, dynamic>)).toList();
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Network error (filterFlights): $e');
+      return [];
     }
-    return [];
-  } catch (e) {
-    debugPrint('Network error (filterFlights): $e');
-    return [];
   }
-}
 
   Future<Map<String, dynamic>> createGroupBooking(Map<String, dynamic> body) async {
     final uri = Uri.parse('${AppConfig.baseUrl}/bookings/group');
@@ -419,5 +418,40 @@ class BookingApiService {
     }
   }
 
+  Future<List<Map<String, dynamic>>> getBookings({
+    int skip = 0,
+    int limit = 50,
+    String? status,
+    String? dateFilter = 'this_month',
+  }) async {
+    try {
+      final params = {
+        'skip': skip.toString(),
+        'limit': limit.toString(),
+        if (status != null) 'status': status,
+        if (dateFilter != null) 'date_filter': dateFilter,
+      };
+      final uri = Uri.parse('${AppConfig.baseUrl}/bookings')
+          .replace(queryParameters: params);
+      final response = await http.get(uri, headers: await _headers());
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Network error (getBookings): $e');
+      return [];
+    }
+  }
 
+  Future<void> cancelBooking(int bookingId) async {
+    final uri = Uri.parse('${AppConfig.baseUrl}/bookings/$bookingId/cancel');
+    final response = await http.post(uri, headers: await _headers());
+    if (response.statusCode != 200) {
+      final error = jsonDecode(response.body);
+      throw Exception(error['detail'] ?? 'Failed to cancel booking');
+    }
+  }
+  
 }

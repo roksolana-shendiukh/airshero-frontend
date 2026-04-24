@@ -7,7 +7,7 @@ import 'partial_payment_step.dart';
 
 class CheckInPaymentStep extends StatefulWidget {
   final AuthService authService;
-  final int bookingItemId;
+    final int bookingItemId;
   final int seatLayoutId;
   final int flightOperationId;
   final List<Map<String, dynamic>> bags;
@@ -17,7 +17,7 @@ class CheckInPaymentStep extends StatefulWidget {
   final String flightClass;
   final String seat;
   final int bagCount;
-  final void Function(String ticketNumber, int boardingPassId) onSuccess;
+  final void Function(String ticketNumber, int boardingPassId, List<Map<String, dynamic>> bags) onSuccess;
 
   const CheckInPaymentStep({
     super.key,
@@ -41,6 +41,7 @@ class CheckInPaymentStep extends StatefulWidget {
 
 class _CheckInPaymentStepState extends State<CheckInPaymentStep> {
   List<Map<String, dynamic>> _paymentMethods = [];
+  List<Map<String, dynamic>> _issuedBags     = [];
   bool _isLoadingMethods = true;
   bool _isProcessing     = false;
 
@@ -116,13 +117,17 @@ class _CheckInPaymentStepState extends State<CheckInPaymentStep> {
       );
 
       if (!mounted) return;
-      setState(() => _isProcessing = false);
+
+      setState(() {
+        _isProcessing = false;
+        _issuedBags   = List<Map<String, dynamic>>.from(result['bags'] ?? []);
+      });
 
       if (status == 'Failed') {
         _showFailedDialog();
       } else {
         _showSuccessDialog(
-          result['ticketNumber'] as String,
+          result['ticketNumber']   as String,
           result['boardingPassId'] as int,
         );
       }
@@ -172,7 +177,7 @@ class _CheckInPaymentStepState extends State<CheckInPaymentStep> {
                     label: 'Done',
                     onPressed: () {
                       Navigator.of(ctx).pop();
-                      widget.onSuccess(ticketNumber, boardingPassId);
+                      widget.onSuccess(ticketNumber, boardingPassId, _issuedBags);
                     },
                     borderRadius:    12,
                     verticalPadding: 14,
@@ -285,29 +290,37 @@ class _CheckInPaymentStepState extends State<CheckInPaymentStep> {
                   children: [
                     Icon(Icons.person_outline, size: 14, color: colors.onSurfaceVariant),
                     const SizedBox(width: 6),
-                    Text(widget.passengerName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                    Text(widget.passengerName,
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                   ],
                 ),
                 const SizedBox(height: 10),
                 const Divider(height: 1),
                 const SizedBox(height: 10),
-                _InfoRow(label: 'Flight',  value: widget.flightNumber),
+                _InfoRow(label: 'Flight', value: widget.flightNumber),
                 const SizedBox(height: 6),
-                _InfoRow(label: 'Class',   value: widget.flightClass),
+                _InfoRow(label: 'Class',  value: widget.flightClass),
                 const SizedBox(height: 6),
-                _InfoRow(label: 'Seat',    value: widget.seat),
+                _InfoRow(label: 'Seat',   value: widget.seat),
                 const SizedBox(height: 6),
-                _InfoRow(label: 'Bags',    value: '${widget.bagCount} bag${widget.bagCount == 1 ? '' : 's'}'),
+                _InfoRow(
+                  label: 'Bags',
+                  value: '${widget.bagCount} bag${widget.bagCount == 1 ? '' : 's'}',
+                ),
                 const SizedBox(height: 10),
                 const Divider(height: 1),
                 const SizedBox(height: 10),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Excess surcharge', style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant)),
+                    Text('Excess surcharge',
+                        style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant)),
                     Text(
                       '\$${widget.totalSurcharge.toStringAsFixed(2)}',
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFFE65100)),
+                      style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFFE65100)),
                     ),
                   ],
                 ),
@@ -338,7 +351,9 @@ class _CheckInPaymentStepState extends State<CheckInPaymentStep> {
           else if (_isPartialPayment)
             ..._partialPayments.asMap().entries.map((e) {
               final idx       = e.key;
-              final paid      = _partialPayments.sublist(0, idx).fold(0.0, (s, p) => s + (p['amount'] as double));
+              final paid      = _partialPayments
+                  .sublist(0, idx)
+                  .fold(0.0, (s, p) => s + (p['amount'] as double));
               final remaining = widget.totalSurcharge - paid;
               return PartialPaymentStep(
                 index:            idx,
@@ -347,9 +362,11 @@ class _CheckInPaymentStepState extends State<CheckInPaymentStep> {
                 currentAmount:    e.value['amount'] as double?,
                 selectedMethodId: e.value['methodId'] as int?,
                 paymentMethods:   _paymentMethods,
-                isDisabled:       idx > 0 && (_partialPayments[idx - 1]['amount'] as double) <= 0,
+                isDisabled: idx > 0 &&
+                    (_partialPayments[idx - 1]['amount'] as double) <= 0,
                 onAmountChanged:  (v) => _handleAmountChanged(idx, v),
-                onMethodSelected: (id) => setState(() => _partialPayments[idx]['methodId'] = id),
+                onMethodSelected: (id) =>
+                    setState(() => _partialPayments[idx]['methodId'] = id),
               );
             })
           else
@@ -362,10 +379,12 @@ class _CheckInPaymentStepState extends State<CheckInPaymentStep> {
           const SizedBox(height: 24),
 
           if (_isProcessing)
-            const Center(child: Padding(
-              padding: EdgeInsets.only(bottom: 16),
-              child:   CircularProgressIndicator(),
-            )),
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.only(bottom: 16),
+                child:   CircularProgressIndicator(),
+              ),
+            ),
 
           Row(
             children: [
@@ -377,7 +396,8 @@ class _CheckInPaymentStepState extends State<CheckInPaymentStep> {
                       backgroundColor: colors.errorContainer,
                       foregroundColor: colors.onErrorContainer,
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                     icon:      const Icon(Icons.cancel_outlined),
                     label:     const Text('Failed'),
@@ -392,7 +412,7 @@ class _CheckInPaymentStepState extends State<CheckInPaymentStep> {
                 child: Tooltip(
                   message: _disabledReason ?? '',
                   child: CustomButton(
-                    label:    _isPartialPayment ? 'Confirm Partial' : 'Confirm Payment',
+                    label: _isPartialPayment ? 'Confirm Partial' : 'Confirm Payment',
                     onPressed: (!_isProcessing && _disabledReason == null)
                         ? () => _confirm('Paid')
                         : null,
@@ -420,8 +440,10 @@ class _InfoRow extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant)),
-        Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+        Text(label,
+            style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant)),
+        Text(value,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
       ],
     );
   }

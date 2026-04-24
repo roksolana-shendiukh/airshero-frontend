@@ -1,6 +1,10 @@
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/user_model.dart';
+import 'dart:convert';
+import 'package:http_parser/http_parser.dart';
+import '../config/app_config.dart';
 
 class AuthService extends ChangeNotifier {
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
@@ -50,6 +54,7 @@ class AuthService extends ChangeNotifier {
         status: _parseStatus(claims['status']),
         airlineName: claims['airlineName'],     
         airlineLogoUrl: claims['airlineLogoUrl'],
+        avatarUrl: claims['avatarUrl'] as String?,
         operationId: claims['operationId'] != null
           ? int.tryParse(claims['operationId'].toString())
           : null,
@@ -90,6 +95,7 @@ class AuthService extends ChangeNotifier {
       status: _parseStatus(claims['status']),
       airlineName: claims['airlineName'],    
       airlineLogoUrl: claims['airlineLogoUrl'],
+      avatarUrl: claims['avatarUrl'] as String?,
       operationId: claims['operationId'] != null
         ? int.tryParse(claims['operationId'].toString())
         : null,
@@ -131,6 +137,7 @@ class AuthService extends ChangeNotifier {
         status: _parseStatus(claims['status']),
         airlineName: claims['airlineName'],    
         airlineLogoUrl: claims['airlineLogoUrl'],
+        avatarUrl: claims['avatarUrl'] as String?,
         operationId: claims['operationId'] != null
           ? int.tryParse(claims['operationId'].toString())
           : null,
@@ -178,4 +185,78 @@ class AuthService extends ChangeNotifier {
       default: return 'Error: $code';
     }
   }
+
+  Future<bool> updateProfile({
+    String? firstName,
+    String? lastName,
+    String? email,
+  }) async {
+    try {
+      final token = await getToken();
+      final response = await http.put(
+        Uri.parse('${AppConfig.baseUrl}/users/profile'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          if (firstName != null) 'firstName': firstName,
+          if (lastName != null) 'lastName': lastName,
+          if (email != null) 'email': email,
+        }),
+      );
+      if (response.statusCode != 200) {
+        final data = jsonDecode(response.body);
+        _errorMessage = data['detail'] is List
+            ? (data['detail'] as List).first['msg']
+            : data['detail'].toString();
+        notifyListeners();
+        return false;
+      }
+      await refreshSession();
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> updateProfilePhoto(List<int> fileBytes, String fileName) async {
+    try {
+      final token = await getToken();
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('${AppConfig.baseUrl}/users/profile/photo'),
+      );
+      request.headers['Authorization'] = 'Bearer $token';
+      request.files.add(http.MultipartFile.fromBytes(
+        'file',
+        fileBytes,
+        filename: fileName,
+        contentType: MediaType.parse(_mimeType(fileName)),
+      ));
+      final streamed = await request.send();
+      final response = await http.Response.fromStream(streamed);
+      if (response.statusCode != 200) return false;
+      await refreshSession();
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
+  String _mimeType(String fileName) {
+    final ext = fileName.split('.').last.toLowerCase();
+    switch (ext) {
+      case 'jpg':
+      case 'jpeg': return 'image/jpeg';
+      case 'png': return 'image/png';
+      case 'webp': return 'image/webp';
+      default: return 'image/jpeg';
+    }
+  }
+
 }

@@ -137,13 +137,7 @@ class _CreateUserDialogState extends State<CreateUserDialog> {
 
       if (mounted) {
         Navigator.of(context).pop();
-        widget.onUserCreated?.call();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('User $_email created successfully'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        widget.onUserCreated?.call();       
       }
     } on ApiValidationException catch (e) {
       setState(() => _fieldErrors = e.fieldErrors);

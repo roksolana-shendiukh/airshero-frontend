@@ -121,23 +121,27 @@ enum UserRole {
     switch (this) {
       case UserRole.salesAgent:
         return [
-          const MenuItem(icon: Icons.book_outlined, title: 'Bookings', route: '/sales/bookings'),
+          const MenuItem(icon: Icons.add_circle_outline, title: 'New Booking', route: '/sales/bookings'),
+          const MenuItem(icon: Icons.list_alt_outlined, title: 'My Bookings', route: '/sales/my-bookings'),
         ];
       case UserRole.checkInAgent:
         return [
           const MenuItem(icon: Icons.flight_outlined, title: 'Flights', route: '/checkin'),
+          const MenuItem(icon: Icons.airplane_ticket_outlined, title: 'Boarding Passes', route: '/checkin/boarding-passes'),
         ];
       case UserRole.flightOperator:
         return [
           const MenuItem(icon: Icons.flight_outlined, title: 'Flight Operations', route: '/flight-operations'),
           const MenuItem(icon: Icons.people_outline, title: 'Crew', route: '/flight-operations/crew'),
-          const MenuItem(icon: Icons.airplanemode_active_outlined, title: 'Active Operation', route: '/flight-operations/active'),
+          const MenuItem(icon: Icons.person_outline, title: 'Crew Management', route: '/crew'),
+          const MenuItem(icon: Icons.flight_takeoff_outlined, title: 'Active Operation', route: '/flight-operations/active'),
         ];
       case UserRole.planningManager:
         return [
           const MenuItem(icon: Icons.calendar_month_outlined, title: 'Overview', route: '/planning/overview'),
           const MenuItem(icon: Icons.flight_outlined, title: 'Flights', route: '/planning/flights'),
-          const MenuItem(icon: Icons.add_circle_outline, title: 'Create Flight', route: '/planning/create-flight'),
+          const MenuItem(icon: Icons.settings_outlined, title: 'Flight setup', route: '/planning/setup'),
+          const MenuItem(icon: Icons.payments_outlined, title: 'Pricing', route: '/planning/pricing'),
         ];
       case UserRole.systemAdmin:
         return [

@@ -1,18 +1,22 @@
 class FlightCrewModel {
-  final int flightCrewId;
+  final int     flightCrewId;
   final String? firstName;
   final String? lastName;
   final String? position;
+  final int?    positionId;
   final String? licenseType;
-  final int? experienceYears;
-  final bool locationKnown;
+  final int?    licenseTypeId;
+  final int?    experienceYears;
+  final bool    locationKnown;
 
   const FlightCrewModel({
     required this.flightCrewId,
     this.firstName,
     this.lastName,
     this.position,
+    this.positionId,
     this.licenseType,
+    this.licenseTypeId,
     this.experienceYears,
     this.locationKnown = true,
   });
@@ -21,12 +25,14 @@ class FlightCrewModel {
 
   factory FlightCrewModel.fromJson(Map<String, dynamic> json) => FlightCrewModel(
         flightCrewId:    (json['flightCrewId'] as num).toInt(),
-        firstName:       json['firstName'] as String?,
-        lastName:        json['lastName'] as String?,
-        position:        json['position'] as String?,
-        licenseType:     json['licenseType'] as String?,
+        firstName:       json['firstName']       as String?,
+        lastName:        json['lastName']        as String?,
+        position:        json['position']        as String?,
+        positionId:      (json['positionId']     as num?)?.toInt(),
+        licenseType:     json['licenseType']     as String?,
+        licenseTypeId:   (json['licenseTypeId']  as num?)?.toInt(),
         experienceYears: (json['experienceYears'] as num?)?.toInt(),
-        locationKnown:   json['locationKnown'] as bool? ?? true,
+        locationKnown:   json['locationKnown']   as bool? ?? true,
       );
 }
 

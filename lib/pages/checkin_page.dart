@@ -8,6 +8,7 @@ import '../../widgets/checkin/checkin_confirm_passenger_step.dart';
 import '../../widgets/checkin/checkin_seat_map_step.dart';
 import '../../widgets/checkin/checkin_baggage_step.dart';
 import '../../widgets/checkin/checkin_boarding_pass_step.dart';
+import '../../widgets/checkin/checkin_baggage_tag_step.dart';
 import '../pages/payment/checkin_payment_step.dart';
 import 'package:go_router/go_router.dart';
 
@@ -57,6 +58,7 @@ class _CheckInPageState extends State<CheckInPage> {
 
   Map<String, dynamic>?      _bookingData;
   List<Map<String, dynamic>> _baggageUnits = [];
+  List<Map<String, dynamic>> _issuedBags = [];
 
   @override
   void initState() {
@@ -156,6 +158,7 @@ class _CheckInPageState extends State<CheckInPage> {
       _bookingItemId        = null;
       _bookingData          = null;
       _baggageUnits         = [];
+      _issuedBags = [];
       _ticketNumber         = null;
       _boardingPassId       = null;
     });
@@ -254,6 +257,7 @@ class _CheckInPageState extends State<CheckInPage> {
             if (surcharge > 0) {
               setState(() => _currentStep = CheckInStep.payment);
             } else {
+              debugPrint('>>> baggageUnits sending: $_baggageUnits');
               try {
                 final api    = CheckInApiService(widget.authService);
                 final result = await api.issueWithBaggage(
@@ -268,6 +272,7 @@ class _CheckInPageState extends State<CheckInPage> {
                 setState(() {
                   _ticketNumber   = result['ticketNumber'] as String?;
                   _boardingPassId = result['boardingPassId'] as int?;
+                  _issuedBags     = List<Map<String, dynamic>>.from(result['bags'] ?? []);
                   _currentStep    = CheckInStep.boardingPass;
                 });
               } catch (e) {
@@ -294,29 +299,58 @@ class _CheckInPageState extends State<CheckInPage> {
           flightClass:       _flightClass   ?? '',
           seat:              _selectedSeat  ?? '',
           bagCount:          _baggageCount  ?? 0,
-          onSuccess: (ticketNumber, boardingPassId) => setState(() {
+          onSuccess: (ticketNumber, boardingPassId, bags) => setState(() {
             _ticketNumber   = ticketNumber;
             _boardingPassId = boardingPassId;
+            _issuedBags     = List<Map<String, dynamic>>.from(bags);
             _currentStep    = CheckInStep.boardingPass;
           }),
         );
 
       case CheckInStep.boardingPass:
-      return CheckInBoardingPassStep(
-        ticketNumber:   _ticketNumber  ?? '—',
-        passengerName:  _passengerName ?? '—',
-        flightNumber:   _flightNumber  ?? '—',
-        flightClass:    _flightClass   ?? '—',
-        seat:           _selectedSeat  ?? '—',
-        departDate:     _departDate!,
-        bagCount:       _baggageCount  ?? 0,
-        departsAirport: _selectedFlight?['departsAirport'] as String? ?? '—',
-        arrivesAirport: _selectedFlight?['arrivesAirport'] as String? ?? '—',
-        departsTime:    _selectedFlight?['departsDatetime'] as String? ?? '—',
-        arrivesTime:    _selectedFlight?['arrivesDatetime'] as String? ?? '—',
-        gate:           _selectedFlight?['gateCode']        as String? ?? '—',
-        onNewPassenger: _resetForNextPassenger,
-      );
+      debugPrint('>>> issuedBags: $_issuedBags');
+        return Column(
+          children: [
+            CheckInBoardingPassStep(
+              ticketNumber:   _ticketNumber  ?? '—',
+              passengerName:  _passengerName ?? '—',
+              flightNumber:   _flightNumber  ?? '—',
+              flightClass:    _flightClass   ?? '—',
+              seat:           _selectedSeat  ?? '—',
+              departDate:     _departDate!,
+              departsAirport: _selectedFlight?['departsAirport'] as String? ?? '—',
+              arrivesAirport: _selectedFlight?['arrivesAirport'] as String? ?? '—',
+              departsTime:    _selectedFlight?['departsDatetime'] as String? ?? '—',
+              arrivesTime:    _selectedFlight?['arrivesDatetime'] as String? ?? '—',
+              gate:           _selectedFlight?['gateCode']        as String? ?? '—',
+              showActions:    false, 
+              onNewPassenger: _resetForNextPassenger,
+            ),
+            CheckInBaggageTagStep(
+              bags:          _issuedBags,
+              passengerName: _passengerName ?? '—',
+              flightNumber:  _flightNumber  ?? '—',
+              departDate:    _departDate!,
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _resetForNextPassenger,
+                  icon:  const Icon(Icons.person_add_outlined, size: 18),
+                  label: const Text('Check In Next Passenger'),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape:   RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+          
     }
   }
 

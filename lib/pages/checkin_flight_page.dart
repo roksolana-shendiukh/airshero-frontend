@@ -11,6 +11,7 @@ import '../../widgets/responsive_layout.dart';
 import '../../widgets/custom/custom_button.dart';
 import '../../widgets/checkin/checkin_boarding_pass_step.dart';
 import '../widgets/checkIn/checkin_passenger_bar.dart';
+import '../../widgets/checkin/checkin_seat_map_step.dart';
 
 
 class CheckInFlightsPage extends StatefulWidget {
@@ -39,48 +40,68 @@ class _CheckInFlightsPageState extends State<CheckInFlightsPage> {
   List<Map<String, dynamic>>? _recentPassengers;
 
   Future<void> _loadStats(int flightOperationId) async {
-    final results = await Future.wait([
-      _apiService.getBoardingStats(flightOperationId),
-      _apiService.getRecentlyCheckedIn(flightOperationId),
-    ]);
-    if (!mounted) return;
-    final stats  = results[0] as Map<String, dynamic>;
-    setState(() {
-      _totalPassengers  = stats['totalPassengers'] as int? ?? 0;
-      _checkedIn        = stats['checkedIn']       as int? ?? 0;
-      _remaining        = stats['remaining']       as int? ?? 0;
-      _recentPassengers = (results[1] as List?)
-        ?.map((e) => Map<String, dynamic>.from(e as Map))
-        .toList() ?? [];
-        });
-  }
-
+    debugPrint('>>> _loadStats called, mounted=$mounted');
+  final results = await Future.wait([
+    _apiService.getBoardingStats(flightOperationId),
+    _apiService.getRecentlyCheckedIn(flightOperationId),
+  ]);
+  debugPrint('>>> _loadStats got results, mounted=$mounted');
+  if (!mounted) return;
+  final stats = results[0] as Map<String, dynamic>;
+  debugPrint('>>> stats: $stats');
+  debugPrint('>>> totalPassengers: ${stats['totalPassengers']}');
+  setState(() {
+    _totalPassengers  = stats['totalPassengers'] as int? ?? 0;
+    _checkedIn        = stats['checkedIn']       as int? ?? 0;
+    _remaining        = stats['remaining']       as int? ?? 0;
+    _recentPassengers = (results[1] as List?)
+      ?.map((e) => Map<String, dynamic>.from(e as Map))
+      .toList() ?? [];
+  });
+  debugPrint('>>> after setState: $_totalPassengers');
+}
   @override
   void initState() {
     super.initState();
-    _authService = context.read<AuthService>(); 
+    _authService = context.read<AuthService>();
     _apiService  = CheckInApiService(_authService);
     _load();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      GoRouter.of(context).routerDelegate.addListener(_onRouteChanged);
+    });
+  }
+
+  void _onRouteChanged() {
+    final location = GoRouterState.of(context).uri.path;
+    if (location == '/checkin' && mounted) {
+      _load();
+    }
   }
 
   @override
   void dispose() {
     _ticker?.cancel();
+    GoRouter.of(context).routerDelegate.removeListener(_onRouteChanged);
     super.dispose();
   }
 
   Future<void> _load() async {
+    debugPrint('>>> _load called');
     setState(() { _isLoading = true; _error = null; });
     try {
       final flights = await _apiService.getActiveFlights();
+      debugPrint('>>> flights loaded: ${flights.length}');
       if (mounted) setState(() { _flights = flights; _isLoading = false; });
       _startTickerIfNeeded();
       
       final activeFlight = context.read<CheckInService>().activeFlight;
+      debugPrint('>>> activeFlight: ${activeFlight?['flightNumber']}');
       if (activeFlight != null) {
         await _loadStats(activeFlight['flightOperationId'] as int);
       }
     } catch (e) {
+      debugPrint('>>> _load error: $e');
       if (mounted) setState(() { _error = e.toString(); _isLoading = false; });
     }
   }
@@ -244,10 +265,12 @@ class _CheckInFlightsPageState extends State<CheckInFlightsPage> {
             isIconAfterLabel:  false,
             verticalPadding:   8,
             horizontalPadding: 14,
-            onPressed: () => context.go(
-              '/checkin/register',
-              extra: activeFlight,
-            ),
+            onPressed: () async {
+  debugPrint('>>> Register Passenger pressed');
+   context.go('/checkin/register', extra: activeFlight);
+  debugPrint('>>> Returned from register');
+  if (mounted) await _load();
+},
           ),
           const SizedBox(width: 8),
           OutlinedButton(
@@ -308,7 +331,6 @@ class _CheckInFlightsPageState extends State<CheckInFlightsPage> {
                           flightClass:    data['flightClass']    ?? '—',
                           seat:           data['seat']           ?? '—',
                           departDate:     DateTime.tryParse(data['departsTime'] ?? '') ?? DateTime.now(),
-                          bagCount:       data['bagCount']       ?? 0,
                           departsAirport: data['departsAirport'] ?? '—',
                           arrivesAirport: data['arrivesAirport'] ?? '—',
                           departsTime:    data['departsTime']    ?? '—',
@@ -443,9 +465,15 @@ class _CheckInFlightsPageState extends State<CheckInFlightsPage> {
                               .withValues(alpha: 0.3)),
                       itemBuilder: (_, i) {
                         final p = filtered[i];
-                        return InkWell(
-                          onTap: () => _showBoardingPassModal(
-                              p['boardingPassId'] as int),
+                        return GestureDetector(
+                          onTap: () => _showBoardingPassModal(p['boardingPassId'] as int),
+                            onSecondaryTapUp: (details) => _showContextMenu(
+                              context,
+                              details.globalPosition,
+                              p['boardingPassId'] as int,
+                              p['flightOperationId'] as int? ?? 0, 
+                              p['seat'] as String? ?? '—', 
+                            ),
                           child: Padding(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 16, vertical: 10),
@@ -504,6 +532,7 @@ class _CheckInFlightsPageState extends State<CheckInFlightsPage> {
                             ),
                           ),
                         );
+                      
                       },
                     ),
             ],
@@ -757,6 +786,141 @@ class _CheckInFlightsPageState extends State<CheckInFlightsPage> {
     );
   }
 
+  Future<void> _showContextMenu(
+    BuildContext context,
+    Offset position,
+    int boardingPassId,
+    int flightOperationId,
+    String currentSeat,
+  ) async {
+    final result = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy,
+        position.dx + 1,
+        position.dy + 1,
+      ),
+      items: [
+        const PopupMenuItem(
+          value: 'reprint',
+          child: Row(
+            children: [
+              Icon(Icons.print_outlined, size: 16),
+              SizedBox(width: 8),
+              Text('Reprint boarding pass', style: TextStyle(fontSize: 13)),
+            ],
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'change_seat',
+          child: Row(
+            children: [
+              Icon(Icons.airline_seat_recline_normal_outlined, size: 16),
+              SizedBox(width: 8),
+              Text('Change seat', style: TextStyle(fontSize: 13)),
+            ],
+          ),
+        ),
+      ],
+    );
+
+    if (!mounted) return;
+
+    if (result == 'reprint') {
+      await _reprintBoardingPass(boardingPassId);
+    } else if (result == 'change_seat') {
+      await _changeSeat(boardingPassId, flightOperationId, currentSeat);
+    }
+  }
+
+  Future<void> _reprintBoardingPass(int boardingPassId) async {
+    try {
+      final api = CheckInApiService(_authService);
+      await api.reprintBoardingPass(boardingPassId);
+      if (!mounted) return;
+      await _showBoardingPassModal(boardingPassId);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to reprint boarding pass')),
+      );
+    }
+  }
+
+  Future<void> _changeSeat(int boardingPassId, int flightOperationId, String currentSeat) async {
+    final result = await showDialog<int>(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 900),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Theme.of(ctx).colorScheme.surface,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                  child: Row(
+                    children: [
+                      Icon(Icons.airline_seat_recline_normal_outlined,
+                          size: 16, color: Theme.of(ctx).colorScheme.primary),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Current seat: $currentSeat',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Theme.of(ctx).colorScheme.primary,
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 18),
+                        onPressed: () => Navigator.of(ctx).pop(),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                CheckInSeatMapStep(
+                  authService:          _authService,
+                  flightOperationId:    flightOperationId,
+                  passengerClassId:     0,
+                  passengerDateOfBirth: null,
+                  onSeatSelected: (seatPosition, seatLayoutId) {
+                    Navigator.of(ctx).pop(seatLayoutId);
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    if (result == null || !mounted) return;
+
+    try {
+      final api = CheckInApiService(_authService);
+      await api.updateBoardingPassSeat(boardingPassId, result);
+      if (!mounted) return;
+      await _showBoardingPassModal(boardingPassId);
+      _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to update seat')),
+      );
+    }
+  }
+
+
 }
 
 class _StatCard extends StatelessWidget {
@@ -771,6 +935,9 @@ class _StatCard extends StatelessWidget {
     required this.colors,
     this.valueColor,
   });
+
+
+
 
   @override
   Widget build(BuildContext context) {

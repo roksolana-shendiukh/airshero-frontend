@@ -39,7 +39,6 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
   final Set<String> _selectedUserIds = {};
   bool _selectAll = false;
 
-  // ДИНАМІЧНІ КОЛОНКИ ТА ЇХ ШИРИНА
   late final List<TableColumnDef<UserModel>> _columns;
   final Map<String, double> _columnWidths = {};
 
@@ -48,7 +47,6 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
     super.initState();
     _adminApi = AdminApiService(context.read<AuthService>());
     
-    // Ініціалізуємо колонки, передаючи їм колбеки дій
     _columns = UsersTableColumns.buildColumns(
       onEdit: (user) => ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Edit ${user.email}')),
@@ -57,12 +55,10 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
         SnackBar(content: Text('Delete ${user.email}')),
       ),
       onToggleLock: (user) {
-        // Логіка блокування
         setState(() {});
       },
     );
 
-    // Автоматично заповнюємо початкову ширину колонок із конфігурації
     for (var col in _columns) {
       _columnWidths[col.key] = col.initialWidth;
     }
@@ -307,8 +303,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                     ),
                     child: Column(
                       children: [
-                        // ── Таблиця ───────────────────────────────────────
-                        Expanded(
+                       Expanded(
                           child: _paginatedUsers.isEmpty
                               ? Center(
                                   child: Column(
@@ -336,7 +331,6 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                                     width: _totalWidth,
                                     child: Column(
                                       children: [
-                                        // ВИКОРИСТОВУЄМО УНІВЕРСАЛЬНИЙ ХЕДЕР
                                         GenericTableHeader<UserModel>(
                                           selectAll: _selectAll,
                                           onToggleSelectAll: _toggleSelectAll,
@@ -367,7 +361,6 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                                   ),
                                 ),
                         ),
-                        // ── Пагінація ─────────────────────────────────────
                         if (_filteredUsers.isNotEmpty)
                           UserTablePagination(
                             currentPage: _currentPage,

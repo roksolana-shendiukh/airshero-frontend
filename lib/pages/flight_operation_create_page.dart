@@ -11,6 +11,7 @@ import '../../services/flight_operation_api_service.dart';
 import '../../widgets/responsive_layout.dart';
 import '../../widgets/custom/custom_button.dart';
 import '../../widgets/flight_operation/operation_status_bar.dart';
+import '../widgets/custom/custom_select_field.dart';
 import '../../widgets/flight_operation/airfleet_step.dart';
 
 class FlightOperationCreatePage extends StatefulWidget {
@@ -168,101 +169,256 @@ class _FlightOperationCreatePageState
   }
 
   Widget _buildSetupStep() {
-    final colors = Theme.of(context).colorScheme;
+  final colors = Theme.of(context).colorScheme;
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // Aircraft
-        Expanded(
-          child: Container(
-            decoration: BoxDecoration(
-              border: Border(
-                right: BorderSide(
-                    color: colors.outlineVariant.withValues(alpha: 0.4)),
-              ),
-            ),
-            child: Column(
-              children: [
-                _buildSectionHeader(
-                  'Aircraft',
-                  Icons.airplanemode_active_outlined,
-                  trailing: _airfleets.length > 1
-                      ? TextButton(
-                          onPressed: () => setState(
-                              () => _showAircraftList = !_showAircraftList),
-                          child: Text(
-                            _showAircraftList ? 'Show selected' : 'Change',
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                        )
-                      : null,
-                ),
-                Expanded(
-                  child: _loadingAirfleets
-                      ? const Center(child: CircularProgressIndicator())
-                      : _showAircraftList
-                          ? Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: AirfleetStep(
-                                airfleets:  _airfleets,
-                                selected:   _selectedAirfleet,
-                                apiService: _apiService,
-                                onChanged: (a) => setState(() {
-                                  _selectedAirfleet = a;
-                                  _showAircraftList  = false;
-                                }),
-                              ),
-                            )
-                          : _selectedAirfleet != null
-                              ? SingleChildScrollView(
-                                  padding: const EdgeInsets.all(20),
-                                  child: _SelectedAircraftCard(
-                                    airfleet:   _selectedAirfleet!,
-                                    colors:     colors,
-                                    apiService: _apiService,
-                                  ),
-                                )
-                              : Center(
-                                  child: Text('No aircraft available',
-                                      style: TextStyle(
-                                          color: colors.onSurfaceVariant)),
-                                ),
-                ),
-              ],
+  return Row(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      // Aircraft
+      Expanded(
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border(
+              right: BorderSide(
+                  color: colors.outlineVariant.withValues(alpha: 0.4)),
             ),
           ),
-        ),
-
-        // Gate
-        Expanded(
           child: Column(
             children: [
-              _buildSectionHeader('Gate', Icons.door_sliding_outlined),
+              _buildSectionHeader(
+                'Aircraft',
+                Icons.airplanemode_active_outlined,
+                trailing: _airfleets.length > 1
+                    ? TextButton(
+                        onPressed: () => setState(
+                            () => _showAircraftList = !_showAircraftList),
+                        child: Text(
+                          _showAircraftList ? 'Show selected' : 'Change',
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      )
+                    : null,
+              ),
               Expanded(
-                child: _loadingGates
+                child: _loadingAirfleets
                     ? const Center(child: CircularProgressIndicator())
-                    : _gates.isEmpty
-                        ? Center(
-                            child: Text('No gates available',
-                                style: TextStyle(
-                                    color: colors.onSurfaceVariant)),
+                    : _showAircraftList
+                        ? Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: AirfleetStep(
+                              airfleets:  _airfleets,
+                              selected:   _selectedAirfleet,
+                              apiService: _apiService,
+                              onChanged: (a) => setState(() {
+                                _selectedAirfleet = a;
+                                _showAircraftList  = false;
+                              }),
+                            ),
                           )
-                        : ListView(
-                            padding: const EdgeInsets.all(20),
-                            children: _groupedGates.entries
-                                .map((e) => _buildTerminalGroup(
-                                    e.key, e.value, colors))
-                                .toList(),
-                          ),
+                        : _selectedAirfleet != null
+                            ? SingleChildScrollView(
+                                padding: const EdgeInsets.all(20),
+                                child: _SelectedAircraftCard(
+                                  airfleet:   _selectedAirfleet!,
+                                  colors:     colors,
+                                  apiService: _apiService,
+                                ),
+                              )
+                            : Center(
+                                child: Text('No aircraft available',
+                                    style: TextStyle(
+                                        color: colors.onSurfaceVariant)),
+                              ),
               ),
             ],
           ),
         ),
-      ],
-    );
-  }
+      ),
 
+      // Gate
+      Expanded(
+        child: Column(
+          children: [
+            _buildSectionHeader('Gate', Icons.door_sliding_outlined),
+            Expanded(
+              child: _loadingGates
+                  ? const Center(child: CircularProgressIndicator())
+                  : _gates.isEmpty
+                      ? Center(
+                          child: Text('No gates available',
+                              style: TextStyle(
+                                  color: colors.onSurfaceVariant)),
+                        )
+                      : Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              CustomSelectField(
+                                label:      'Terminal',
+                                value:      _openTerminal ?? '',
+                                icon:       Icons.door_sliding_outlined,
+                                items:      ['', ..._groupedGates.keys.toList()],
+                                itemLabels: [
+                                  'Select terminal',
+                                  ..._groupedGates.keys
+                                      .map((t) => 'Terminal $t')
+                                      .toList(),
+                                ],
+                                searchable: false,
+                                onChanged: (v) => setState(() {
+                                  _openTerminal =
+                                      (v == null || v.isEmpty) ? null : v;
+                                  _selectedGate = null;
+                                }),
+                              ),
+                              const SizedBox(height: 16),
+                              if (_openTerminal != null)
+                                Expanded(
+                                  child: SingleChildScrollView(
+                                    child: Wrap(
+                                      spacing:    8,
+                                      runSpacing: 8,
+                                      children:
+                                          (_groupedGates[_openTerminal] ?? [])
+                                              .map((gate) => GestureDetector(
+                                                    onTap: gate.isAvailable
+                                                        ? () => setState(() =>
+                                                            _selectedGate =
+                                                                _selectedGate
+                                                                            ?.gateId ==
+                                                                        gate.gateId
+                                                                    ? null
+                                                                    : gate)
+                                                        : null,
+                                                    child: AnimatedContainer(
+                                                      duration: const Duration(
+                                                          milliseconds: 150),
+                                                      width:  72,
+                                                      height: 56,
+                                                      decoration: BoxDecoration(
+                                                        color: !gate.isAvailable
+                                                            ? colors
+                                                                .surfaceContainerHighest
+                                                                .withValues(
+                                                                    alpha: 0.5)
+                                                            : _selectedGate
+                                                                        ?.gateId ==
+                                                                    gate.gateId
+                                                                ? colors
+                                                                    .primaryContainer
+                                                                    .withValues(
+                                                                        alpha:
+                                                                            0.35)
+                                                                : colors
+                                                                    .surfaceContainerHighest,
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(8),
+                                                        border: Border.all(
+                                                          color: !gate.isAvailable
+                                                              ? colors
+                                                                  .outlineVariant
+                                                                  .withValues(
+                                                                      alpha: 0.4)
+                                                              : _selectedGate
+                                                                          ?.gateId ==
+                                                                      gate.gateId
+                                                                  ? colors
+                                                                      .primary
+                                                                  : colors
+                                                                      .outlineVariant,
+                                                          width: _selectedGate
+                                                                      ?.gateId ==
+                                                                  gate.gateId
+                                                              ? 1.5
+                                                              : 1,
+                                                        ),
+                                                      ),
+                                                      child: Column(
+                                                        mainAxisAlignment:
+                                                            MainAxisAlignment
+                                                                .center,
+                                                        children: [
+                                                          if (!gate.isAvailable)
+                                                            Icon(
+                                                              Icons.lock_outline,
+                                                              size:  12,
+                                                              color: colors
+                                                                  .onSurfaceVariant
+                                                                  .withValues(
+                                                                      alpha:
+                                                                          0.4),
+                                                            ),
+                                                          Text(
+                                                            gate.gateCode,
+                                                            style: TextStyle(
+                                                              fontSize:   16,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w600,
+                                                              color: !gate
+                                                                      .isAvailable
+                                                                  ? colors
+                                                                      .onSurfaceVariant
+                                                                      .withValues(
+                                                                          alpha:
+                                                                              0.4)
+                                                                  : _selectedGate
+                                                                              ?.gateId ==
+                                                                          gate
+                                                                              .gateId
+                                                                      ? colors
+                                                                          .primary
+                                                                      : colors
+                                                                          .onSurface,
+                                                            ),
+                                                          ),
+                                                          Text(
+                                                            gate.isAvailable
+                                                                ? 'Gate'
+                                                                : 'Busy',
+                                                            style: TextStyle(
+                                                              fontSize: 10,
+                                                              color: !gate
+                                                                      .isAvailable
+                                                                  ? colors
+                                                                      .onSurfaceVariant
+                                                                      .withValues(
+                                                                          alpha:
+                                                                              0.4)
+                                                                  : _selectedGate
+                                                                              ?.gateId ==
+                                                                          gate
+                                                                              .gateId
+                                                                      ? colors
+                                                                          .primary
+                                                                          .withValues(
+                                                                              alpha: 0.7)
+                                                                      : colors
+                                                                          .onSurfaceVariant,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ))
+                                              .toList(),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
+}
+  
+  
   Widget _buildSectionHeader(String title, IconData icon, {Widget? trailing}) {
     final colors = Theme.of(context).colorScheme;
     return Container(

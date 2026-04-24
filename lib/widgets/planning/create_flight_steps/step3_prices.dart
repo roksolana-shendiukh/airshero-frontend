@@ -38,7 +38,6 @@ class _Step3PricesState extends State<Step3Prices> {
 
   final Map<int, Set<int>> _enabledBaggageRules = {};
 
-  // Правила багажу завантажені з API
   List<Map<String, dynamic>> _baggageRules = [];
   bool _isLoadingRules = true;
   String? _rulesError;
@@ -244,6 +243,10 @@ class _Step3PricesState extends State<Step3Prices> {
     );
   }
 
+  bool get _hasUnpricedBaggage => _enabledBaggageRules.entries.any((entry) =>
+    entry.value.any((ruleId) =>
+        (_currentBaggagePrices[entry.key]?[ruleId] ?? 0.0) == 0));
+
   Widget _buildTicketPricesTab(ColorScheme colors) {
     return Wrap(
       spacing: 16,
@@ -352,8 +355,7 @@ class _Step3PricesState extends State<Step3Prices> {
           padding: const EdgeInsets.all(24),
           child: Column(
             children: [
-              Icon(Icons.error_outline,
-                  color: colors.error, size: 40),
+              Icon(Icons.error_outline, color: colors.error, size: 40),
               const SizedBox(height: 12),
               Text('Failed to load baggage rules',
                   style: TextStyle(
@@ -373,7 +375,6 @@ class _Step3PricesState extends State<Step3Prices> {
       );
     }
 
-    // Немає правил
     if (_baggageRules.isEmpty) {
       return Center(
         child: Padding(
@@ -384,84 +385,107 @@ class _Step3PricesState extends State<Step3Prices> {
                   size: 40, color: colors.onSurfaceVariant),
               const SizedBox(height: 12),
               Text('No baggage rules available',
-                  style:
-                      TextStyle(color: colors.onSurfaceVariant)),
+                  style: TextStyle(color: colors.onSurfaceVariant)),
             ],
           ),
         ),
       );
     }
 
-    return Wrap(
-      spacing: 16,
-      runSpacing: 16,
-      children: widget.classSeats.keys.map((classId) {
-        final name = widget.classNames[classId] ?? 'Class $classId';
-        final color = _classColor(classId);
-        final enabledCount = _enabledCountForClass(classId);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 16,
+          runSpacing: 16,
+          children: widget.classSeats.keys.map((classId) {
+            final name = widget.classNames[classId] ?? 'Class $classId';
+            final color = _classColor(classId);
+            final enabledCount = _enabledCountForClass(classId);
 
-        return Container(
-          width: 300,
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: colors.surfaceContainerHighest.withValues(alpha: 0.3),
-            borderRadius: BorderRadius.circular(16),
-            border:
-                Border.all(color: colors.outline.withValues(alpha: 0.2)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+            return Container(
+              width: 300,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: colors.surfaceContainerHighest.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                    color: colors.outline.withValues(alpha: 0.2)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(name.toUpperCase(),
-                            style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: color)),
-                        const SizedBox(height: 2),
-                        Text('Select available baggage options',
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(name.toUpperCase(),
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: color)),
+                            const SizedBox(height: 2),
+                            Text('Select available baggage options',
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    color: colors.onSurfaceVariant)),
+                          ],
+                        ),
+                      ),
+                      if (enabledCount > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            '$enabledCount active',
                             style: TextStyle(
                                 fontSize: 11,
-                                color: colors.onSurfaceVariant)),
-                      ],
-                    ),
+                                fontWeight: FontWeight.w600,
+                                color: color),
+                          ),
+                        ),
+                    ],
                   ),
-                  if (enabledCount > 0)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        '$enabledCount active',
-                        style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: color),
-                      ),
-                    ),
+                  const SizedBox(height: 12),
+                  Divider(
+                      color: colors.outline.withValues(alpha: 0.2),
+                      height: 1),
+                  const SizedBox(height: 12),
+                  ..._baggageRules
+                      .where((r) =>
+                          r['baggageTypeName'] != 'Carry-on baggage')
+                      .map((rule) =>
+                          _buildBaggageRuleRow(classId, rule, colors)),
                 ],
               ),
-              const SizedBox(height: 12),
-              Divider(
-                  color: colors.outline.withValues(alpha: 0.2), height: 1),
-              const SizedBox(height: 12),
-
-              ..._baggageRules.map(
-                  (rule) => _buildBaggageRuleRow(classId, rule, colors)),
-            ],
+            );
+          }).toList(),
+        ),
+        if (_hasUnpricedBaggage)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Row(
+              children: [
+                Icon(Icons.warning_outlined,
+                    size: 14, color: colors.error),
+                const SizedBox(width: 6),
+                Text(
+                  'All selected baggage options must have a price',
+                  style: TextStyle(fontSize: 12, color: colors.error),
+                ),
+              ],
+            ),
           ),
-        );
-      }).toList(),
+      ],
     );
   }
+
 
   Widget _buildBaggageRuleRow(
       int classId, Map<String, dynamic> rule, ColorScheme colors) {
@@ -573,25 +597,7 @@ class _Step3PricesState extends State<Step3Prices> {
                                 _notifyBaggage();
                               },
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          // Позначка "free" якщо ціна = 0
-                          if (currentPrice == 0.0)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.green.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: const Text(
-                                'Free',
-                                style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.green),
-                              ),
-                            ),
+                          ),                          
                         ],
                       ),
                     )

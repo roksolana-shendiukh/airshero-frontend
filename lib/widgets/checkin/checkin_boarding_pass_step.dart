@@ -8,7 +8,6 @@ class CheckInBoardingPassStep extends StatelessWidget {
   final String    flightClass;
   final String    seat;
   final DateTime  departDate;
-  final int       bagCount;
   final String    departsAirport;
   final String    arrivesAirport;
   final String    departsTime;
@@ -25,7 +24,6 @@ class CheckInBoardingPassStep extends StatelessWidget {
     required this.flightClass,
     required this.seat,
     required this.departDate,
-    required this.bagCount,
     required this.departsAirport,
     required this.arrivesAirport,
     required this.departsTime,
@@ -253,11 +251,6 @@ class CheckInBoardingPassStep extends StatelessWidget {
                           value:  flightClass,
                           colors: colors,
                         ),
-                        _InfoCell(
-                          label:  'BAGS',
-                          value:  '$bagCount',
-                          colors: colors,
-                        ),
                       ],
                     ),
                   ),
@@ -286,6 +279,8 @@ class CheckInBoardingPassStep extends StatelessWidget {
       ),
     );
   }
+
+
 }
 
 class _InfoCell extends StatelessWidget {

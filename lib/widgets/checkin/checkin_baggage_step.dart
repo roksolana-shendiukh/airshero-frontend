@@ -101,7 +101,9 @@ class _CheckInBaggageStepState extends State<CheckInBaggageStep> {
       setState(() {
         _totalSurcharge = (result['totalSurcharge'] as num).toDouble();
         _calculatedBags = (result['bags'] as List).asMap().entries.map((e) {
+          debugPrint('>>> bag json: ${e.value}'); 
           final bag = BagDetail.fromJson(e.value);
+          debugPrint('>>> bag typeId: ${bag.typeId}');
           final i   = e.key;
           if (_isExtraFlags.length > i && _isExtraFlags[i] &&
               _selectedTypes.length > i && _selectedTypes[i] != null) {

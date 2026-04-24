@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
 import '../../services/planning_service.dart';
 import '../../widgets/responsive_layout.dart';
+import '../../widgets/custom/custom_button.dart';
 import '../../widgets/planning/route_wizard_header.dart';
 import '../../widgets/planning/create_flight_steps/step1_route_info.dart';
 import '../../widgets/planning/create_flight_steps/step2_schedule.dart';
@@ -24,6 +25,7 @@ class _CreateRoutePageState extends State<CreateRoutePage> {
   Map<String, dynamic>? _selectedAirfleet;
   Map<String, dynamic>? _selectedDepartsAirport;
   Map<String, dynamic>? _selectedArrivesAirport;
+  Duration? _flightDuration;
 
   List<Map<String, dynamic>> _scheduleGroups = [];
   DateTime? _flightStartDate;
@@ -91,7 +93,7 @@ class _CreateRoutePageState extends State<CreateRoutePage> {
         scheduleGroups: _scheduleGroups,
       );
 
-      if (mounted) {        
+      if (mounted) {
         context.go('/planning/flights');
       }
     } catch (e) {
@@ -154,11 +156,13 @@ class _CreateRoutePageState extends State<CreateRoutePage> {
               required airfleet,
               required departsAirport,
               required arrivesAirport,
+              required flightDuration,
             }) {
               setState(() {
                 _selectedAirfleet = airfleet;
                 _selectedDepartsAirport = departsAirport;
                 _selectedArrivesAirport = arrivesAirport;
+                _flightDuration = flightDuration;
               });
             },
           ),
@@ -166,6 +170,7 @@ class _CreateRoutePageState extends State<CreateRoutePage> {
             scheduleGroups: _scheduleGroups,
             flightStartDate: _flightStartDate,
             flightEndDate: _flightEndDate,
+            flightDuration: _flightDuration,
             onChanged: ({
               required scheduleGroups,
               required flightStartDate,
@@ -206,29 +211,20 @@ class _CreateRoutePageState extends State<CreateRoutePage> {
             padding:
                 const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8)),
+                borderRadius: BorderRadius.circular(6)),
           ),
         ),
         const Spacer(),
         if (!isLast)
-          FilledButton(
+          CustomButton(
+            label: _currentStep == 'routeInfo'
+                ? 'Continue to Schedule'
+                : 'Review & Confirm',
+            icon: Icons.arrow_forward,
+            isIconAfterLabel: true,
             onPressed: _canGoNext ? _next : null,
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(_currentStep == 'routeInfo'
-                    ? 'Continue to Schedule'
-                    : 'Review & Confirm'),
-                const SizedBox(width: 6),
-                const Icon(Icons.arrow_forward, size: 15),
-              ],
-            ),
+            verticalPadding: 12,
+            horizontalPadding: 24,
           )
         else
           _isSubmitting
@@ -237,16 +233,13 @@ class _CreateRoutePageState extends State<CreateRoutePage> {
                   height: 24,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : FilledButton.icon(
+              : CustomButton(
+                  label: 'Create route',
+                  icon: Icons.add_road,
+                  isIconAfterLabel: false,
                   onPressed: _submit,
-                  icon: const Icon(Icons.add_road, size: 16),
-                  label: const Text('Create route'),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 24, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
-                  ),
+                  verticalPadding: 12,
+                  horizontalPadding: 24,
                 ),
       ],
     );
