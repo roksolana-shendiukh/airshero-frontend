@@ -147,6 +147,8 @@ enum UserRole {
         return [
           const MenuItem(icon: Icons.people_outline, title: 'Users', route: '/admin/users'),
           const MenuItem(icon: Icons.history_outlined, title: 'Audit', route: '/admin/audit'),
+          const MenuItem(icon: Icons.location_on_outlined, title: 'Airports', route: '/admin/airports'),
+          const MenuItem(icon: Icons.flight_outlined, title: 'Aircraft Fleet', route: '/admin/airfleet'),
         ];
     }
   }

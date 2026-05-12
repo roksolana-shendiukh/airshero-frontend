@@ -10,6 +10,9 @@ import '../../widgets/planning/planning_flights_table.dart';
 import '../../widgets/planning/planning_flights_filters.dart';
 import '../../widgets/planning/planning_month_picker.dart';
 import '../../widgets/planning/planning_date_picker.dart';
+import '../../widgets/planning/planning_time_picker.dart';
+import 'dart:convert'; 
+
 
 enum _ViewMode { all, day, month }
 
@@ -44,14 +47,15 @@ class _PlanningFlightsPageState extends State<PlanningFlightsPage> {
   String _searchQuery = '';
 
   static const List<({String key, String label, double width})> _colDefs = [
-    (key: 'flight_number', label: 'Flight',    width: 100),
+    (key: 'flight_number', label: 'Flight',    width: 90),
     (key: 'route',         label: 'Route',     width: 120),
-    (key: 'departs',       label: 'Departure', width: 110),
-    (key: 'arrives',       label: 'Arrival',   width: 100),
-    (key: 'aircraft',      label: 'Aircraft',  width: 130),
+    (key: 'date',          label: 'Date',      width: 100),     
+    (key: 'schedule',      label: 'Schedule',  width: 130), 
+    (key: 'aircraft',      label: 'Aircraft',  width: 120),
     (key: 'classes',       label: 'Classes',   width: 160),
-    (key: 'load',          label: 'Load',      width: 130),
+    (key: 'load',          label: 'Load',      width: 120),
     (key: 'status',        label: 'Status',    width: 130),
+    (key: 'actions',       label: '',          width: 50),
   ];
 
   late Map<String, double> _colWidths;
@@ -214,6 +218,228 @@ class _PlanningFlightsPageState extends State<PlanningFlightsPage> {
     }
   }
 
+  Future<void> _onStatusTap(OverviewFlight flight) async {
+    if (flight.flightStatusName == 'Cancelled') return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cancel Flight'),
+        content: Text('Do you really want to cancel flight ${flight.flightNumber}?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('No')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Yes, Cancel', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await _service.cancelFlight(flight.flightId);
+        _loadFlights(); // Оновлення таблиці
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
+  
+
+Future<void> _onEditTap(OverviewFlight flight) async {
+  DateTime selectedDate = flight.departsDatetime;
+  String depTime = '${flight.departsDatetime.hour.toString().padLeft(2, '0')}:${flight.departsDatetime.minute.toString().padLeft(2, '0')}';
+  String arrTime = '${flight.arrivesDattime.hour.toString().padLeft(2, '0')}:${flight.arrivesDattime.minute.toString().padLeft(2, '0')}';
+  
+  String? errorMessage;
+
+  await showDialog(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setDialogState) {
+        final colors = Theme.of(context).colorScheme;
+
+        return Dialog(
+          backgroundColor: colors.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: Container(
+            width: 850,
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.edit_calendar_rounded, color: colors.primary),
+                    const SizedBox(width: 12),
+                    Text('Edit Flight Schedule', style: Theme.of(context).textTheme.titleLarge),
+                    const Spacer(),
+                    IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 4,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: colors.outlineVariant),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: PlanningDatePicker(
+                          selectedDate: selectedDate,
+                          availableDates: const [], 
+                          onDateSelected: (date) => setDialogState(() => selectedDate = date),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 24),
+
+                    Expanded(
+                      flex: 5,
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              _buildTimeColumn(context, 'Departure', depTime, (t) => setDialogState(() => depTime = t)),
+                              const SizedBox(width: 16),
+                              _buildTimeColumn(context, 'Arrival', arrTime, (t) => setDialogState(() => arrTime = t)),
+                            ],
+                          ),
+                          const SizedBox(height: 32),
+                          
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: colors.errorContainer.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.timer_outlined, color: colors.error),
+                                const SizedBox(width: 12),
+                                const Text('Minimum route duration: '),
+                                Text(
+                                  flight.flightDuration.isNotEmpty ? flight.flightDuration : "00:00",
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                if (errorMessage != null) ...[
+                  const SizedBox(height: 20),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: colors.errorContainer.withOpacity(0.4),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: colors.error.withOpacity(0.5)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.error_outline, color: colors.error, size: 20),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            errorMessage!,
+                            style: TextStyle(color: colors.error, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+                    const SizedBox(width: 12),
+                    CustomButton(
+                      label: 'Save Changes',
+                      icon: Icons.save_rounded,
+                      onPressed: () async {
+                        final dParts = depTime.split(':');
+                        final aParts = arrTime.split(':');
+                        final finalDep = DateTime(selectedDate.year, selectedDate.month, selectedDate.day, int.parse(dParts[0]), int.parse(dParts[1]));
+                        var finalArr = DateTime(selectedDate.year, selectedDate.month, selectedDate.day, int.parse(aParts[0]), int.parse(aParts[1]));
+                        
+                        if (finalArr.isBefore(finalDep)) finalArr = finalArr.add(const Duration(days: 1));
+
+                        try {
+                          await _service.updateFlightTimes(
+                            flightId: flight.flightId,
+                            departsDatetime: finalDep,
+                            arrivesDatetime: finalArr,
+                          );
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                            _loadFlights();
+                          }
+
+                       
+                        } catch (e) {
+                          setDialogState(() {
+                            String rawError = e.toString().replaceAll('Exception: ', '').trim();
+                            
+                            try {
+                              final Map<String, dynamic> errorMap = jsonDecode(rawError);
+                              errorMessage = errorMap['detail'] ?? rawError;
+                            } catch (_) {
+                              errorMessage = rawError;
+                            }
+                          });
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    ),
+  );
+}
+
+  Widget _buildTimeColumn(BuildContext context, String label, String time, Function(String) onSelected) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+          const SizedBox(height: 8),
+          Container(
+            height: 160,
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: PlanningTimePickerOverlay(
+              initialTime: time,
+              onTimeSelected: onSelected,
+              onClose: () {}, 
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+    
   @override
   Widget build(BuildContext context) {
     return ResponsiveLayout(
@@ -283,8 +509,11 @@ class _PlanningFlightsPageState extends State<PlanningFlightsPage> {
           onRetry: _loadFlights,
           onPreviousPage: () => setState(() => _currentPage--),
           onNextPage: () => setState(() => _currentPage++),
+          onStatusTap: _onStatusTap, 
+          onEditTap: _onEditTap, 
         ),
       ),
+    
     );
   }
 
@@ -406,4 +635,6 @@ class _PlanningFlightsPageState extends State<PlanningFlightsPage> {
         'May', 'June', 'July', 'August',
         'September', 'October', 'November', 'December',
       ][m];
+
+
 }

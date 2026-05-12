@@ -21,6 +21,9 @@ class PlanningFlightsTable extends StatefulWidget {
   final VoidCallback onPreviousPage;
   final VoidCallback onNextPage;
 
+  final void Function(OverviewFlight flight) onStatusTap;
+  final void Function(OverviewFlight flight) onEditTap;
+
   const PlanningFlightsTable({
     super.key,
     required this.isLoading,
@@ -38,6 +41,8 @@ class PlanningFlightsTable extends StatefulWidget {
     required this.onRetry,
     required this.onPreviousPage,
     required this.onNextPage,
+    required this.onStatusTap,
+    required this.onEditTap,
   });
 
   @override
@@ -120,6 +125,8 @@ class _PlanningFlightsTableState extends State<PlanningFlightsTable> {
                                             PlanningTableRow(
                                           flight: widget.flights[index],
                                           columnWidths: _localWidths,
+                                          onStatusTap: widget.onStatusTap,
+                                          onEditTap: widget.onEditTap,
                                         ),
                                       ),
                               ),

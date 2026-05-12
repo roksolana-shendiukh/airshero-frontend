@@ -8,12 +8,13 @@ import '../../models/board_row.dart';
 import '../../services/auth_service.dart';
 import '../../services/flight_operation_api_service.dart';
 import '../../widgets/responsive_layout.dart';
-import '../../widgets/flight_operation/operation_status_bar.dart';
-import '../../widgets/flight_operation/board_widgets.dart';
+import '../widgets/flight_operation/operation_status_bar.dart';
+import '../widgets/flight_operation/board_widgets.dart';
+import '../widgets/flight_operation/gate_picker_dialog.dart';
 import '../../constants/board_constants.dart';
 import '../../widgets/custom/custom_select_field.dart';
-
-import '../../widgets/flight_operation/flight_operations_table.dart';
+import '../../widgets/custom/custom_input_field.dart'; // Імпортуємо інпут
+import '../widgets/flight_operation/flight_operations_table.dart';
 
 class FlightOperationsBoardPage extends StatefulWidget {
   const FlightOperationsBoardPage({super.key});
@@ -30,6 +31,7 @@ class _FlightOperationsBoardPageState extends State<FlightOperationsBoardPage> {
   bool _isLoading = true;
   String? _error;
 
+  String _searchQuery = ''; 
   String? _filterStatus;
   String? _filterAircraft;
   int _currentPage = 1;
@@ -53,44 +55,50 @@ class _FlightOperationsBoardPageState extends State<FlightOperationsBoardPage> {
       ]);
 
       final flights = results[0] as List<FlightWithoutOperationModel>;
-debugPrint('FLIGHTS WITHOUT OP: ${flights.length}');
-debugPrint('OPERATIONS: ${(results[1] as List).length}');
       final operations = results[1] as List<FlightOperationModel>;
 
       final activeOps = operations
-        .where((o) => activeStatuses.contains(o.statusName))
-        .toList();
+          .where((o) => activeStatuses.contains(o.statusName))
+          .toList();
 
       final rows = <BoardRow>[
         ...activeOps.map(BoardRow.fromOperation),
         ...flights.map(BoardRow.fromFlight),
       ]..sort((a, b) => a.departsDatetime.compareTo(b.departsDatetime));
 
-      if (mounted)
+      if (mounted) {
         setState(() {
           _rows = rows;
           _isLoading = false;
         });
+      }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = e.toString();
           _isLoading = false;
         });
+      }
     }
   }
 
   List<BoardRow> get _filtered => _rows.where((r) {
-    if (_filterStatus != null &&
-        _filterStatus != 'All' &&
-        r.statusName != _filterStatus)
-      return false;
-    if (_filterAircraft != null &&
-        _filterAircraft != 'All' &&
-        (r.aircraftModel ?? '—') != _filterAircraft)
-      return false;
-    return true;
-  }).toList();
+        if (_searchQuery.isNotEmpty &&
+            !r.flightNumber.toLowerCase().contains(_searchQuery.toLowerCase())) {
+          return false;
+        }
+        if (_filterStatus != null &&
+            _filterStatus != 'All' &&
+            r.statusName != _filterStatus) {
+          return false;
+        }
+        if (_filterAircraft != null &&
+            _filterAircraft != 'All' &&
+            (r.aircraftModel ?? '—') != _filterAircraft) {
+          return false;
+        }
+        return true;
+      }).toList();
 
   int get _totalPages =>
       (_filtered.length / itemsPerPage).ceil().clamp(1, 9999);
@@ -102,78 +110,38 @@ debugPrint('OPERATIONS: ${(results[1] as List).length}');
   }
 
   List<String> get _statusOptions => [
-    'All',
-    ..._rows.map((r) => r.statusName).toSet().toList()..sort(),
-  ];
+        'All',
+        ..._rows.map((r) => r.statusName).toSet().toList()..sort(),
+      ];
+
   List<String> get _aircraftOptions => [
-    'All',
-    ..._rows
-        .map((r) => r.aircraftModel ?? '—')
-        .where((a) => a != '—')
-        .toSet()
-        .toList()
-      ..sort(),
-  ];
+        'All',
+        ..._rows
+            .map((r) => r.aircraftModel ?? '—')
+            .where((a) => a != '—')
+            .toSet()
+            .toList()
+          ..sort(),
+      ];
 
-  @override
-  Widget build(BuildContext context) {
-    return ResponsiveLayout(
-      header: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const OperatorStatusBar(),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildPageHeader(),
-                const SizedBox(height: 16),
-                if (!_isLoading && _error == null) _buildFilters(),
-              ],
-            ),
-          ),
-        ],
-      ),
-      body: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+  void _showGateChangeDialog(BoardRow row) async {
+    final operationId = row.operation?.flightOperationId;
+    if (operationId == null) return;
 
-        child: FlightOperationsTable(
-          rows: _paginated,
-          isLoading: _isLoading,
-          error: _error,
-          currentPage: _currentPage,
-          totalPages: _totalPages,
-          totalItems: _filtered.length,
-          itemsPerPage: itemsPerPage,
-          hasFiltersApplied: _filterStatus != null || _filterAircraft != null,
-
-          onRetry: _load,
-          onClearFilters: () {
-            setState(() {
-              _filterStatus = null;
-              _filterAircraft = null;
-              _currentPage = 1;
-            });
-          },
-          onPageChanged: (newPage) {
-            setState(() => _currentPage = newPage);
-          },
-
-          onStartOperation: (row) {
-            if (row.flight != null) {
-              context.go('/flight-operations/create', extra: row.flight!);
-            }
-          },
-          onViewOperation: (row) {
-            if (row.operation != null) {
-              context.go('/flight-operations/active');
-            }
-          },
-        ),
+    final bool? updated = await showDialog<bool>(
+      context: context,
+      builder: (context) => GatePickerDialog(
+        operationId: operationId,
+        api: _apiService,
+        operation: row.operation!,
       ),
     );
+
+    if (updated == true) {
+      if (mounted) {
+        _load();
+      }
+    }
   }
 
   Widget _buildPageHeader() {
@@ -226,10 +194,23 @@ debugPrint('OPERATIONS: ${(results[1] as List).length}');
     return Row(
       children: [
         SizedBox(
+          width: 320,
+          child: CustomInputField(
+            label: 'Search flight',
+            value: _searchQuery,
+            icon: Icons.search_rounded,
+            onChanged: (v) => setState(() {
+              _searchQuery = v;
+              _currentPage = 1;
+            }),
+          ),
+        ),
+        const SizedBox(width: 12),
+        SizedBox(
           width: 180,
           child: CustomSelectField(
             label: 'Status',
-            value: _filterStatus ?? 'All',
+            value: _filterStatus ?? 'Scheduled',
             icon: Icons.circle_outlined,
             items: _statusOptions,
             onChanged: (v) => setState(() {
@@ -253,7 +234,7 @@ debugPrint('OPERATIONS: ${(results[1] as List).length}');
           ),
         ),
         const Spacer(),
-        if (_filterStatus != null)
+        if (_filterStatus != null) ...[
           ActiveChip(
             label: _filterStatus!,
             onClear: () => setState(() {
@@ -262,8 +243,8 @@ debugPrint('OPERATIONS: ${(results[1] as List).length}');
             }),
             colors: colors,
           ),
-        if (_filterStatus != null && _filterAircraft != null)
           const SizedBox(width: 6),
+        ],
         if (_filterAircraft != null)
           ActiveChip(
             label: _filterAircraft!,
@@ -274,6 +255,66 @@ debugPrint('OPERATIONS: ${(results[1] as List).length}');
             colors: colors,
           ),
       ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ResponsiveLayout(
+      header: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const OperatorStatusBar(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildPageHeader(),
+                const SizedBox(height: 16),
+                if (!_isLoading && _error == null) _buildFilters(),
+              ],
+            ),
+          ),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 24), // Збільшено відступ зверху
+        child: FlightOperationsTable(
+          rows: _paginated,
+          isLoading: _isLoading,
+          error: _error,
+          currentPage: _currentPage,
+          totalPages: _totalPages,
+          totalItems: _filtered.length,
+          itemsPerPage: itemsPerPage,
+          hasFiltersApplied: _filterStatus != null || _filterAircraft != null || _searchQuery.isNotEmpty,
+          onRetry: _load,
+          onClearFilters: () {
+            setState(() {
+              _filterStatus = null;
+              _filterAircraft = null;
+              _searchQuery = '';
+              _currentPage = 1;
+            });
+          },
+          onPageChanged: (newPage) {
+            setState(() => _currentPage = newPage);
+          },
+          onStartOperation: (row) {
+            if (row.flight != null) {
+              context.go('/flight-operations/create', extra: row.flight!);
+            }
+          },
+          onViewOperation: (row) {
+            if (row.operation != null) {
+              context.go('/flight-operations/active');
+            }
+          },
+          onChangeGate: (row) => _showGateChangeDialog(row),
+        ),
+      ),
     );
   }
 }

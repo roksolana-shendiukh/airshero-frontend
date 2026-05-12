@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/flight_operation_model.dart';
 import '../../services/flight_operation_api_service.dart';
 import '../custom/error_dialog.dart';
-import '../flight_operation/operation_state_dialog.dart';
+import 'operation_state_dialog.dart';
 
 class TimelinePanel extends StatefulWidget {
   final FlightOperationModel operation;

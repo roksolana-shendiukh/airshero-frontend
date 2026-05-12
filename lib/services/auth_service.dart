@@ -238,6 +238,7 @@ class AuthService extends ChangeNotifier {
       ));
       final streamed = await request.send();
       final response = await http.Response.fromStream(streamed);
+      debugPrint('PHOTO RESPONSE: ${response.body}');
       if (response.statusCode != 200) return false;
       await refreshSession();
       return true;

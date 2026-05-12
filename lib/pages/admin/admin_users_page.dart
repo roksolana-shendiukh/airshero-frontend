@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../widgets/responsive_layout.dart';
 import '../../models/user_model.dart';
-import '../../widgets/table_column_def.dart'; // Імпорт моделі колонок
-import '../../widgets/generic_table_header.dart'; // НОВИЙ ІМПОРТ
-import '../../widgets/generic_table_row.dart'; // НОВИЙ ІМПОРТ
+import '../../widgets/table_column_def.dart'; 
+import '../../widgets/generic_table_header.dart'; 
+import '../../widgets/table_row.dart'; 
 import '../../widgets/admin/users_table_columns.dart';
 import '../../widgets/admin/user_table_pagination.dart';
 import '../../widgets/admin/user_management_header.dart';
@@ -13,6 +13,7 @@ import '../../widgets/admin/create_user_dialog.dart';
 import '../../widgets/custom/custom_select_field.dart';
 import '../../services/admin_api_service.dart';
 import '../../services/auth_service.dart';
+import '../../widgets/admin/user_search_field.dart';
 
 class AdminUsersPage extends StatefulWidget {
   const AdminUsersPage({super.key});
@@ -43,28 +44,46 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
   final Map<String, double> _columnWidths = {};
 
   @override
-  void initState() {
-    super.initState();
-    _adminApi = AdminApiService(context.read<AuthService>());
-    
-    _columns = UsersTableColumns.buildColumns(
-      onEdit: (user) => ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Edit ${user.email}')),
-      ),
-      onDelete: (user) => ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Delete ${user.email}')),
-      ),
-      onToggleLock: (user) {
-        setState(() {});
-      },
-    );
+void initState() {
+  super.initState();
+  _adminApi = AdminApiService(context.read<AuthService>());
+  
+  _columns = UsersTableColumns.buildColumns(
+    onEdit: (user) {
+      // Логіка відкриття діалогу редагування (без Messenger)
+    },
+    onDelete: (user) async {
+      final confirm = await _showConfirmDialog('Delete ${user.email}?');
+      if (confirm) {
+        await _adminApi.deleteUser(user.id);
+        _loadUsers(); // Просто перевантажуємо список, юзер зникне з таблиці
+      }
+    },
+    onToggleLock: (user) async {
+      final newStatus = user.status == UserStatus.locked ? UserStatus.active : UserStatus.locked;
+      await _adminApi.setStatus(user.id, newStatus.name);
+      _loadUsers(); 
+    },
+  );
 
-    for (var col in _columns) {
-      _columnWidths[col.key] = col.initialWidth;
-    }
-
-    _loadUsers();
+  for (var col in _columns) {
+    _columnWidths[col.key] = col.initialWidth;
   }
+  _loadUsers();
+}
+
+Future<bool> _showConfirmDialog(String message) async {
+  return await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      content: Text(message),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+        TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Confirm')),
+      ],
+    ),
+  ) ?? false;
+}
 
   @override
   void dispose() {
@@ -181,7 +200,6 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
       header: Padding(
         padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
         child: Column(
-          // ... (УВЕСЬ КОД ХЕДЕРА З ФІЛЬТРАМИ ЗАЛИШАЄТЬСЯ БЕЗ ЗМІН)
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -195,30 +213,16 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
               runSpacing: 12,
               children: [
                 SizedBox(
-                  width: isLargeScreen ? 300 : double.infinity,
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: (_) => setState(() {}),
-                    decoration: InputDecoration(
-                      hintText: 'Search by name or email...',
-                      prefixIcon: const Icon(Icons.search),
-                      suffixIcon: _searchController.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear),
-                              onPressed: () {
-                                _searchController.clear();
-                                setState(() {});
-                              },
-                            )
-                          : null,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                    ),
+                  width: isLargeScreen ? 350 : double.infinity,
+                  child: UserSearchField(
+                    allUsers: _users,
+                    value: _searchController.text,
+                    onChanged: (value) {
+                      setState(() {
+                        _searchController.text = value;
+                        _currentPage = 1;
+                      });
+                    },
                   ),
                 ),
                 SizedBox(
@@ -257,19 +261,28 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
               const SizedBox(height: 16),
               BulkActionsBar(
                 selectedCount: _selectedUserIds.length,
-                onDelete: () => ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Delete ${_selectedUserIds.length} users')),
-                ),
-                onLock: () => ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Lock ${_selectedUserIds.length} users')),
-                ),
+                onDelete: () async {
+                  final confirm = await _confirmAction(context, 'Delete ${_selectedUserIds.length} users?');
+                  if (confirm) {
+                    for (var id in _selectedUserIds) {
+                      await _adminApi.deleteUser(id);
+                    }
+                    _selectedUserIds.clear();
+                    _loadUsers();
+                  }
+                },
+                onLock: () async {
+                  for (var id in _selectedUserIds) {
+                    await _adminApi.setStatus(id, UserStatus.locked.name);
+                  }
+                  _loadUsers();
+                },
               ),
             ],
             const SizedBox(height: 16),
           ],
         ),
       ),
-
       body: Padding(
         padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
         child: _isLoading
@@ -295,15 +308,12 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                       color: Theme.of(context).colorScheme.surface,
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .outline
-                            .withValues(alpha: 0.2),
+                        color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
                       ),
                     ),
                     child: Column(
                       children: [
-                       Expanded(
+                        Expanded(
                           child: _paginatedUsers.isEmpty
                               ? Center(
                                   child: Column(
@@ -312,9 +322,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                                       Icon(
                                         Icons.search_off,
                                         size: 64,
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .onSurfaceVariant,
+                                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                                       ),
                                       const SizedBox(height: 16),
                                       Text(
@@ -336,23 +344,34 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                                           onToggleSelectAll: _toggleSelectAll,
                                           columnWidths: _columnWidths,
                                           onColumnResize: _onColumnResize,
-                                          columns: _columns, // ПЕРЕДАЄМО КОЛОНКИ
+                                          columns: _columns,
                                         ),
                                         Expanded(
                                           child: ListView.builder(
                                             itemCount: _paginatedUsers.length,
                                             itemBuilder: (context, index) {
                                               final user = _paginatedUsers[index];
-                                              
-                                              // ВИКОРИСТОВУЄМО УНІВЕРСАЛЬНИЙ РЯДОК
-                                              return GenericTableRow<UserModel>(
-                                                item: user,
-                                                columns: _columns, // ПЕРЕДАЄМО КОЛОНКИ
-                                                columnWidths: _columnWidths,
+                                              return UserTableRow(
+                                                user: user,
                                                 isSelected: _selectedUserIds.contains(user.id),
+                                                columnWidths: _columnWidths,
                                                 onToggle: () => _toggleUserSelection(user.id),
+                                                onEdit: () {},
+                                                onDelete: () async {
+                                                  final confirm = await _confirmAction(context, 'Delete ${user.email}?');
+                                                  if (confirm) {
+                                                    await _adminApi.deleteUser(user.id);
+                                                    _loadUsers();
+                                                  }
+                                                },
+                                                onToggleLock: () async {
+                                                  final newStatus = user.status == UserStatus.locked
+                                                      ? UserStatus.active
+                                                      : UserStatus.locked;
+                                                  await _adminApi.setStatus(user.id, newStatus.name);
+                                                  _loadUsers();
+                                                },
                                               );
-                                              
                                             },
                                           ),
                                         ),
@@ -376,4 +395,25 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
       ),
     );
   }
+
+  Future<bool> _confirmAction(BuildContext context, String title) async {
+    return await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title, style: const TextStyle(fontSize: 16)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    ) ?? false;
+  }
+
+
 }

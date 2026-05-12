@@ -34,7 +34,7 @@ class PlanningFlightsFilters extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
+      child: Wrap(
         children: [
           SizedBox(
             width: 320,

@@ -26,8 +26,13 @@ class _PlanningDatePickerState extends State<PlanningDatePicker> {
   }
 
   bool _isAvailable(DateTime date) {
-    final s =
-        '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    if (widget.availableDates.isEmpty) {
+      return !date.isBefore(today); 
+    }
+    final s = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
     return widget.availableDates.contains(s);
   }
 

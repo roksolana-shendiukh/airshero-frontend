@@ -11,6 +11,7 @@ import 'config/theme_notifier.dart';
 import 'services/auth_service.dart';
 import 'services/checkin_service.dart';
 import '../services/checkin_api_service.dart';
+import 'config/sidebar_notifier.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,6 +20,9 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  
+
+  
 
   final authService    = AuthService();
   await authService.restoreSession();
@@ -88,6 +92,7 @@ class _AirSheroAppState extends State<AirSheroApp> {
       providers: [
         ChangeNotifierProvider.value(value: widget.authService),
         ChangeNotifierProvider.value(value: widget.checkinService),
+        ChangeNotifierProvider(create: (_) => SidebarNotifier()),
       ],
       child: ThemeNotifier(
         isLightTheme: _isLightTheme,

@@ -120,7 +120,6 @@ class _AirfleetCardState extends State<_AirfleetCard> {
                 height: 160,
                 child: Stack(
                   children: [
-                    // Фото
                     Image.network(
                       _photos[_photoIndex],
                       width: double.infinity,

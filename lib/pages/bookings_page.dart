@@ -165,9 +165,6 @@ class _BookingsPageState extends State<BookingsPage> {
     } catch (error) {
       if (mounted) {
         setState(() => _isSearching = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Search failed: $error')),
-        );
       }
     }
   }
@@ -265,9 +262,6 @@ class _BookingsPageState extends State<BookingsPage> {
     } catch (error) {
       if (mounted) {
         setState(() => _isSearching = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Search failed: $error')),
-        );
       }
     }
   }
@@ -846,7 +840,7 @@ class _BookingsPageState extends State<BookingsPage> {
         SizedBox(
           width: double.infinity,
           child: CustomButton(
-            label: 'Search flights',
+            label: 'Search',
             onPressed:
                 _canSearchMultiSegment ? _handleMultiSegmentSearch : null,
           ),

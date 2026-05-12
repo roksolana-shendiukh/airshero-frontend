@@ -11,6 +11,8 @@ import '../widgets/flight_operation/flight_map.dart';
 import '../widgets/flight_operation/crew_panel.dart';
 import '../widgets/flight_operation/timeline_panel.dart';
 import '../widgets/flight_operation/weather_side_panel.dart';
+import '../widgets/flight_operation/gate_step.dart';
+import '../models/gate_model.dart';
 
 class FlightOperationPage extends StatefulWidget {
   const FlightOperationPage({super.key});
@@ -704,6 +706,16 @@ class _OperationInfoBarState extends State<_OperationInfoBar> {
                   _infoItem(context, Icons.luggage_outlined, 'Baggage',
                       '${_fmtTime(op.baggageLoadingStartTime)} – ${_fmtTime(op.baggageLoadingEndTime)}',
                       colors),
+                    _infoItem(
+                      context, 
+                      Icons.door_sliding_outlined, 
+                      'Gate',
+                      op.gateCode != null ? 'Gate ${op.gateCode}' : 'Select Gate', 
+                      colors,
+                      onEdit: op.boardingStartTime == null 
+                          ? () => _openGatePicker(context) 
+                          : null,
+                    ),
                 ],
               ),
             ),
@@ -714,28 +726,143 @@ class _OperationInfoBarState extends State<_OperationInfoBar> {
   }
 
   Widget _infoItem(BuildContext context, IconData icon, String label,
-      String value, ColorScheme colors) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 14, color: colors.onSurfaceVariant),
-        const SizedBox(width: 6),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      String value, ColorScheme colors, {VoidCallback? onEdit}) {
+    return InkWell(
+      onTap: onEdit,
+      borderRadius: BorderRadius.circular(4),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(label,
-                style: TextStyle(
-                    fontSize:   10,
-                    color:      colors.onSurfaceVariant,
-                    fontWeight: FontWeight.w500)),
-            Text(value,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(fontWeight: FontWeight.w600)),
+            Icon(icon, 
+              size: 14, 
+              color: onEdit != null ? colors.primary : colors.onSurfaceVariant
+            ),
+            const SizedBox(width: 6),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: TextStyle(
+                        fontSize: 10,
+                        color: colors.onSurfaceVariant,
+                        fontWeight: FontWeight.w500)),
+                Text(value,
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: onEdit != null ? colors.primary : null,
+                        )),
+              ],
+            ),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _openGatePicker(BuildContext context) async {
+  final api = FlightOperationApiService(context.read<AuthService>());
+  
+  final bool? updated = await showDialog<bool>(
+    context: context,
+    builder: (context) => _GatePickerDialog(
+      operationId: widget.op.flightOperationId,
+      api: api,
+    ),
+  );
+
+  if (updated == true) {
+    widget.onRefresh(); 
+  }
+}
+
+
+}
+
+class _GatePickerDialog extends StatefulWidget {
+  final int operationId;
+  final FlightOperationApiService api;
+
+  const _GatePickerDialog({required this.operationId, required this.api});
+
+  @override
+  State<_GatePickerDialog> createState() => _GatePickerDialogState();
+}
+
+class _GatePickerDialogState extends State<_GatePickerDialog> {
+  List<GateModel> _gates = [];
+  GateModel? _selectedGate;
+  bool _loading = true;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadGates();
+  }
+
+  Future<void> _loadGates() async {
+    try {
+      final data = await widget.api.getAvailableGates(widget.operationId);
+      if (mounted) {
+        setState(() {
+          _gates = data;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Change Flight Gate'),
+      content: SizedBox(
+        width: 450,
+        child: GateStep(
+          gates: _gates,
+          selected: _selectedGate,
+          isLoading: _loading,
+          onChanged: (gate) => setState(() => _selectedGate = gate),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: (_selectedGate == null || _saving) ? null : () async {
+            setState(() => _saving = true);
+            try {
+              final success = await widget.api.changeGate(
+                widget.operationId, 
+                _selectedGate!.gateId
+              );
+              if (success && mounted) Navigator.pop(context, true);
+            } catch (e) {
+              if (mounted) {
+                setState(() => _saving = false);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                );
+              }
+            }
+          },
+          child: _saving 
+            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+            : const Text('Confirm'),
         ),
       ],
     );
   }
 }
+
+
+

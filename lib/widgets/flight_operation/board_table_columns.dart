@@ -2,29 +2,27 @@ import 'package:flutter/material.dart';
 import '../../models/board_row.dart';
 import '../../constants/board_constants.dart';
 import '../table_column_def.dart';
-import 'board_widgets.dart'; 
+import 'board_widgets.dart';
 
 class BoardTableColumns {
   static List<TableColumnDef<BoardRow>> buildColumns({
     required void Function(BoardRow) onStart,
     required void Function(BoardRow) onView,
+    required void Function(BoardRow) onChangeGate,
   }) {
     return [
       TableColumnDef<BoardRow>(
         key: 'time',
         label: 'Time',
         initialWidth: 100,
-        cellBuilder: (context, row) => Padding(
-          padding: const EdgeInsets.only(left: 20, right: 8),
+        cellBuilder: (context, row) => Center(
           child: Text(
             row.timeLabel,
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              fontFeatures: const [FontFeature.tabularFigures()],
               color: Theme.of(context).colorScheme.onSurface,
             ),
-            overflow: TextOverflow.ellipsis,
           ),
         ),
       ),
@@ -34,22 +32,16 @@ class BoardTableColumns {
         initialWidth: 100,
         cellBuilder: (context, row) {
           final colors = Theme.of(context).colorScheme;
-          return Align(
-            alignment: Alignment.center,
+          return Center(
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: colors.primary.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(4),
+                color: colors.primary.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
                 row.flightNumber,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: colors.primary,
-                ),
-                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: colors.primary),
               ),
             ),
           );
@@ -58,125 +50,99 @@ class BoardTableColumns {
       TableColumnDef<BoardRow>(
         key: 'route',
         label: 'Route',
-        initialWidth: 140,
-        cellBuilder: (context, row) {
-          final colors = Theme.of(context).colorScheme;
-          return Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                row.departsCode,
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: colors.onSurface),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 5),
-                child: Icon(Icons.arrow_forward_rounded,
-                    size: 12, color: colors.onSurfaceVariant.withValues(alpha: 0.5)),
-              ),
-              Text(
-                row.arrivesCode,
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: colors.onSurface),
-              ),
-            ],
-          );
-        },
-      ),
-      TableColumnDef<BoardRow>(
-        key: 'airline',
-        label: 'Airline',
         initialWidth: 160,
         cellBuilder: (context, row) {
-          final colors = Theme.of(context).colorScheme;
-          return Text(
-            row.airlineName ?? '—',
-            style: TextStyle(
-              fontSize: 13,
-              color: row.airlineName != null
-                  ? colors.onSurface
-                  : colors.onSurfaceVariant.withValues(alpha: 0.4),
+          return Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(row.departsCode, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: Icon(Icons.arrow_forward_rounded, size: 14, color: Colors.grey),
+                ),
+                Text(row.arrivesCode, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              ],
             ),
-            overflow: TextOverflow.ellipsis,
           );
         },
       ),
       TableColumnDef<BoardRow>(
         key: 'aircraft',
         label: 'Aircraft',
-        initialWidth: 140,
-        cellBuilder: (context, row) {
-          final colors = Theme.of(context).colorScheme;
-          if (row.aircraftModel != null) {
-            return Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.airplanemode_active_rounded,
-                    size: 12, color: colors.onSurfaceVariant.withValues(alpha: 0.5)),
-                const SizedBox(width: 5),
-                Flexible(
-                  child: Text(
-                    row.aircraftModel!,
-                    style: TextStyle(fontSize: 13, color: colors.onSurface),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            );
-          }
-          return Text('—', style: TextStyle(fontSize: 13, color: colors.onSurfaceVariant.withValues(alpha: 0.4)));
-        },
+        initialWidth: 180,
+        cellBuilder: (context, row) => Center(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.airplanemode_active_rounded, size: 14, color: Colors.grey),
+              const SizedBox(width: 8),
+              Text(row.aircraftModel ?? '—', style: const TextStyle(fontSize: 13)),
+            ],
+          ),
+        ),
       ),
       TableColumnDef<BoardRow>(
         key: 'status',
         label: 'Status',
-        initialWidth: 130,
+        initialWidth: 150,
         cellBuilder: (context, row) {
           final colors = Theme.of(context).colorScheme;
           final statusColor = row.statusName == 'Scheduled'
               ? colors.primary
               : statusColors[row.statusName] ?? colors.onSurfaceVariant;
-
-          return Align(
-            alignment: Alignment.center,
-            child: StatusBadge(label: row.statusName, color: statusColor),
-          );
+          return Center(child: StatusBadge(label: row.statusName, color: statusColor));
         },
       ),
+
       TableColumnDef<BoardRow>(
-        key: 'actions',
-        label: '',
-        initialWidth: 160,
+        key: 'gate',
+        label: 'Gate',
+        initialWidth: 120,
         cellBuilder: (context, row) {
           final colors = Theme.of(context).colorScheme;
-          
-          final canStart = row.flight != null;
-          final canView = row.operation != null;
+          final bool canChange = row.operation != null && row.statusName == 'Waiting';
+          final String gateDisplay = row.gateCode ?? '—';
 
-          return Align(
-            alignment: Alignment.center,
-            child: Padding(
-              padding: const EdgeInsets.only(right: 16),
-              child: canStart
-                  ? ActionBtn(
-                      label: 'Start Operation',
-                      icon: Icons.rocket_launch_rounded,
-                      primary: true,
-                      onTap: () => onStart(row),
-                      colors: colors,
-                    )
-                  : canView
-                      ? ActionBtn(
-                          label: 'View',
-                          icon: Icons.open_in_new_rounded,
-                          primary: false,
-                          onTap: () => onView(row),
-                          colors: colors,
-                        )
-                      : const SizedBox.shrink(),
+          return Center(
+            child: ActionBtn(
+              label: gateDisplay,
+              icon: Icons.door_sliding_outlined,
+              primary: canChange,
+              onTap: canChange ? () => onChangeGate(row) : () {}, // Передаємо порожню функцію замість null
+              colors: colors,
             ),
           );
         },
       ),
-    
+
+      TableColumnDef<BoardRow>(
+        key: 'actions',
+        label: '',
+        initialWidth: 180,
+        cellBuilder: (context, row) {
+          final colors = Theme.of(context).colorScheme;
+          return Center(
+            child: row.flight != null
+                ? ActionBtn(
+                    label: 'Start Operation',
+                    icon: Icons.rocket_launch_rounded,
+                    primary: true,
+                    onTap: () => onStart(row),
+                    colors: colors,
+                  )
+                : row.operation != null
+                    ? ActionBtn(
+                        label: 'View Details',
+                        icon: Icons.open_in_new_rounded,
+                        primary: false,
+                        onTap: () => onView(row),
+                        colors: colors,
+                      )
+                    : const SizedBox.shrink(),
+          );
+        },
+      ),
     ];
   }
 }

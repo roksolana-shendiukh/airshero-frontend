@@ -11,7 +11,7 @@ import '../../widgets/responsive_layout.dart';
 import '../../widgets/custom/custom_button.dart';
 import '../../widgets/custom/custom_input_field.dart';
 import '../../widgets/custom/custom_select_field.dart';
-import '../../widgets/flight_operation/operation_status_bar.dart';
+import '../widgets/flight_operation/operation_status_bar.dart';
 
 const _activeStatuses = {'Waiting', 'Boarding', 'Baggage Loading'};
 

@@ -378,6 +378,8 @@ class FlightOperationApiService {
         Uri.parse('${AppConfig.baseUrl}/airfleets/$airfleetId/photos'),
         headers: await _headers(),
       );
+      debugPrint('Photos status: ${response.statusCode}');
+      debugPrint('Photos body: ${response.body}');
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         return data.cast<String>();
@@ -447,4 +449,24 @@ class FlightOperationApiService {
       return [];
     }
   }
+
+  Future<bool> changeGate(int operationId, int gateId) async {
+    try {
+      final response = await http.put(
+        Uri.parse('${AppConfig.baseUrl}/flight-operations/$operationId/gate/$gateId'),
+        headers: await _headers(),
+      );
+      
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        debugPrint('Failed to change gate: ${response.statusCode} ${response.body}');
+        return false;
+      }
+    } catch (e) {
+      debugPrint('Network error (changeGate): $e');
+      rethrow;
+    }
+  }
+
 }

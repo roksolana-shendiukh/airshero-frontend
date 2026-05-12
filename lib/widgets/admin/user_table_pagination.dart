@@ -39,7 +39,7 @@ class UserTablePagination extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
-            'Showing $start-$end of $totalUsers users',
+            'Showing $start-$end of $totalUsers',
             style: Theme.of(context).textTheme.bodySmall,
           ),
           Row(

@@ -9,6 +9,7 @@ class BoardRow {
   final String?  aircraftModel;
   final String?  airlineName;
   final String   statusName;
+  final String?  gateCode; 
 
   final FlightWithoutOperationModel? flight;
   final FlightOperationModel?        operation;
@@ -21,6 +22,7 @@ class BoardRow {
     required this.aircraftModel,
     required this.airlineName,
     required this.statusName,
+    this.gateCode, 
     this.flight,
     this.operation,
   });
@@ -33,6 +35,7 @@ class BoardRow {
         aircraftModel:   null,
         airlineName:     f.airlineName,  
         statusName:      'Scheduled',
+        gateCode:        null, 
         flight:          f,
       );
 
@@ -44,6 +47,7 @@ class BoardRow {
         aircraftModel:   o.aircraftModel,
         airlineName:     o.airlineName,  
         statusName:      o.statusName ?? '—',
+        gateCode:        o.gateCode, 
         operation:       o,
       );
 

@@ -53,6 +53,7 @@ class _PricingRouteCardState extends State<PricingRouteCard> {
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
+        backgroundColor: Theme.of(context).colorScheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 40),
         child: ConstrainedBox(

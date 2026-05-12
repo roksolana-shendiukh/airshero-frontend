@@ -6,6 +6,7 @@ import '../services/auth_service.dart';
 import '../models/user_model.dart';
 import '../services/checkin_service.dart';
 import 'checkin/checkin_status_bar.dart';
+import '../config/sidebar_notifier.dart';
 
 class ResponsiveLayout extends StatefulWidget {
   final Widget? header;
@@ -24,12 +25,9 @@ class ResponsiveLayout extends StatefulWidget {
 }
 
 class _ResponsiveLayoutState extends State<ResponsiveLayout> {
-  bool _sidebarCollapsed = false;
 
   static const double _expandedWidth = 260;
   static const double _collapsedWidth = 75;
-
-  void _toggleSidebar() => setState(() => _sidebarCollapsed = !_sidebarCollapsed);
 
   @override
   Widget build(BuildContext context) {
@@ -37,6 +35,8 @@ class _ResponsiveLayoutState extends State<ResponsiveLayout> {
     final themeNotifier = ThemeNotifier.of(context);
     final isLightTheme = themeNotifier?.isLightTheme ?? true;
     final colors = Theme.of(context).colorScheme;
+    final sidebarNotifier = context.watch<SidebarNotifier>();
+    final collapsed = sidebarNotifier.collapsed;
 
     return Consumer<AuthService>(
       builder: (context, authService, _) {
@@ -65,7 +65,7 @@ class _ResponsiveLayoutState extends State<ResponsiveLayout> {
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 250),
                         curve: Curves.easeInOut,
-                        width: _sidebarCollapsed ? _collapsedWidth : _expandedWidth,
+                        width: collapsed ? _collapsedWidth : _expandedWidth,
                         decoration: BoxDecoration(
                           color: colors.surfaceContainerLow,
                           border: Border(
@@ -75,15 +75,21 @@ class _ResponsiveLayoutState extends State<ResponsiveLayout> {
                           ),
                         ),
                         child: ClipRect(
-                          child: _buildSidebarContent(context, currentUser, collapsed: _sidebarCollapsed),
+                          child: Builder(
+                            builder: (ctx) => _buildSidebarContent(
+                              ctx,
+                              currentUser,
+                              collapsed: collapsed,
+                            ),
+                          ),
                         ),
                       ),
-                    
+
                     Expanded(
                       child: Column(
                         children: [
                           if (currentUser?.role == UserRole.checkInAgent)
-                           Consumer<CheckInService>(
+                            Consumer<CheckInService>(
                               builder: (context, checkinService, _) {
                                 final flight = checkinService.activeFlight;
                                 if (flight == null) return const SizedBox.shrink();
@@ -93,7 +99,7 @@ class _ResponsiveLayoutState extends State<ResponsiveLayout> {
                                 }
                                 final currentPath = GoRouterState.of(context).uri.path;
                                 return CheckInStatusBar(
-                                  flight:          flight,
+                                  flight: flight,
                                   onBackToFlights: currentPath == '/checkin' ? null : () => context.go('/checkin'),
                                 );
                               },
@@ -107,7 +113,6 @@ class _ResponsiveLayoutState extends State<ResponsiveLayout> {
                         ],
                       ),
                     ),
-                  
                   ],
                 ),
               ),
@@ -115,6 +120,111 @@ class _ResponsiveLayoutState extends State<ResponsiveLayout> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildSidebarContent(
+    BuildContext context,
+    UserModel? currentUser, {
+    required bool collapsed,
+  }) {
+    if (currentUser == null) return const SizedBox.shrink();
+
+    final sidebarNotifier = context.read<SidebarNotifier>();
+    final colors = Theme.of(context).colorScheme;
+    final currentPath = GoRouterState.of(context).uri.path;
+    final menuItems = currentUser.role.menuItems;
+
+    dynamic activeMenuItem;
+    int longestMatchLength = -1;
+
+    for (final item in menuItems) {
+      if (currentPath == item.route) {
+        activeMenuItem = item;
+        break;
+      }
+      final routePrefix = item.route.endsWith('/') ? item.route : '${item.route}/';
+      if (currentPath.startsWith(routePrefix)) {
+        if (item.route.length > longestMatchLength) {
+          longestMatchLength = item.route.length;
+          activeMenuItem = item;
+        }
+      }
+    }
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 16, 8, 16),
+          child: collapsed
+              ? Center(
+                  child: InkWell(
+                    onTap: sidebarNotifier.toggle,
+                    child: _buildAirlineLogo(currentUser, size: 36),
+                  ),
+                )
+              : SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const NeverScrollableScrollPhysics(),
+                  child: SizedBox(
+                    width: _expandedWidth - 20,
+                    child: Row(
+                      children: [
+                        _buildAirlineLogo(currentUser, size: 36),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            currentUser.airlineName?.toUpperCase() ?? "AIRLINE",
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w900,
+                              color: colors.primary,
+                              letterSpacing: 0.5,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.fade,
+                            softWrap: false,
+                          ),
+                        ),
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          icon: const Icon(Icons.menu_open, size: 20),
+                          onPressed: sidebarNotifier.toggle,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+        ),
+
+        const Divider(height: 1, indent: 12, endIndent: 12),
+        const SizedBox(height: 8),
+
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            children: menuItems.map((item) {
+              final bool isActive = item == activeMenuItem;
+              return _SidebarItem(
+                icon: item.icon,
+                title: item.title,
+                isActive: isActive,
+                collapsed: collapsed,
+                onTap: () => context.go(item.route),
+              );
+            }).toList(),
+          ),
+        ),
+
+        if (collapsed)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: IconButton(
+              icon: const Icon(Icons.chevron_right),
+              onPressed: sidebarNotifier.toggle,
+            ),
+          ),
+      ],
     );
   }
 
@@ -152,113 +262,6 @@ class _ResponsiveLayoutState extends State<ResponsiveLayout> {
         ),
         if (currentUser != null) _buildUserAvatar(context, currentUser, authService),
         const SizedBox(width: 16),
-      ],
-    );
-  }
-
-  Widget _buildSidebarContent(
-    BuildContext context,
-    UserModel? currentUser, {
-    required bool collapsed,
-  }) {
-    if (currentUser == null) return const SizedBox.shrink();
-
-    final colors = Theme.of(context).colorScheme;
-    final currentPath = GoRouterState.of(context).uri.path;
-    final menuItems = currentUser.role.menuItems;
-
-    dynamic activeMenuItem; 
-    int longestMatchLength = -1;
-
-    for (final item in menuItems) {
-      if (currentPath == item.route) {
-        activeMenuItem = item;
-        break; 
-      }
-      final routePrefix = item.route.endsWith('/') ? item.route : '${item.route}/';
-      if (currentPath.startsWith(routePrefix)) {
-        if (item.route.length > longestMatchLength) {
-          longestMatchLength = item.route.length;
-          activeMenuItem = item;
-        }
-      }
-    }
-
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 16, 8, 16),
-          child: collapsed
-              ? Center(
-                  child: InkWell(
-                    onTap: _toggleSidebar,
-                    child: _buildAirlineLogo(currentUser, size: 36),
-                  ),
-                )
-              : SingleChildScrollView( 
-                  scrollDirection: Axis.horizontal,
-                  physics: const NeverScrollableScrollPhysics(),
-                  child: SizedBox(
-                    width: _expandedWidth - 20, 
-                    child: Row(
-                      children: [
-                        _buildAirlineLogo(currentUser, size: 36),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            currentUser.airlineName?.toUpperCase() ?? "AIRLINE",
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w900,
-                              color: colors.primary,
-                              letterSpacing: 0.5,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.fade,
-                            softWrap: false,
-                          ),
-                        ),
-                        IconButton(
-                          visualDensity: VisualDensity.compact,
-                          icon: const Icon(Icons.menu_open, size: 20),
-                          onPressed: _toggleSidebar,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-        ),
-        
-        const Divider(height: 1, indent: 12, endIndent: 12),
-        const SizedBox(height: 8),
-
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            children: menuItems.map((item) {
-              final bool isActive = item == activeMenuItem;
-
-              return _SidebarItem(
-                icon: item.icon,
-                title: item.title,
-                isActive: isActive,
-                collapsed: collapsed,
-                onTap: () {
-                  context.go(item.route);
-                },
-              );
-            }).toList(),
-          ),
-        ),
-
-        if (collapsed)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: IconButton(
-              icon: const Icon(Icons.chevron_right),
-              onPressed: _toggleSidebar,
-            ),
-          ),
       ],
     );
   }

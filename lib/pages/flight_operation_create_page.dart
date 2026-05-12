@@ -10,9 +10,9 @@ import '../../services/auth_service.dart';
 import '../../services/flight_operation_api_service.dart';
 import '../../widgets/responsive_layout.dart';
 import '../../widgets/custom/custom_button.dart';
-import '../../widgets/flight_operation/operation_status_bar.dart';
+import '../widgets/flight_operation/operation_status_bar.dart';
 import '../widgets/custom/custom_select_field.dart';
-import '../../widgets/flight_operation/airfleet_step.dart';
+import '../widgets/flight_operation/airfleet_step.dart';
 
 class FlightOperationCreatePage extends StatefulWidget {
   final FlightWithoutOperationModel flight;
@@ -174,7 +174,6 @@ class _FlightOperationCreatePageState
   return Row(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      // Aircraft
       Expanded(
         child: Container(
           decoration: BoxDecoration(
@@ -235,7 +234,6 @@ class _FlightOperationCreatePageState
         ),
       ),
 
-      // Gate
       Expanded(
         child: Column(
           children: [
@@ -414,6 +412,8 @@ class _FlightOperationCreatePageState
           ],
         ),
       ),
+    
+    
     ],
   );
 }
@@ -440,103 +440,6 @@ class _FlightOperationCreatePageState
           ),
           const Spacer(),
           if (trailing != null) trailing,
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTerminalGroup(
-      String terminal, List<GateModel> gates, ColorScheme colors) {
-    final isExpanded = _openTerminal == terminal;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-            color: colors.outlineVariant.withValues(alpha: 0.6)),
-      ),
-      child: Column(
-        children: [
-          ListTile(
-            dense: true,
-            title: Text('Terminal $terminal',
-                style: const TextStyle(
-                    fontWeight: FontWeight.w600, fontSize: 13)),
-            trailing: Icon(
-              isExpanded
-                  ? Icons.keyboard_arrow_up_rounded
-                  : Icons.keyboard_arrow_down_rounded,
-              size: 20,
-            ),
-            onTap: () => setState(
-                () => _openTerminal = isExpanded ? null : terminal),
-          ),
-          if (isExpanded)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: gates.map((gate) => GestureDetector(
-                  onTap: gate.isAvailable
-                      ? () => setState(() => _selectedGate =
-                          _selectedGate?.gateId == gate.gateId ? null : gate)
-                      : null,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    width: 72, height: 56,
-                    decoration: BoxDecoration(
-                      color: !gate.isAvailable
-                          ? colors.surfaceContainerHighest.withValues(alpha: 0.5)
-                          : _selectedGate?.gateId == gate.gateId
-                              ? colors.primaryContainer.withValues(alpha: 0.35)
-                              : colors.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: !gate.isAvailable
-                            ? colors.outlineVariant.withValues(alpha: 0.4)
-                            : _selectedGate?.gateId == gate.gateId
-                                ? colors.primary
-                                : colors.outlineVariant,
-                        width: _selectedGate?.gateId == gate.gateId ? 1.5 : 1,
-                      ),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        if (!gate.isAvailable)
-                          Icon(Icons.lock_outline,
-                              size: 12,
-                              color: colors.onSurfaceVariant
-                                  .withValues(alpha: 0.4)),
-                        Text(
-                          gate.gateCode,
-                          style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w600,
-                            color: !gate.isAvailable
-                                ? colors.onSurfaceVariant.withValues(alpha: 0.4)
-                                : _selectedGate?.gateId == gate.gateId
-                                    ? colors.primary
-                                    : colors.onSurface,
-                          ),
-                        ),
-                        Text(
-                          gate.isAvailable ? 'Gate' : 'Busy',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: !gate.isAvailable
-                                ? colors.onSurfaceVariant.withValues(alpha: 0.4)
-                                : _selectedGate?.gateId == gate.gateId
-                                    ? colors.primary.withValues(alpha: 0.7)
-                                    : colors.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                )).toList(),
-              ),
-            ),
         ],
       ),
     );

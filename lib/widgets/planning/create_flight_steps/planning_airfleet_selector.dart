@@ -41,7 +41,7 @@ class _PlanningAirfleetSelectorState
         final isSelected =
             widget.selected?['airfleetId'] == af['airfleetId'];
         return SizedBox(
-          width: 280,
+          width: 320,
           child: _AirfleetCard(
             service: widget.service,
             airfleet: af,
@@ -130,7 +130,7 @@ class _AirfleetCardState extends State<_AirfleetCard> {
       borderRadius:
           const BorderRadius.vertical(top: Radius.circular(11)),
       child: SizedBox(
-        height: 150,
+        height: 180,
         child: Stack(
           children: [
             if (!_loadedPhotos)
@@ -154,7 +154,7 @@ class _AirfleetCardState extends State<_AirfleetCard> {
               Image.network(
                 _photos[_photoIndex],
                 width: double.infinity,
-                height: 150,
+                height: 270,
                 fit: BoxFit.cover,
                 loadingBuilder: (_, child, progress) =>
                     progress == null
@@ -414,7 +414,7 @@ class _SpecCell extends StatelessWidget {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(
-            horizontal: 14, vertical: 8),
+            horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           border: Border(
             right: borderRight

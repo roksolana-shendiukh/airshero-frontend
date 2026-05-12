@@ -9,8 +9,8 @@ import '../../models/flight_operation_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/flight_operation_api_service.dart';
 import '../../services/weather_service.dart';
-import '../../widgets/flight_operation/flight_aircraft_layer.dart';
-import '../../widgets/flight_operation/flight_weather_layer.dart';
+import 'flight_aircraft_layer.dart';
+import 'flight_weather_layer.dart';
 
 class FlightMap extends StatefulWidget {
   final FlightOperationModel? operation;

@@ -40,26 +40,29 @@ class _CheckInFlightsPageState extends State<CheckInFlightsPage> {
   List<Map<String, dynamic>>? _recentPassengers;
 
   Future<void> _loadStats(int flightOperationId) async {
-    debugPrint('>>> _loadStats called, mounted=$mounted');
-  final results = await Future.wait([
-    _apiService.getBoardingStats(flightOperationId),
-    _apiService.getRecentlyCheckedIn(flightOperationId),
-  ]);
-  debugPrint('>>> _loadStats got results, mounted=$mounted');
-  if (!mounted) return;
-  final stats = results[0] as Map<String, dynamic>;
-  debugPrint('>>> stats: $stats');
-  debugPrint('>>> totalPassengers: ${stats['totalPassengers']}');
-  setState(() {
-    _totalPassengers  = stats['totalPassengers'] as int? ?? 0;
-    _checkedIn        = stats['checkedIn']       as int? ?? 0;
-    _remaining        = stats['remaining']       as int? ?? 0;
-    _recentPassengers = (results[1] as List?)
-      ?.map((e) => Map<String, dynamic>.from(e as Map))
-      .toList() ?? [];
-  });
-  debugPrint('>>> after setState: $_totalPassengers');
-}
+      debugPrint('>>> _loadStats called, mounted=$mounted');
+    final results = await Future.wait([
+      _apiService.getBoardingStats(flightOperationId),
+      _apiService.getRecentlyCheckedIn(flightOperationId),
+    ]);
+    debugPrint('>>> _loadStats got results, mounted=$mounted');
+    if (!mounted) return;
+    final stats = results[0] as Map<String, dynamic>;
+    debugPrint('>>> stats: $stats');
+    debugPrint('>>> totalPassengers: ${stats['totalPassengers']}');
+    setState(() {
+      _totalPassengers  = stats['totalPassengers'] as int? ?? 0;
+      _checkedIn        = stats['checkedIn']       as int? ?? 0;
+      _remaining        = stats['remaining']       as int? ?? 0;
+      _recentPassengers = (results[1] as List?)
+        ?.map((e) => Map<String, dynamic>.from(e as Map))
+        .toList() ?? [];
+    });
+    debugPrint('>>> after setState: $_totalPassengers');
+  }
+
+  GoRouter? _router;
+
   @override
   void initState() {
     super.initState();
@@ -68,23 +71,26 @@ class _CheckInFlightsPageState extends State<CheckInFlightsPage> {
     _load();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      GoRouter.of(context).routerDelegate.addListener(_onRouteChanged);
+      _router = GoRouter.of(context);
+      _router!.routerDelegate.addListener(_onRouteChanged);
     });
   }
 
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    _router?.routerDelegate.removeListener(_onRouteChanged);
+    super.dispose();
+  }
+
   void _onRouteChanged() {
+    if (!mounted) return;
     final location = GoRouterState.of(context).uri.path;
     if (location == '/checkin' && mounted) {
       _load();
     }
   }
 
-  @override
-  void dispose() {
-    _ticker?.cancel();
-    GoRouter.of(context).routerDelegate.removeListener(_onRouteChanged);
-    super.dispose();
-  }
 
   Future<void> _load() async {
     debugPrint('>>> _load called');
@@ -473,6 +479,7 @@ class _CheckInFlightsPageState extends State<CheckInFlightsPage> {
                               p['boardingPassId'] as int,
                               p['flightOperationId'] as int? ?? 0, 
                               p['seat'] as String? ?? '—', 
+                              p['classId'] as int? ?? 1,
                             ),
                           child: Padding(
                             padding: const EdgeInsets.symmetric(
@@ -792,6 +799,7 @@ class _CheckInFlightsPageState extends State<CheckInFlightsPage> {
     int boardingPassId,
     int flightOperationId,
     String currentSeat,
+    int classId,
   ) async {
     final result = await showMenu<String>(
       context: context,
@@ -830,7 +838,7 @@ class _CheckInFlightsPageState extends State<CheckInFlightsPage> {
     if (result == 'reprint') {
       await _reprintBoardingPass(boardingPassId);
     } else if (result == 'change_seat') {
-      await _changeSeat(boardingPassId, flightOperationId, currentSeat);
+      await _changeSeat(boardingPassId, flightOperationId, currentSeat, classId);
     }
   }
 
@@ -848,7 +856,7 @@ class _CheckInFlightsPageState extends State<CheckInFlightsPage> {
     }
   }
 
-  Future<void> _changeSeat(int boardingPassId, int flightOperationId, String currentSeat) async {
+  Future<void> _changeSeat(int boardingPassId, int flightOperationId, String currentSeat, int classId) async {
     final result = await showDialog<int>(
       context: context,
       builder: (ctx) => Dialog(
@@ -891,7 +899,7 @@ class _CheckInFlightsPageState extends State<CheckInFlightsPage> {
                 CheckInSeatMapStep(
                   authService:          _authService,
                   flightOperationId:    flightOperationId,
-                  passengerClassId:     0,
+                  passengerClassId:     classId, // Тепер classId визначено!
                   passengerDateOfBirth: null,
                   onSeatSelected: (seatPosition, seatLayoutId) {
                     Navigator.of(ctx).pop(seatLayoutId);
@@ -919,7 +927,6 @@ class _CheckInFlightsPageState extends State<CheckInFlightsPage> {
       );
     }
   }
-
 
 }
 

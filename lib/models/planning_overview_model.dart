@@ -33,6 +33,7 @@ class OverviewFlight {
   final int bookedSeats;
   final int totalSeats;
   final String flightStatusName;
+  final String flightDuration;
 
   const OverviewFlight({
     required this.flightId,
@@ -46,6 +47,7 @@ class OverviewFlight {
     required this.bookedSeats,
     required this.totalSeats,
     required this.flightStatusName,
+    required this.flightDuration,
   });
 
   double get loadPercent =>
@@ -67,6 +69,7 @@ class OverviewFlight {
       bookedSeats: json['bookedSeats'] as int,
       totalSeats: json['seatCapacity'] as int,
       flightStatusName: json['flightStatus'] as String,
+      flightDuration: json['flightDuration'] ?? '00:00',
     );
   }
 }

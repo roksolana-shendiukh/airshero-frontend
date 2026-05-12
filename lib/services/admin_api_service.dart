@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'auth_service.dart';
 import '../config/app_config.dart';
-import 'package:flutter/foundation.dart';
 
 class ApiValidationException implements Exception {
   final Map<String, String> fieldErrors;
@@ -201,6 +200,17 @@ class AdminApiService {
       return (body['data'] as List).cast<Map<String, dynamic>>();
     }
     throw Exception('Failed to load system history: ${response.statusCode}');
+  }
+
+  Future<void> deleteUser(String uid) async {
+    final response = await http.delete(
+      Uri.parse('${AppConfig.baseUrl}/admin/users/$uid'),
+      headers: await _headers(),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to delete user');
+    }
   }
 
 }

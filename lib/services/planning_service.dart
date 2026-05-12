@@ -479,5 +479,41 @@ class PlanningService {
     }
   }
 
+  Future<void> cancelFlight(int flightId) async {
+    final uri = Uri.parse(
+        '${AppConfig.baseUrl}/planning/flights/$flightId/cancel');
+    
+    final response = await http.post(
+      uri,
+      headers: await _headers(),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to cancel flight: ${response.body}');
+    }
+  }
+
+  Future<void> updateFlightTimes({
+    required int flightId,
+    required DateTime departsDatetime,
+    required DateTime arrivesDatetime,
+  }) async {
+    final uri = Uri.parse(
+        '${AppConfig.baseUrl}/planning/flights/$flightId/times');
+    
+    final response = await http.put(
+      uri,
+      headers: await _headers(),
+      body: jsonEncode({
+        'departsDatetime': departsDatetime.toIso8601String(),
+        'arrivesDatetime': arrivesDatetime.toIso8601String(),
+      }),
+    );
+
+    // if (response.statusCode != 200) {
+    //   throw Exception('Failed to update flight times');
+    // }
+  }
+
 }
 

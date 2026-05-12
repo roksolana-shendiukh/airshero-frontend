@@ -24,6 +24,7 @@ class FlightOperationsTable extends StatefulWidget {
   final ValueChanged<int> onPageChanged;
   final void Function(BoardRow) onStartOperation;
   final void Function(BoardRow) onViewOperation;
+  final void Function(BoardRow) onChangeGate;
 
   const FlightOperationsTable({
     super.key,
@@ -40,6 +41,7 @@ class FlightOperationsTable extends StatefulWidget {
     required this.onPageChanged,
     required this.onStartOperation,
     required this.onViewOperation,
+    required this.onChangeGate,
   });
 
   @override
@@ -57,6 +59,7 @@ class _FlightOperationsTableState extends State<FlightOperationsTable> {
     _columns = BoardTableColumns.buildColumns(
       onStart: widget.onStartOperation,
       onView: widget.onViewOperation,
+      onChangeGate: widget.onChangeGate,
     );
     
     _colWidths = {for (final c in _columns) c.key: c.initialWidth};
@@ -104,7 +107,11 @@ class _FlightOperationsTableState extends State<FlightOperationsTable> {
   Widget _buildContent(ColorScheme colors) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final needsScroll = _totalWidth > constraints.maxWidth;
+        final double totalColWidth = _colWidths.values.fold(0.0, (s, w) => s + w);
+        
+        final double tableWidth = totalColWidth < constraints.maxWidth 
+            ? constraints.maxWidth 
+            : totalColWidth;
 
         Widget content = Column(
           children: [
@@ -120,14 +127,14 @@ class _FlightOperationsTableState extends State<FlightOperationsTable> {
           ],
         );
 
-        if (needsScroll) {
-          return SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            controller: _horizontalScroll,
-            child: SizedBox(width: _totalWidth, child: content),
-          );
-        }
-        return content;
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          controller: _horizontalScroll,
+          child: SizedBox(
+            width: tableWidth, 
+            child: content,
+          ),
+        );
       },
     );
   }
@@ -254,3 +261,10 @@ class _FlightOperationsTableState extends State<FlightOperationsTable> {
     );
   }
 }
+
+
+
+
+
+
+

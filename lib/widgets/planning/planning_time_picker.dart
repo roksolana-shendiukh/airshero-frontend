@@ -141,25 +141,7 @@ class _PlanningTimePickerOverlayState
                     colors: colors,
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: GestureDetector(
-                    onTap: _isManualInput ? null : _enterManualMode,
-                    child: Tooltip(
-                      message: 'Type time manually',
-                      child: Text(
-                        ':',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w300,
-                          color: _isManualInput
-                              ? colors.primary
-                              : colors.onSurface,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+                
                 Expanded(
                   child: _WheelColumn(
                     controller: _minuteCtrl,
@@ -179,30 +161,7 @@ class _PlanningTimePickerOverlayState
                 ),
               ],
             ),
-
-            // ── "Type time" hint button (when NOT in manual mode) ────────
-            if (!_isManualInput) ...[
-              const SizedBox(height: 8),
-              GestureDetector(
-                onTap: _enterManualMode,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.keyboard_outlined,
-                        size: 13, color: colors.onSurfaceVariant),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Type time',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: colors.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            
           ],
         ),
       ),
@@ -218,7 +177,6 @@ class _PlanningTimePickerOverlayState
             focusNode: _focusNode,
             textAlign: TextAlign.center,
             keyboardType: TextInputType.number,
-            // Allow digits and colon only
             inputFormatters: [
               FilteringTextInputFormatter.allow(RegExp(r'[\d:]')),
               _TimeInputFormatter(),
@@ -248,12 +206,10 @@ class _PlanningTimePickerOverlayState
                 borderSide: BorderSide(color: colors.primary, width: 2),
               ),
             ),
-            // Apply on Enter / Done
             onSubmitted: (_) => _applyManualInput(),
           ),
         ),
         const SizedBox(width: 8),
-        // Confirm button
         IconButton.filled(
           onPressed: _applyManualInput,
           icon: const Icon(Icons.check, size: 18),
@@ -262,7 +218,6 @@ class _PlanningTimePickerOverlayState
             padding: EdgeInsets.zero,
           ),
         ),
-        // Cancel button
         IconButton(
           onPressed: () => setState(() => _isManualInput = false),
           icon: const Icon(Icons.close, size: 18),
@@ -277,19 +232,15 @@ class _PlanningTimePickerOverlayState
   }
 }
 
-// ─── Auto-formats typed digits into HH:MM ─────────────────────────────────
-
 class _TimeInputFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
       TextEditingValue oldValue, TextEditingValue newValue) {
-    // Strip everything except digits
     final digits = newValue.text.replaceAll(RegExp(r'[^\d]'), '');
     if (digits.isEmpty) {
       return newValue.copyWith(text: '');
     }
 
-    // At most 4 digits
     final clamped = digits.length > 4 ? digits.substring(0, 4) : digits;
 
     String formatted;
@@ -305,8 +256,6 @@ class _TimeInputFormatter extends TextInputFormatter {
     );
   }
 }
-
-// ─── Wheel column (unchanged API, fixed selectedIndex usage) ──────────────
 
 class _WheelColumn extends StatelessWidget {
   final FixedExtentScrollController controller;
@@ -328,7 +277,6 @@ class _WheelColumn extends StatelessWidget {
     return Stack(
       alignment: Alignment.center,
       children: [
-        // Highlight strip for selected item
         Container(
           height: 40,
           decoration: BoxDecoration(
@@ -344,7 +292,6 @@ class _WheelColumn extends StatelessWidget {
             itemExtent: 40,
             diameterRatio: 2.5,
             physics: const FixedExtentScrollPhysics(),
-            // ✅ Live update on every scroll tick
             onSelectedItemChanged: onChanged,
             childDelegate: ListWheelChildBuilderDelegate(
               childCount: items.length,
@@ -382,7 +329,6 @@ class _WheelColumn extends StatelessWidget {
   }
 }
 
-// ─── Dialog helper (unchanged) ────────────────────────────────────────────
 
 Future<String?> showPlanningTimePicker({
   required BuildContext context,

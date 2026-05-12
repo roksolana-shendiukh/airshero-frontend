@@ -24,6 +24,8 @@ import '../pages/planning/pricing_page.dart';
 import '../pages/my_bookings_page.dart';
 import '../pages/boarding_passes_page.dart';
 import '../pages/crew/crew_page.dart';
+import '../pages/crud/airport_page.dart';
+import '../pages/crud/airfleet_page.dart';
 
 import '../models/args/search_results_args.dart';
 import '../models/args/baggage_selection_args.dart';
@@ -359,6 +361,16 @@ class AppRouter {
           authService: context.read<AuthService>(),
         ),
       ),
+
+      GoRoute(
+        path: '/admin/airports',
+        pageBuilder: (c, s) => _fade(s, const AirportsPage()),
+      ),
+
+      // GoRoute(
+      //   path: '/admin/airfleet',
+      //   builder: (context, state) => const AirfleetPage(),
+      // ),
 
     ],
   );

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/user_model.dart';
 
-class TableRow extends StatelessWidget {
+class UserTableRow extends StatelessWidget {
   final UserModel user;
   final bool isSelected;
   final Map<String, double> columnWidths;
@@ -10,7 +10,7 @@ class TableRow extends StatelessWidget {
   final VoidCallback onDelete;
   final VoidCallback onToggleLock;
 
-  const TableRow({
+  const UserTableRow({
     super.key,
     required this.user,
     required this.isSelected,

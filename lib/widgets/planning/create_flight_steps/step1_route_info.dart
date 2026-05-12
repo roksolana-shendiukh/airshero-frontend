@@ -65,7 +65,6 @@ class _Step1RouteInfoState extends State<Step1RouteInfo> {
         _airports = results[1];
         _loading = false;
       });
-      // Якщо аеропорти вже вибрані — розраховуємо відстань
       if (_departsAirport != null && _arrivesAirport != null) {
         _calcDistance();
       }
@@ -74,7 +73,6 @@ class _Step1RouteInfoState extends State<Step1RouteInfo> {
     }
   }
 
-  // Розрахунок відстані між аеропортами формулою гаверсинуса
   void _calcDistance() {
     if (_departsAirport == null || _arrivesAirport == null) {
       setState(() => _routeDistanceKm = null);
@@ -96,7 +94,6 @@ class _Step1RouteInfoState extends State<Step1RouteInfo> {
     setState(() => _routeDistanceKm = km);
   }
 
-  // Літаки що можуть подолати маршрут
   List<Map<String, dynamic>> get _eligibleAirfleets {
     if (_routeDistanceKm == null) return _airfleets;
     return _airfleets.where((af) {
@@ -149,7 +146,6 @@ class _Step1RouteInfoState extends State<Step1RouteInfo> {
   }
 
   void _onAirportChanged() {
-    // Скидаємо літак якщо він більше не підходить
     if (_airfleet != null && _routeDistanceKm != null) {
       final range =
           (_airfleet!['aircraftRangeKm'] as num?)?.toDouble();
@@ -216,13 +212,11 @@ class _Step1RouteInfoState extends State<Step1RouteInfo> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 1. Спочатку маршрут
         _buildSectionLabel(
             context, Icons.connecting_airports_outlined, 'Route'),
         const SizedBox(height: 12),
         _buildRouteRow(colors),
 
-        // Інфо про маршрут
         if (_departsAirport != null &&
             _arrivesAirport != null &&
             _departsAirport!['airportId'] !=
@@ -231,7 +225,6 @@ class _Step1RouteInfoState extends State<Step1RouteInfo> {
           _buildRouteInfo(colors),
         ],
 
-        // 2. Потім літак — тільки якщо обрано обидва аеропорти
         if (_departsAirport != null &&
             _arrivesAirport != null &&
             _departsAirport!['airportId'] !=
@@ -280,7 +273,6 @@ class _Step1RouteInfoState extends State<Step1RouteInfo> {
             ),
           ],
 
-          // Інфо про тривалість після вибору літака
           if (_airfleet != null) ...[
             const SizedBox(height: 12),
             _buildDurationInfo(colors),

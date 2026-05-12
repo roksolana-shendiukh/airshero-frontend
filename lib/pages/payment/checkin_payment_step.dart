@@ -140,57 +140,60 @@ class _CheckInPaymentStepState extends State<CheckInPaymentStep> {
 
   void _showSuccessDialog(String ticketNumber, int boardingPassId) {
     showDialog(
-      context:            context,
+      context: context,
       barrierDismissible: false,
       builder: (ctx) {
         final colors = Theme.of(ctx).colorScheme;
         return Dialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
+          child: SizedBox(
+            width: 320,
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.check_circle, color: Colors.green, size: 56),
                   ),
-                  child: const Icon(Icons.check_circle, color: Colors.green, size: 64),
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  'Payment Successful',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Boarding pass issued for ${widget.passengerName}',
-                  style: TextStyle(color: colors.onSurfaceVariant),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: CustomButton(
-                    label: 'Done',
-                    onPressed: () {
-                      Navigator.of(ctx).pop();
-                      widget.onSuccess(ticketNumber, boardingPassId, _issuedBags);
-                    },
-                    borderRadius:    12,
-                    verticalPadding: 14,
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Payment Successful',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  Text(
+                    'Boarding pass issued for ${widget.passengerName}',
+                    style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: CustomButton(
+                      label: 'Done',
+                      onPressed: () {
+                        Navigator.of(ctx).pop();
+                        widget.onSuccess(ticketNumber, boardingPassId, _issuedBags);
+                      },
+                      borderRadius: 12,
+                      verticalPadding: 14,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         );
       },
     );
   }
-
+  
   void _showFailedDialog() {
     showDialog(
       context:            context,
