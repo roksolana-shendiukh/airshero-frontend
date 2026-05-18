@@ -192,8 +192,7 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
   }
 
   int get _totalPassengers => widget.passengers.values.reduce((a, b) => a + b);
-  int get _activePassengers => _totalPassengers - _removedPassengerIndices.length;
-
+  
   void _removePassenger(int index) {
     final isLastAdult = _isLastAdult(index);
 
