@@ -39,7 +39,7 @@ The project follows a layered architecture:
 - **widgets/** – reusable UI components grouped by feature
 - **config/** – routing and theming
 
-![Component Diagram](https://github.com/user-attachments/assets/52888241-dfdc-4637-87f0-164a1a4194af)
+<img src="https://github.com/user-attachments/assets/52888241-dfdc-4637-87f0-164a1a4194af" width="800"/>
 
 
 ## Getting Started
@@ -69,24 +69,27 @@ The project follows a layered architecture:
 
 ## Screenshots
 
+### Login
+<img src="https://github.com/user-attachments/assets/2716e8e5-b94d-4012-b86d-e03992dea528" width="800"/>
+
 ### Booking – Flight Search
-![Flight Search](https://github.com/user-attachments/assets/f768ec69-48c5-48ab-9342-418234eb43bf)
+<img src="https://github.com/user-attachments/assets/f768ec69-48c5-48ab-9342-418234eb43bf" width="800"/>
 
 ### Booking – Flight Cards
-![Flight Cards](https://github.com/user-attachments/assets/f7b6ba4c-b2d7-47f3-bf98-c7d59e766177)
+<img src="https://github.com/user-attachments/assets/f7b6ba4c-b2d7-47f3-bf98-c7d59e766177" width="800"/>
 
 ### Check-in – Seat Map
-![Seat Map](https://github.com/user-attachments/assets/4675d878-3e09-4781-a183-db12ebe51bd9).
+<img src="https://github.com/user-attachments/assets/4675d878-3e09-4781-a183-db12ebe51bd9" width="800"/>
 
 ### Check-in – Boarding Pass
-![Boarding Pass](https://github.com/user-attachments/assets/9af275c4-3400-4587-8597-446415ac2607)
+<img src="https://github.com/user-attachments/assets/9af275c4-3400-4587-8597-446415ac2607" width="800"/>
 
 ### Flight Operations – Create Operation
-![Create Operation](https://github.com/user-attachments/assets/3b797207-ada0-4aa0-a472-ea7f83624da3)
+<img src="https://github.com/user-attachments/assets/3b797207-ada0-4aa0-a472-ea7f83624da3" width="800"/>
 
 ### Flight Operations – Operation Details
-![Operation Details](https://github.com/user-attachments/assets/139c063c-fba0-438e-8fad-a22ab255ad94)
+<img src="https://github.com/user-attachments/assets/139c063c-fba0-438e-8fad-a22ab255ad94" width="800"/>
 
 ### Planning – Flights List
-![Flights List](https://github.com/user-attachments/assets/6b62e101-0a13-4e5a-8c8e-6c0337b0affb)
+<img src="https://github.com/user-attachments/assets/6b62e101-0a13-4e5a-8c8e-6c0337b0affb" width="800"/>
 
