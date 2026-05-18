@@ -1,11 +1,10 @@
-
 # AirShero – Frontend
-Web application for airline operations management built with Flutter. 
-The system supports three roles: Sales Agent, Check-in Agent, and Flight Planning Manager, 
+
+Web application for airline operations management built with Flutter.
+The system supports three roles: Sales Agent, Check-in Agent, and Flight Planning Manager,
 as well as an Admin panel for user and system management.
 
 ## Tech Stack
-
 
 - **Flutter** / **Dart** – UI framework
 - **Provider** – state management
@@ -15,7 +14,6 @@ as well as an Admin panel for user and system management.
 - **FL Chart** – analytics charts
 - **Flutter Map** – interactive maps
 - **Google Fonts** / **Font Awesome** – UI & icons
-
 
 ## Features
 
@@ -29,43 +27,22 @@ as well as an Admin panel for user and system management.
 - Admin analytics and audit log
 - User management (Admin panel)
 
-
 ## Architecture
 
 The project follows a layered architecture:
+
 - **pages/** – UI screens grouped by role: admin, sales, checkin, planning, operations
 - **services/** – API communication layer, one service per domain
 - **models/** – data transfer objects
 - **widgets/** – reusable UI components grouped by feature
 - **config/** – routing and theming
 
+<details>
+<summary>Component Diagram</summary>
+
 <img src="https://github.com/user-attachments/assets/52888241-dfdc-4637-87f0-164a1a4194af" width="800"/>
 
-
-## Getting Started
-
-### Prerequisites
-- Flutter SDK ^3.9.2
-- Dart SDK
-- Running [AirShero Backend](https://github.com/roksolana-shendiukh/CW_B)
-
-### Installation
-
-1. Clone the repository
-```bash
-   git clone https://github.com/roksolana-shendiukh/CW_F.git
-   cd CW_F
-```
-
-2. Install dependencies
-```bash
-   flutter pub get
-```
-
-3. Run the app
-```bash
-   flutter run -d chrome
-```
+</details>
 
 ## Screenshots
 
@@ -93,3 +70,7 @@ The project follows a layered architecture:
 ### Planning – Flights List
 <img src="https://github.com/user-attachments/assets/6b62e101-0a13-4e5a-8c8e-6c0337b0affb" width="800"/>
 
+## Related Repositories
+
+- [AirShero Backend](https://github.com/roksolana-shendiukh/CW_B)
+- [AirShero Database](посилання)
