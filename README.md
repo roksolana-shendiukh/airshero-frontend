@@ -28,7 +28,6 @@ as well as an Admin panel for user and system management.
 - Dynamic pricing management
 - Admin analytics and audit log
 - User management (Admin panel)
->>>>>>> 146141c8e30f7259edff29018002be833ecfc2b6
 
 
 ## Architecture
