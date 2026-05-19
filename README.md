@@ -72,5 +72,5 @@ The project follows a layered architecture:
 
 ## Related Repositories
 
-- [AirShero Backend](https://github.com/roksolana-shendiukh/CW_B)
-- [AirShero Database](посилання)
+- [AirShero Backend](https://github.com/roksolana-shendiukh/airshero-backend)
+- [AirShero Database](https://github.com/roksolana-shendiukh/airshero-db)
