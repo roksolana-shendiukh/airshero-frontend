@@ -74,3 +74,4 @@ The project follows a layered architecture:
 
 - [AirShero Backend](https://github.com/roksolana-shendiukh/airshero-backend)
 - [AirShero Database](https://github.com/roksolana-shendiukh/airshero-db)
+- [AirShero Data Generatore](https://github.com/roksolana-shendiukh/airshero-datagenerator)
