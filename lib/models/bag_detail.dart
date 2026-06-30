@@ -20,12 +20,12 @@ class BagDetail {
   factory BagDetail.fromJson(Map<String, dynamic> json) {
     return BagDetail(
       weight:      (json['weight'] as num).toDouble(),
-      typeId:      json['determinedTypeId']     ?? 0,
-      typeName:    json['determinedTypeName']   ?? 'Unknown',
-      dimensions:  json['determinedDimensions'] ?? 'No limits',
-      isPreBooked: json['isPreBookedSlot']      ?? false,
+      typeId:      json['determined_type_id']     ?? 0,
+      typeName:    json['determined_type_name']   ?? 'Unknown',
+      dimensions:  json['determined_dimensions']  ?? 'No limits',
+      isPreBooked: json['is_pre_booked_slot']     ?? false,
       surcharge:   (json['surcharge'] as num).toDouble(),
-      message:     json['message']              ?? '',
+      message:     json['message']                ?? '',
     );
   }
 

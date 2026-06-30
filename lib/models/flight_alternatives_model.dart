@@ -7,17 +7,15 @@ class FlightAlternatives {
     required this.connectingHubs,
   });
 
-  factory FlightAlternatives.fromJson(Map<String, dynamic> json) {
-    return FlightAlternatives(
-      nearbyCities: (json['nearbyCities'] as List<dynamic>?)
-              ?.map((e) => NearbyCity.fromJson(e))
-              .toList() ??
-          [],
-      connectingHubs: (json['connectingHubs'] as List<dynamic>?)
-              ?.map((e) => ConnectingHub.fromJson(e))
-              .toList() ??[],
-    );
-  }
+  factory FlightAlternatives.fromJson(Map<String, dynamic> json) =>
+      FlightAlternatives(
+        nearbyCities: (json['nearby_cities'] as List<dynamic>?)
+                ?.map((e) => NearbyCity.fromJson(e))
+                .toList() ?? [],
+        connectingHubs: (json['connecting_hubs'] as List<dynamic>?)
+                ?.map((e) => ConnectingHub.fromJson(e))
+                .toList() ?? [],
+      );
 }
 
 class NearbyCity {
@@ -31,13 +29,11 @@ class NearbyCity {
     required this.distanceKm,
   });
 
-  factory NearbyCity.fromJson(Map<String, dynamic> json) {
-    return NearbyCity(
-      cityId: json['cityId'] ?? 0,
-      cityName: json['cityName'] ?? '',
-      distanceKm: json['distanceKm'] ?? 0,
-    );
-  }
+  factory NearbyCity.fromJson(Map<String, dynamic> json) => NearbyCity(
+        cityId:     (json['city_id'] as num?)?.toInt() ?? 0,
+        cityName:   json['city_name'] as String? ?? '',
+        distanceKm: (json['distance_km'] as num?)?.toInt() ?? 0,
+      );
 }
 
 class ConnectingHub {
@@ -49,10 +45,8 @@ class ConnectingHub {
     required this.cityName,
   });
 
-  factory ConnectingHub.fromJson(Map<String, dynamic> json) {
-    return ConnectingHub(
-      cityId: json['cityId'] ?? 0,
-      cityName: json['cityName'] ?? '',
-    );
-  }
+  factory ConnectingHub.fromJson(Map<String, dynamic> json) => ConnectingHub(
+        cityId:   (json['city_id'] as num?)?.toInt() ?? 0,
+        cityName: json['city_name'] as String? ?? '',
+      );
 }

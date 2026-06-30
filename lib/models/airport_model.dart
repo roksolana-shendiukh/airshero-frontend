@@ -1,26 +1,32 @@
 class AirportModel {
   final int airportId;
-  final String airportName;
-  final String airportCode;
+  final int? cityId;
+  final String? cityName; 
+  final String? airportName;
   final String? airportAddress;
-  final double latitude;
-  final double longitude;
+  final String? airportCode;
+  final double? latitude;
+  final double? longitude;
 
   const AirportModel({
     required this.airportId,
-    required this.airportName,
-    required this.airportCode,
+    this.cityId,
+    this.cityName,
+    this.airportName,
     this.airportAddress,
-    required this.latitude,
-    required this.longitude,
+    this.airportCode,
+    this.latitude,
+    this.longitude,
   });
 
   factory AirportModel.fromJson(Map<String, dynamic> json) => AirportModel(
-        airportId:      json['airportId'] as int,
-        airportName:    json['airportName'] as String,
-        airportCode:    json['airportCode'] as String,
-        airportAddress: json['airportAddress'] as String?,
-        latitude:       (json['latitude'] as num).toDouble(),
-        longitude:      (json['longitude'] as num).toDouble(),
+        airportId:      (json['airport_id'] as num).toInt(),
+        cityId:         (json['city_id'] as num?)?.toInt(),
+        cityName:       json['city_name'] as String?,
+        airportName:    json['airport_name'] as String?,
+        airportAddress: json['airport_address'] as String?,
+        airportCode:    json['airport_code'] as String?,
+        latitude:       (json['latitude'] as num?)?.toDouble(),
+        longitude:      (json['longitude'] as num?)?.toDouble(),
       );
 }

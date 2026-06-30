@@ -1,22 +1,24 @@
 class AirfleetModel {
   final int airfleetId;
-  final String aircraftModel;
-  final String? manufacturerName;
-  final int? seatCapacity;
+  final int? airfleetManufacturerId;
+  final String? airfleetManufacturerName;
+  final String? aircraftModel;
   final double? aircraftRangeKm;
   final double? aircraftSpeed;
+  final int? seatCapacity;
   final double? baggageCapacity;
   final double? aircraftFuelConsumption;
-  final String? aircraftPerformance;
+  final double? aircraftPerformance; 
   final String? aircraftUrl;
 
   const AirfleetModel({
     required this.airfleetId,
-    required this.aircraftModel,
-    this.manufacturerName,
-    this.seatCapacity,
+    this.airfleetManufacturerId,
+    this.airfleetManufacturerName,
+    this.aircraftModel,
     this.aircraftRangeKm,
     this.aircraftSpeed,
+    this.seatCapacity,
     this.baggageCapacity,
     this.aircraftFuelConsumption,
     this.aircraftPerformance,
@@ -24,18 +26,20 @@ class AirfleetModel {
   });
 
   factory AirfleetModel.fromJson(Map<String, dynamic> json) => AirfleetModel(
-        airfleetId:              (json['airfleetId'] as num).toInt(),
-        aircraftModel:           json['aircraftModel'] as String,
-        manufacturerName:        json['manufacturerName'] as String?,
-        seatCapacity:            (json['seatCapacity'] as num?)?.toInt(),
-        aircraftRangeKm:         (json['aircraftRangeKm'] as num?)?.toDouble(),
-        aircraftSpeed:           (json['aircraftSpeed'] as num?)?.toDouble(),
-        baggageCapacity:         (json['baggageCapacity'] as num?)?.toDouble(),
-        aircraftFuelConsumption: (json['aircraftFuelConsumption'] as num?)?.toDouble(),
-        aircraftPerformance:     json['aircraftPerformance'] as String?,
-        aircraftUrl:             json['aircraftUrl'] as String?,
+        airfleetId:               (json['airfleet_id'] as num).toInt(),
+        airfleetManufacturerId:   (json['airfleet_manufacturer_id'] as num?)?.toInt(),
+        airfleetManufacturerName: json['airfleet_manufacturer_name'] as String?,
+        aircraftModel:            json['aircraft_model'] as String?,
+        aircraftRangeKm:          (json['aircraft_range_km'] as num?)?.toDouble(),
+        aircraftSpeed:            (json['aircraft_speed'] as num?)?.toDouble(),
+        seatCapacity:             (json['seat_capacity'] as num?)?.toInt(),
+        baggageCapacity:          (json['baggage_capacity'] as num?)?.toDouble(),
+        aircraftFuelConsumption:  (json['aircraft_fuel_consumption'] as num?)?.toDouble(),
+        aircraftPerformance:      (json['aircraft_performance'] as num?)?.toDouble(),
+        aircraftUrl:              json['aircraft_url'] as String?,
       );
 
-  String get label =>
-      manufacturerName != null ? '$manufacturerName $aircraftModel' : aircraftModel;
+  String get label => airfleetManufacturerName != null
+      ? '$airfleetManufacturerName $aircraftModel'
+      : aircraftModel ?? '';
 }
