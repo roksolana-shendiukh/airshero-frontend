@@ -16,7 +16,6 @@ class BookingSegmentDraft {
   final Map<String, String> passengerClassLabels;
   final double basePrice;
   final List<Map<String, dynamic>> assignments;
-
   final Map<int, Map<int, int>> baggageSelections;
 
   const BookingSegmentDraft({
@@ -44,24 +43,24 @@ class BookingSegmentDraft {
     Map<int, Map<int, int>>? baggageSelections,
   }) {
     return BookingSegmentDraft(
-      flightId: flightId,
-      flightClassId: flightClassId,
-      fromCity: fromCity,
-      toCity: toCity,
-      fromCityId: fromCityId,
-      toCityId: toCityId,
-      fromAirportCode: fromAirportCode,
-      toAirportCode: toAirportCode,
-      departureTime: departureTime,
-      arrivalTime: arrivalTime,
-      duration: duration,
-      airlineName: airlineName,
-      airlineLogoUrl: airlineLogoUrl,
-      departDate: departDate,
+      flightId:             flightId,
+      flightClassId:        flightClassId,
+      fromCity:             fromCity,
+      toCity:               toCity,
+      fromCityId:           fromCityId,
+      toCityId:             toCityId,
+      fromAirportCode:      fromAirportCode,
+      toAirportCode:        toAirportCode,
+      departureTime:        departureTime,
+      arrivalTime:          arrivalTime,
+      duration:             duration,
+      airlineName:          airlineName,
+      airlineLogoUrl:       airlineLogoUrl,
+      departDate:           departDate,
       passengerClassLabels: passengerClassLabels,
-      basePrice: basePrice,
-      assignments: assignments,
-      baggageSelections: baggageSelections ?? this.baggageSelections,
+      basePrice:            basePrice,
+      assignments:          assignments,
+      baggageSelections:    baggageSelections ?? this.baggageSelections,
     );
   }
 }
@@ -69,7 +68,6 @@ class BookingSegmentDraft {
 class BookingGroupDraft {
   final List<BookingSegmentDraft> segments;
   final Map<String, int> passengers;
-
   final int finalDestinationCityId;
   final String finalDestinationCity;
 
@@ -91,10 +89,10 @@ class BookingGroupDraft {
 
   BookingGroupDraft withSecondSegment(BookingSegmentDraft segment) {
     return BookingGroupDraft(
-      segments: [segments[0], segment],
-      passengers: passengers,
-      finalDestinationCityId: finalDestinationCityId,
-      finalDestinationCity: finalDestinationCity,
+      segments:                 [segments[0], segment],
+      passengers:               passengers,
+      finalDestinationCityId:   finalDestinationCityId,
+      finalDestinationCity:     finalDestinationCity,
     );
   }
 
@@ -107,10 +105,10 @@ class BookingGroupDraft {
       baggageSelections: baggageSelections,
     );
     return BookingGroupDraft(
-      segments: updated,
-      passengers: passengers,
+      segments:               updated,
+      passengers:             passengers,
       finalDestinationCityId: finalDestinationCityId,
-      finalDestinationCity: finalDestinationCity,
+      finalDestinationCity:   finalDestinationCity,
     );
   }
 }
