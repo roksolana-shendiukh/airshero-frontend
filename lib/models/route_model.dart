@@ -20,17 +20,17 @@ class RouteModel {
   });
 
   factory RouteModel.fromJson(Map<String, dynamic> json) {
-    final dep = json['departsAirport'] as Map<String, dynamic>;
-    final arr = json['arrivesAirport'] as Map<String, dynamic>;
+    final dep = json['departs_airport'] as Map<String, dynamic>;
+    final arr = json['arrives_airport'] as Map<String, dynamic>;
     return RouteModel(
-      routeId:      json['routeId'] as int,
-      flightNumber: json['flightNumber'] as String,
+      routeId:      (json['route_id'] as num).toInt(),
+      flightNumber: json['flight_number'] as String,
       departsLat:   (dep['latitude'] as num).toDouble(),
       departsLng:   (dep['longitude'] as num).toDouble(),
-      departsCode:  dep['airportCode'] as String,
+      departsCode:  dep['airport_code'] as String,
       arrivesLat:   (arr['latitude'] as num).toDouble(),
       arrivesLng:   (arr['longitude'] as num).toDouble(),
-      arrivesCode:  arr['airportCode'] as String,
+      arrivesCode:  arr['airport_code'] as String,
     );
   }
 }

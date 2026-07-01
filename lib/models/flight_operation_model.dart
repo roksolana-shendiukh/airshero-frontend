@@ -47,28 +47,28 @@ class FlightOperationModel {
 
   factory FlightOperationModel.fromJson(Map<String, dynamic> json) =>
       FlightOperationModel(
-        flightOperationId:      (json['flightOperationId'] as num).toInt(),
-        flightId:               (json['flightId'] as num).toInt(),
-        flightNumber:           json['flightNumber'] as String?,
-        departsCode:            json['departsCode'] as String?,
-        arrivesCode:            json['arrivesCode'] as String?,
-        departsDatetime:        json['departsDatetime'] != null
-            ? DateTime.parse(json['departsDatetime'] as String) : null,
-        arrivesDatetime:        json['arrivesDdatetime'] != null
-            ? DateTime.parse(json['arrivesDdatetime'] as String) : null,
-        statusId:               (json['statusId'] as num).toInt(),
-        statusName:             json['statusName'] as String?,
-        airfleetId:             (json['airfleetId'] as num?)?.toInt(),
-        airlineName: json['airlineName'] as String?,
-        aircraftModel:          json['aircraftModel'] as String?,
-        gateId:                 (json['gateId'] as num?)?.toInt(),
-        gateCode:               json['gateCode'] as String?,
-        actualDepartureDatetime: json['actualDepartureDatetime'] as String?,
-        actualArrivalDatetime:   json['actualArrivalDatetime'] as String?,
-        boardingStartTime:       json['boardingStartTime'] as String?,
-        boardingEndTime:         json['boardingEndTime'] as String?,
-        baggageLoadingStartTime: json['baggageLoadingStartTime'] as String?,
-        baggageLoadingEndTime:   json['baggageLoadingEndTime'] as String?,
-        stateDescription:        json['stateDescription'] as String?,
+        flightOperationId:       (json['flight_operation_id'] as num).toInt(),
+        flightId:                (json['flight_id'] as num).toInt(),
+        flightNumber:            json['flight_number'] as String?,
+        departsCode:             json['departs_code'] as String?,
+        arrivesCode:             json['arrives_code'] as String?,
+        departsDatetime:         json['departs_datetime'] != null
+            ? DateTime.parse(json['departs_datetime'] as String) : null,
+        arrivesDatetime:         json['arrives_datetime'] != null
+            ? DateTime.parse(json['arrives_datetime'] as String) : null,
+        statusId:                (json['status_id'] as num).toInt(),
+        statusName:              json['status_name'] as String?,
+        airfleetId:              (json['airfleet_id'] as num?)?.toInt(),
+        airlineName:             json['airline_name'] as String?,
+        aircraftModel:           json['aircraft_model'] as String?,
+        gateId:                  (json['gate_id'] as num?)?.toInt(),
+        gateCode:                json['gate_code'] as String?,
+        actualDepartureDatetime: json['actual_departure_datetime'] as String?,
+        actualArrivalDatetime:   json['actual_arrival_datetime'] as String?,
+        boardingStartTime:       json['boarding_start_time'] as String?,
+        boardingEndTime:         json['boarding_end_time'] as String?,
+        baggageLoadingStartTime: json['baggage_loading_start_time'] as String?,
+        baggageLoadingEndTime:   json['baggage_loading_end_time'] as String?,
+        stateDescription:        json['state_description'] as String?,
       );
 }

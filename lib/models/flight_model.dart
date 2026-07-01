@@ -35,30 +35,28 @@ class FlightModel {
     required this.flightStatus,
   });
 
-  factory FlightModel.fromJson(Map<String, dynamic> json) {
-    return FlightModel(
-      flightId:      (json['flightId'] as num?)?.toInt() ?? 0,
-      flightClassId: (json['flightClassId'] as num?)?.toInt() ?? 0,
-      flightPriceId: (json['flightPriceId'] as num?)?.toInt() ?? 0,
-      flightNumber:  json['flightNumber'] as String? ?? 'N/A',
-      airlineName:   json['airlineName'] as String? ?? 'Unknown',
-      airlineLogoUrl: json['airlineLogoUrl'] as String?,
-      departsCode:   json['departsCode'] as String? ?? '',
-      departsAirport: json['departsAirport'] as String? ?? '',
-      arrivesCode:   json['arrivesCode'] as String? ?? '',
-      arrivesAirport: json['arrivesAirport'] as String? ?? '',
-      departsDatetime: json['departsDatetime'] != null
-          ? DateTime.parse(json['departsDatetime'] as String)
-          : DateTime.now(),
-      arrivesDatetime: json['arrivesDatetime'] != null
-          ? DateTime.parse(json['arrivesDatetime'] as String)
-          : DateTime.now(),
-      flightDuration: json['flightDuration'] as String? ?? '0:00',
-      className:     json['className'] as String? ?? 'Economy',
-      ticketPrice:   (json['ticketPrice'] as num?)?.toDouble() ?? 0.0,
-      flightStatus:  json['flightStatus'] as String? ?? '',
-    );
-  }
+  factory FlightModel.fromJson(Map<String, dynamic> json) => FlightModel(
+        flightId:        (json['flight_id'] as num?)?.toInt() ?? 0,
+        flightClassId:   (json['flight_class_id'] as num?)?.toInt() ?? 0,
+        flightPriceId:   (json['flight_price_id'] as num?)?.toInt() ?? 0,
+        flightNumber:    json['flight_number'] as String? ?? 'N/A',
+        airlineName:     json['airline_name'] as String? ?? 'Unknown',
+        airlineLogoUrl:  json['airline_logo_url'] as String?,
+        departsCode:     json['departs_code'] as String? ?? '',
+        departsAirport:  json['departs_airport'] as String? ?? '',
+        arrivesCode:     json['arrives_code'] as String? ?? '',
+        arrivesAirport:  json['arrives_airport'] as String? ?? '',
+        departsDatetime: json['departs_datetime'] != null
+            ? DateTime.parse(json['departs_datetime'] as String)
+            : DateTime.now(),
+        arrivesDatetime: json['arrives_datetime'] != null
+            ? DateTime.parse(json['arrives_datetime'] as String)
+            : DateTime.now(),
+        flightDuration:  json['flight_duration'] as String? ?? '0:00',
+        className:       json['class_name'] as String? ?? 'Economy',
+        ticketPrice:     (json['ticket_price'] as num?)?.toDouble() ?? 0.0,
+        flightStatus:    json['flight_status'] as String? ?? '',
+      );
 
   String get departureTime =>
       '${departsDatetime.hour.toString().padLeft(2, '0')}:${departsDatetime.minute.toString().padLeft(2, '0')}';

@@ -7,7 +7,7 @@ class FlightWithoutOperationModel {
   final DateTime departsDatetime;
   final DateTime arrivesDatetime;
   final String flightStatus;
-  final String? airlineName; 
+  final String? airlineName;
 
   const FlightWithoutOperationModel({
     required this.flightId,
@@ -18,20 +18,20 @@ class FlightWithoutOperationModel {
     required this.departsDatetime,
     required this.arrivesDatetime,
     required this.flightStatus,
-    this.airlineName, 
+    this.airlineName,
   });
 
   factory FlightWithoutOperationModel.fromJson(Map<String, dynamic> json) =>
       FlightWithoutOperationModel(
-        flightId:         (json['flightId'] as num).toInt(),
-        flightNumber:     json['flightNumber'] as String,
-        departsAirportId: (json['departsAirportId'] as num).toInt(),
-        departsCode:      json['departsCode'] as String,
-        arrivesCode:      json['arrivesCode'] as String,
-        departsDatetime:  DateTime.parse(json['departsDatetime'] as String),
-        arrivesDatetime:  DateTime.parse(json['arrivesDatetime'] as String),
-        flightStatus:     json['flightStatus'] as String,
-        airlineName:      json['airlineName'] as String?,
+        flightId:         (json['flight_id'] as num).toInt(),
+        flightNumber:     json['flight_number'] as String,
+        departsAirportId: (json['departs_airport_id'] as num).toInt(),
+        departsCode:      json['departs_code'] as String,
+        arrivesCode:      json['arrives_code'] as String,
+        departsDatetime:  DateTime.parse(json['departs_datetime'] as String),
+        arrivesDatetime:  DateTime.parse(json['arrives_datetime'] as String),
+        flightStatus:     json['flight_status'] as String,
+        airlineName:      json['airline_name'] as String?,
       );
 
   String get label =>
