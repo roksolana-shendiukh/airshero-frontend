@@ -9,7 +9,7 @@ class FlightOperationStateModel {
 
   factory FlightOperationStateModel.fromJson(Map<String, dynamic> json) =>
       FlightOperationStateModel(
-        stateId:     (json['stateId'] as num).toInt(),
+        stateId:     (json['state_id'] as num).toInt(),
         description: json['description'] as String,
       );
 }
