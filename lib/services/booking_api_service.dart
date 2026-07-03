@@ -141,7 +141,7 @@ class BookingApiService {
       uri,
       headers: await _headers(),
       body: jsonEncode({
-        'paymentMethodId': paymentMethodId,
+        'payment_method_id': paymentMethodId,
         'status': status,
         'amount': amount,
         if (email != null) 'email': email,
@@ -223,16 +223,15 @@ class BookingApiService {
     try {
       final uri = Uri.parse('${AppConfig.baseUrl}/flights/filter');
       
-      // Збираємо тільки non-null значення
       final Map<String, dynamic> body = {
-        'flightIds': flightIds,
-        'sortBy': sortBy,
+        'flight_ids': flightIds,
+        'sort_by': sortBy,
       };
-      if (classNames != null && classNames.isNotEmpty) body['classNames'] = classNames;
-      if (minPrice != null) body['minPrice'] = minPrice;
-      if (maxPrice != null) body['maxPrice'] = maxPrice;
-      if (airlineNames != null && airlineNames.isNotEmpty) body['airlineNames'] = airlineNames;
-      if (departureSlots != null && departureSlots.isNotEmpty) body['departureSlots'] = departureSlots;
+      if (classNames != null && classNames.isNotEmpty) body['class_names'] = classNames;
+      if (minPrice != null) body['min_price'] = minPrice;
+      if (maxPrice != null) body['max_price'] = maxPrice;
+      if (airlineNames != null && airlineNames.isNotEmpty) body['airline_names'] = airlineNames;
+      if (departureSlots != null && departureSlots.isNotEmpty) body['departure_slots'] = departureSlots;
 
       debugPrint('filterFlights body: ${jsonEncode(body)}');
 
