@@ -12,7 +12,7 @@ class AirlineApiService {
     final token = await _authService.getToken();
     return {
       'Content-Type': 'application/json',
-      'Authorization': 'Bearer $token',
+      if (token != null) 'Authorization': 'Bearer $token',
     };
   }
 
@@ -27,9 +27,7 @@ class AirlineApiService {
       }
       return null;
     } catch (e) {
-      
       return null;
     }
   }
 }
-
