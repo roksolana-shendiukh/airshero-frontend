@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
-import '../models/baggage_models.dart';
+import '../models/baggage_model.dart';
 import '../services/auth_service.dart';
 
 class BaggageApiService {
