@@ -77,9 +77,9 @@ class _CheckInPageState extends State<CheckInPage> {
     }
     setState(() {
       _selectedFlight    = flight;
-      _flightNumber      = flight['flightNumber'] as String?;
-      _flightOperationId = flight['flightOperationId'] as int?;
-      _departDate        = DateTime.tryParse(flight['departsDatetime'] as String? ?? '');
+      _flightNumber      = flight['flight_number'] as String?;
+      _flightOperationId = flight['flight_operation_id'] as int?;
+      _departDate        = DateTime.tryParse(flight['departs_datetime'] as String? ?? '');
       _currentStep       = CheckInStep.search;
     });
   }
@@ -133,12 +133,12 @@ class _CheckInPageState extends State<CheckInPage> {
     setState(() {
       _documentNumber       = documentNumber;
       _bookingData          = booking;
-      _passengerName        = '${booking['passengerName']} ${booking['passengerSurname']}';
-      _passengerDateOfBirth = booking['passengerDateOfBirth'] as String?;
-      _flightClass          = booking['className']         as String?;
-      _flightOperationId    = booking['flightOperationId'] as int?;
-      _passengerClassId     = booking['classId']           as int?;
-      _bookingItemId        = booking['bookingItemId']     as int?;
+      _passengerName        = '${booking['passenger_name']} ${booking['passenger_surname']}';
+      _passengerDateOfBirth = booking['passenger_date_of_birth'] as String?;
+      _flightClass          = booking['class_name']          as String?;
+      _flightOperationId    = booking['flight_operation_id'] as int?;
+      _passengerClassId     = booking['class_id']            as int?;
+      _bookingItemId        = booking['booking_item_id']     as int?;
       _currentStep          = CheckInStep.confirmPassenger;
     });
   }
@@ -270,8 +270,8 @@ class _CheckInPageState extends State<CheckInPage> {
                   status:            'Paid',
                 );
                 setState(() {
-                  _ticketNumber   = result['ticketNumber'] as String?;
-                  _boardingPassId = result['boardingPassId'] as int?;
+                  _ticketNumber   = result['ticket_number'] as String?;
+                  _boardingPassId = result['boarding_pass_id'] as int?;
                   _issuedBags     = List<Map<String, dynamic>>.from(result['bags'] ?? []);
                   _currentStep    = CheckInStep.boardingPass;
                 });
@@ -318,11 +318,11 @@ class _CheckInPageState extends State<CheckInPage> {
               flightClass:    _flightClass   ?? '—',
               seat:           _selectedSeat  ?? '—',
               departDate:     _departDate!,
-              departsAirport: _selectedFlight?['departsAirport'] as String? ?? '—',
-              arrivesAirport: _selectedFlight?['arrivesAirport'] as String? ?? '—',
-              departsTime:    _selectedFlight?['departsDatetime'] as String? ?? '—',
-              arrivesTime:    _selectedFlight?['arrivesDatetime'] as String? ?? '—',
-              gate:           _selectedFlight?['gateCode']        as String? ?? '—',
+              departsAirport: _selectedFlight?['departs_airport'] as String? ?? '—',
+              arrivesAirport: _selectedFlight?['arrives_airport'] as String? ?? '—',
+              departsTime:    _selectedFlight?['departs_datetime'] as String? ?? '—',
+              arrivesTime:    _selectedFlight?['arrives_datetime'] as String? ?? '—',
+              gate:           _selectedFlight?['gate_code']        as String? ?? '—',
               showActions:    false, 
               onNewPassenger: _resetForNextPassenger,
             ),
