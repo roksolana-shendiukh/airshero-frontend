@@ -259,7 +259,7 @@ class FlightOperationApiService {
       final response = await http.post(
         Uri.parse('${AppConfig.baseUrl}/flight-operations/$operationId/crew'),
         headers: await _headers(),
-        body: jsonEncode({'crewId': crewId}),
+        body: jsonEncode({'crew_id': crewId}),
       );
       if (response.statusCode == 201) {
         return (success: true, error: null);
