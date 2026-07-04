@@ -85,11 +85,11 @@ class CrewApiService {
         Uri.parse('${AppConfig.baseUrl}/crew'),
         headers: await _headers(),
         body: jsonEncode({
-          'firstName':       firstName,
-          'lastName':        lastName,
-          'positionId':      positionId,
-          'licenseTypeId':   licenseTypeId,
-          'experienceYears': experienceYears,
+          'first_name':       firstName,
+          'last_name':        lastName,
+          'position_id':      positionId,
+          'license_type_id':  licenseTypeId,
+          'experience_years': experienceYears,
         }),
       );
       if (response.statusCode == 201) {
@@ -116,11 +116,11 @@ class CrewApiService {
         Uri.parse('${AppConfig.baseUrl}/crew/$crewId'),
         headers: await _headers(),
         body: jsonEncode({
-          if (firstName       != null) 'firstName':       firstName,
-          if (lastName        != null) 'lastName':        lastName,
-          if (positionId      != null) 'positionId':      positionId,
-          if (licenseTypeId   != null) 'licenseTypeId':   licenseTypeId,
-          if (experienceYears != null) 'experienceYears': experienceYears,
+          if (firstName       != null) 'first_name':       firstName,
+          if (lastName        != null) 'last_name':        lastName,
+          if (positionId      != null) 'position_id':      positionId,
+          if (licenseTypeId   != null) 'license_type_id':  licenseTypeId,
+          if (experienceYears != null) 'experience_years': experienceYears,
         }),
       );
       if (response.statusCode == 200) {

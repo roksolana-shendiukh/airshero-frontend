@@ -285,5 +285,20 @@ class PassengerApiService {
     }
   }
 
+  Future<String?> getPassengerEmail(int passengerId) async {
+    try {
+      final uri = Uri.parse('${AppConfig.baseUrl}/passengers/$passengerId');
+      final response = await http.get(uri, headers: await _headers());
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['email'] as String?;
+      }
+      debugPrint('Failed to fetch email for passenger $passengerId: ${response.statusCode}');
+      return null;
+    } catch (e) {
+      debugPrint('Network error (getPassengerEmail): $e');
+      return null;
+    }
+  }
 
 }

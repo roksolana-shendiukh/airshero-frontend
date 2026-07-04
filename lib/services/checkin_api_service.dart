@@ -138,7 +138,7 @@ class CheckInApiService {
         uri,
         headers: await _headers(),
         body: jsonEncode({
-          'bagWeights': bagWeights,
+          'bag_weights': bagWeights,
         }),
       );
 
@@ -207,7 +207,7 @@ class CheckInApiService {
     if (response.statusCode == 200) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
-    return {'alreadyCheckedIn': false};
+    return {'already_checked_in': false};
   }
   
   Future<Map<String, dynamic>> getCheckedBaggageWeight(int flightOperationId) async {
