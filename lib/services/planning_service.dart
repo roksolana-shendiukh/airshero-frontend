@@ -149,11 +149,11 @@ class PlanningService {
       uri,
       headers: await _headers(),
       body: jsonEncode({
-        'flightScheduleId': flightScheduleId,
-        'departsDatetime': departsDatetime,
-        'arrivesDatetime': arrivesDatetime,
-        'classPrices': classPrices,
-      }),
+      'flight_schedule_id': flightScheduleId,
+      'departs_datetime':   departsDatetime,
+      'arrives_datetime':   arrivesDatetime,
+      'class_prices':       classPrices,
+    }),
     );
     
     if (response.statusCode == 200) {
@@ -180,7 +180,7 @@ class PlanningService {
     final response = await http.post(
       uri,
       headers: await _headers(),
-      body: jsonEncode({'baggageOptions': options}),  
+      body: jsonEncode({'baggage_options': options}),  
     );
     if (response.statusCode == 200) {
       return jsonDecode(response.body) as Map<String, dynamic>;
@@ -237,12 +237,12 @@ class PlanningService {
       uri,
       headers: await _headers(),
       body: jsonEncode({
-        'airfleetId': airfleetId,
-        'departsAirportId': departsAirportId,
-        'arrivesAirportId': arrivesAirportId,
-        'flightStartDate': flightStartDate,
-        'flightEndDate': flightEndDate,
-        'scheduleGroups': scheduleGroups,
+        'airfleet_id':         airfleetId,
+        'departs_airport_id':  departsAirportId,
+        'arrives_airport_id':  arrivesAirportId,
+        'flight_start_date':   flightStartDate,
+        'flight_end_date':     flightEndDate,
+        'schedule_groups':     scheduleGroups,
       }),
     );
     if (response.statusCode == 200) {
@@ -264,9 +264,9 @@ class PlanningService {
       uri,
       headers: await _headers(),
       body: jsonEncode({
-        'flightStartDate': flightStartDate,
-        'flightEndDate': flightEndDate,
-        'scheduleGroups': scheduleGroups,
+        'flight_start_date': flightStartDate,
+        'flight_end_date':   flightEndDate,
+        'schedule_groups':   scheduleGroups,
       }),
     );
     if (response.statusCode == 200) {
@@ -281,7 +281,7 @@ class PlanningService {
     final response = await http.get(uri, headers: await _headers());
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
-      return data['flightNumber'] as String;
+      return data['flight_number'] as String;
     }
     throw Exception('Failed to generate flight number');
   }
@@ -371,7 +371,7 @@ class PlanningService {
     final response = await http.post(
       uri,
       headers: await _headers(),
-      body: jsonEncode({'classPrices': classPrices}),
+      body: jsonEncode({'class_prices': classPrices}),
     );
     if (response.statusCode != 200) {
       throw Exception('Failed to configure flight: ${response.body}');
@@ -409,7 +409,7 @@ class PlanningService {
     final response = await http.post(
       uri,
       headers: await _headers(),
-      body: jsonEncode({'classPrices': classPrices}),
+      body: jsonEncode({'class_prices': classPrices}),
     );
     if (response.statusCode != 200) {
       throw Exception('Failed to update prices: ${response.body}');
@@ -456,7 +456,7 @@ class PlanningService {
     final response = await http.post(
       uri,
       headers: await _headers(),
-      body: jsonEncode({'flightIds': flightIds}),
+      body: jsonEncode({'flight_ids': flightIds}),
     );
     if (response.statusCode != 200) {
       throw Exception('Failed to confirm flights: ${response.body}');
@@ -472,7 +472,7 @@ class PlanningService {
     final response = await http.post(
       uri,
       headers: await _headers(),
-      body: jsonEncode({'classIds': classIds}),
+      body: jsonEncode({'flight_ids': classIds}),
     );
     if (response.statusCode != 200) {
       throw Exception('Failed to update classes: ${response.body}');
@@ -505,8 +505,8 @@ class PlanningService {
       uri,
       headers: await _headers(),
       body: jsonEncode({
-        'departsDatetime': departsDatetime.toIso8601String(),
-        'arrivesDatetime': arrivesDatetime.toIso8601String(),
+        'departs_datetime': departsDatetime.toIso8601String(),
+        'arrives_datetime': arrivesDatetime.toIso8601String(),
       }),
     );
 
