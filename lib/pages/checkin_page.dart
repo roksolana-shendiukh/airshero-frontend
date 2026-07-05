@@ -226,7 +226,7 @@ class _CheckInPageState extends State<CheckInPage> {
         );
 
       case CheckInStep.selectSeat:
-        if (_flightOperationId == null) return buildFlightOperationError();
+        if (_flightOperationId == null) return const FlightOperationError();
         debugPrint('>>> passengerClassId: $_passengerClassId');
         return CheckInSeatMapStep(
           authService:          widget.authService,
