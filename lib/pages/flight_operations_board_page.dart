@@ -10,10 +10,10 @@ import '../../services/flight_operation_api_service.dart';
 import '../../widgets/responsive_layout.dart';
 import '../widgets/flight_operation/operation_status_bar.dart';
 import '../widgets/flight_operation/board_widgets.dart';
-import '../widgets/flight_operation/gate_picker_dialog.dart';
+import '../../widgets/flight_operation/gate_picker_dialog.dart';
 import '../../constants/board_constants.dart';
 import '../../widgets/custom/custom_select_field.dart';
-import '../../widgets/custom/custom_input_field.dart'; // Імпортуємо інпут
+import '../../widgets/custom/custom_input_field.dart'; 
 import '../widgets/flight_operation/flight_operations_table.dart';
 
 class FlightOperationsBoardPage extends StatefulWidget {

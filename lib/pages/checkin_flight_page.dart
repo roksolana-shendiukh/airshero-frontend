@@ -8,7 +8,6 @@ import '../services/checkin_api_service.dart';
 import '../services/checkin_service.dart';
 import '../widgets/responsive_layout.dart';
 import '../widgets/custom/custom_button.dart';
-import '../widgets/checkin/boarding_pass_modal.dart';
 import '../widgets/checkin/stat_card.dart';
 import '../widgets/checkin/flight_list_body.dart';
 import '../widgets/checkin/active_boarding_body.dart';
