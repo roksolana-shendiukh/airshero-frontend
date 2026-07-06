@@ -56,8 +56,8 @@ class PaymentMethodSelector extends StatelessWidget {
       spacing: 10,
       runSpacing: 10,
       children: methods.map((method) {
-        final id = method['paymentMethodId'] as int;
-        final name = method['paymentMethodName'] as String;
+        final id   = method['payment_method_id']   as int;
+        final name = method['payment_method_name'] as String;
         final isSelected = selectedId == id;
 
         return InkWell(

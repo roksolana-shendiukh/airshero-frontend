@@ -40,10 +40,10 @@ class _FlightSetupPageState extends State<FlightSetupPage> {
     if (_search.isEmpty) return _routes;
     final q = _search.toLowerCase();
     return _routes.where((r) =>
-        (r['flightNumber'] as String).toLowerCase().contains(q) ||
-        (r['departsCode'] as String).toLowerCase().contains(q) ||
-        (r['arrivesCode'] as String).toLowerCase().contains(q) ||
-        (r['aircraftModel'] as String).toLowerCase().contains(q)).toList();
+        (r['flight_number'] as String).toLowerCase().contains(q) ||
+        (r['departs_code'] as String).toLowerCase().contains(q) ||
+        (r['arrives_code'] as String).toLowerCase().contains(q) ||
+        (r['aircraft_model'] as String).toLowerCase().contains(q)).toList();
   }
 
   @override

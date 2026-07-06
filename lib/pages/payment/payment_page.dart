@@ -9,6 +9,7 @@ import '../../services/booking_api_service.dart';
 import '../../widgets/custom/custom_button.dart';
 import '../../models/booking_group_draft.dart';
 import '../../widgets/booking/booking_summary_card.dart';
+import '../../services/payment_api_service.dart';
 
 import 'payment_method_selector.dart';
 import 'partial_payment_manager.dart';
@@ -120,18 +121,19 @@ class _PaymentPageState extends State<PaymentPage> {
   }
 
   Future<void> _initPage() async {
-    final authService = context.read<AuthService>();
-    final api = BookingApiService(authService);
+      final authService = context.read<AuthService>();
+      final bookingApi = BookingApiService(authService);
+      final paymentApi = PaymentApiService(authService);
 
-    await Future.wait([
-      _loadPaymentMethods(api),
-      _updatePassengers(api),
-    ]);
+      await Future.wait([
+        _loadPaymentMethods(paymentApi),
+        _updatePassengers(bookingApi),
+      ]);
 
-    if (mounted) setState(() => _isLoading = false);
-  }
+      if (mounted) setState(() => _isLoading = false);
+    }
 
-  Future<void> _loadPaymentMethods(BookingApiService api) async {
+  Future<void> _loadPaymentMethods(PaymentApiService api) async {
     try {
       final methods = await api.getPaymentMethods();
       if (mounted) setState(() => _paymentMethods = methods);
@@ -210,20 +212,20 @@ class _PaymentPageState extends State<PaymentPage> {
       }
 
       passengers.add({
-        'passenger_id': data['foundPassengerId'],
-        'document_id': data['documentId'],
-        'first_name': data['firstName'],
-        'last_name': data['lastName'],
-        'sex': data['sex'] == 'Male',
-        'email': data['email'],
-        'date_of_birth': formatDate(data['dateOfBirth']),
-        'citizenship_id': data['citizenshipId'],
-        'document_type_id': data['documentTypeId'],
-        'document_number': data['documentNumber'],
-        'document_date_of_issue': formatDate(data['documentIssue']),
-        'document_date_of_expire': formatDate(data['documentExpire']),
-        'flight_price_id': flightPriceId,
-        'return_flight_price_id': returnFlightPriceId,
+        'passenger_id':            data['passenger_id'],
+        'document_id':             data['document_id'],
+        'first_name':              data['first_name'],
+        'last_name':               data['last_name'],
+        'sex':                     data['sex'] == 'Male',
+        'email':                   data['email'],
+        'date_of_birth':           formatDate(data['date_of_birth']),
+        'citizenship_id':          data['citizenship_id'],
+        'document_type_id':        data['document_type_id'],
+        'document_number':         data['document_number'],
+        'document_date_of_issue':  formatDate(data['document_issue']),
+        'document_date_of_expire': formatDate(data['document_expire']),
+        'flight_price_id':         outbound?['flight_price_id'] as int? ?? 0,
+        'return_flight_price_id':  ret?['flight_price_id'] as int?,
         'baggage_items': baggageItems,
       });
     }
@@ -280,7 +282,7 @@ class _PaymentPageState extends State<PaymentPage> {
 
     try {
       final authService = context.read<AuthService>();
-      final api = BookingApiService(authService);
+      final api = PaymentApiService(authService);
 
       if (widget.isMultiSegment) {
         final draft = widget.bookingGroupDraft!;
@@ -298,7 +300,7 @@ class _PaymentPageState extends State<PaymentPage> {
             await api.confirmPayment(
               bookingId: _bookingId1!,
               data: {
-                'paymentMethodId': payment['methodId'],
+                'payment_method_id': payment['methodId'],
                 'status': status,
                 'amount': amount1,
               },
@@ -306,7 +308,7 @@ class _PaymentPageState extends State<PaymentPage> {
             await api.confirmPayment(
               bookingId: _bookingId2!,
               data: {
-                'paymentMethodId': payment['methodId'],
+                'payment_method_id': payment['methodId'],
                 'status': status,
                 'amount': amount2,
               },
@@ -316,7 +318,7 @@ class _PaymentPageState extends State<PaymentPage> {
           await api.confirmPayment(
             bookingId: _bookingId1!,
             data: {
-              'paymentMethodId': _singlePaymentMethodId,
+              'payment_method_id': _singlePaymentMethodId,
               'status': status,
               'amount': seg1Price,
             },
@@ -324,7 +326,7 @@ class _PaymentPageState extends State<PaymentPage> {
           await api.confirmPayment(
             bookingId: _bookingId2!,
             data: {
-              'paymentMethodId': _singlePaymentMethodId,
+              'payment_method_id': _singlePaymentMethodId,
               'status': status,
               'amount': seg2Price,
             },
@@ -337,7 +339,7 @@ class _PaymentPageState extends State<PaymentPage> {
             await api.confirmPayment(
               bookingId: _bookingId!,
               data: {
-                'paymentMethodId': payment['methodId'],
+                'payment_method_id': payment['methodId'],
                 'status': status,
                 'amount': payment['amount'],
               },
@@ -347,7 +349,7 @@ class _PaymentPageState extends State<PaymentPage> {
           await api.confirmPayment(
             bookingId: _bookingId!,
             data: {
-              'paymentMethodId': _singlePaymentMethodId,
+              'payment_method_id': _singlePaymentMethodId,
               'status': status,
               'amount': widget.totalPrice,
             },

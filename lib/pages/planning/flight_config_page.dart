@@ -43,8 +43,7 @@ class _FlightConfigPageState extends State<FlightConfigPage> {
     _service = PlanningService(context.read<AuthService>());
     debugPrint('FLIGHT DATA: ${widget.flights.first}');
   }
-    int get _airfleetId =>
-        widget.flights.first['airfleetId'] as int;
+    int get _airfleetId => widget.flights.first['airfleet_id'] as int;
         
 
     int get _currentIndex => _ConfigStep.values.indexOf(_step);
@@ -97,7 +96,7 @@ class _FlightConfigPageState extends State<FlightConfigPage> {
           .toList();
 
       for (final flight in widget.flights) {
-        final flightId = flight['flightId'] as int;
+        final flightId = flight['flight_id'] as int;
 
         await _service.configureFlight(
           flightId: flightId,
@@ -108,9 +107,9 @@ class _FlightConfigPageState extends State<FlightConfigPage> {
         for (final entry in _enabledBaggageRules.entries) {
           for (final ruleId in entry.value) {
             baggageOptions.add({
-              'classId': entry.key,
-              'baggagePricingRuleId': ruleId,
-              'price': _baggagePrices[entry.key]?[ruleId] ?? 0.0,
+              'class_id':                entry.key,
+              'baggage_pricing_rule_id': ruleId,
+              'price':                   _baggagePrices[entry.key]?[ruleId] ?? 0.0,
             });
           }
         }
@@ -214,8 +213,8 @@ class _FlightConfigPageState extends State<FlightConfigPage> {
                 Text('Configure flights',
                     style: Theme.of(context).textTheme.titleLarge),
                 Text(
-                  '${first['flightNumber']}  ·  '
-                  '${first['departsCode']} → ${first['arrivesCode']}  ·  '
+                  '${first['flight_number']}  ·  '
+                  '${first['departs_code']} → ${first['arrives_code']}  ·  '
                   '${widget.flights.length} flights',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: colors.onSurfaceVariant),

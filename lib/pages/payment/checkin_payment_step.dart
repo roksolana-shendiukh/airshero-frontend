@@ -127,8 +127,8 @@ class _CheckInPaymentStepState extends State<CheckInPaymentStep> {
         _showFailedDialog();
       } else {
         _showSuccessDialog(
-          result['ticketNumber']   as String,
-          result['boardingPassId'] as int,
+          result['ticket_number']    as String,
+          result['boarding_pass_id'] as int,
         );
       }
     } catch (e) {

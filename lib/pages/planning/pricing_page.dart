@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
 import '../../services/planning_service.dart';
 import '../../widgets/responsive_layout.dart';
-import '../../widgets/custom/custom_select_field.dart';
 import '../../widgets/planning/pricing/pricing_route_card.dart';
 
 class PricingPage extends StatefulWidget {
@@ -53,10 +52,10 @@ class _PricingPageState extends State<PricingPage> {
     if (_search.isEmpty) return _routes;
     final q = _search.toLowerCase();
     return _routes.where((r) =>
-        (r['flightNumber'] as String).toLowerCase().contains(q) ||
-        (r['departsCode'] as String).toLowerCase().contains(q) ||
-        (r['arrivesCode'] as String).toLowerCase().contains(q) ||
-        (r['aircraftModel'] as String).toLowerCase().contains(q)).toList();
+        (r['flight_number'] as String).toLowerCase().contains(q) ||
+        (r['departs_code'] as String).toLowerCase().contains(q) ||
+        (r['arrives_code'] as String).toLowerCase().contains(q) ||
+        (r['aircraft_model'] as String).toLowerCase().contains(q)).toList();
   }
 
   void _onSearchChanged(String v) => setState(() => _search = v);
