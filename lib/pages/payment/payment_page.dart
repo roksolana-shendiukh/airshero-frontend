@@ -121,16 +121,17 @@ class _PaymentPageState extends State<PaymentPage> {
   }
 
   Future<void> _initPage() async {
-    final authService = context.read<AuthService>();
-    final api = BookingApiService(authService);
+      final authService = context.read<AuthService>();
+      final bookingApi = BookingApiService(authService);
+      final paymentApi = PaymentApiService(authService);
 
-    await Future.wait([
-      _loadPaymentMethods(api),
-      _updatePassengers(api),
-    ]);
+      await Future.wait([
+        _loadPaymentMethods(paymentApi),
+        _updatePassengers(bookingApi),
+      ]);
 
-    if (mounted) setState(() => _isLoading = false);
-  }
+      if (mounted) setState(() => _isLoading = false);
+    }
 
   Future<void> _loadPaymentMethods(PaymentApiService api) async {
     try {
