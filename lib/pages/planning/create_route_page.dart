@@ -45,8 +45,7 @@ class _CreateRoutePageState extends State<CreateRoutePage> {
         return _selectedAirfleet != null &&
             _selectedDepartsAirport != null &&
             _selectedArrivesAirport != null &&
-            (_selectedDepartsAirport!['airportId'] !=
-                _selectedArrivesAirport!['airportId']);
+            (_selectedDepartsAirport!['airport_id'] != _selectedArrivesAirport!['airport_id']);
       case 'schedule':
         return _scheduleGroups.isNotEmpty &&
             _flightStartDate != null &&
@@ -85,9 +84,9 @@ class _CreateRoutePageState extends State<CreateRoutePage> {
     setState(() => _isSubmitting = true);
     try {
       final result = await _service.createRoute(
-        airfleetId: _selectedAirfleet!['airfleetId'] as int,
-        departsAirportId: _selectedDepartsAirport!['airportId'] as int,
-        arrivesAirportId: _selectedArrivesAirport!['airportId'] as int,
+        airfleetId:       _selectedAirfleet!['airfleet_id'] as int,
+        departsAirportId: _selectedDepartsAirport!['airport_id'] as int,
+        arrivesAirportId: _selectedArrivesAirport!['airport_id'] as int,
         flightStartDate: _flightStartDate!.toIso8601String().split('T')[0],
         flightEndDate: _flightEndDate!.toIso8601String().split('T')[0],
         scheduleGroups: _scheduleGroups,
