@@ -251,7 +251,7 @@ class _PlanningFlightsPageState extends State<PlanningFlightsPage> {
 Future<void> _onEditTap(OverviewFlight flight) async {
   DateTime selectedDate = flight.departsDatetime;
   String depTime = '${flight.departsDatetime.hour.toString().padLeft(2, '0')}:${flight.departsDatetime.minute.toString().padLeft(2, '0')}';
-  String arrTime = '${flight.arrivesDattime.hour.toString().padLeft(2, '0')}:${flight.arrivesDattime.minute.toString().padLeft(2, '0')}';
+  String arrTime = '${flight.arrivesDatetime.hour.toString().padLeft(2, '0')}:${flight.arrivesDatetime.minute.toString().padLeft(2, '0')}';
   
   String? errorMessage;
 
