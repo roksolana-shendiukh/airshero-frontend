@@ -9,6 +9,7 @@ import '../../services/booking_api_service.dart';
 import '../../widgets/custom/custom_button.dart';
 import '../../models/booking_group_draft.dart';
 import '../../widgets/booking/booking_summary_card.dart';
+import '../../services/payment_api_service.dart';
 
 import 'payment_method_selector.dart';
 import 'partial_payment_manager.dart';
@@ -131,7 +132,7 @@ class _PaymentPageState extends State<PaymentPage> {
     if (mounted) setState(() => _isLoading = false);
   }
 
-  Future<void> _loadPaymentMethods(BookingApiService api) async {
+  Future<void> _loadPaymentMethods(PaymentApiService api) async {
     try {
       final methods = await api.getPaymentMethods();
       if (mounted) setState(() => _paymentMethods = methods);
@@ -280,7 +281,7 @@ class _PaymentPageState extends State<PaymentPage> {
 
     try {
       final authService = context.read<AuthService>();
-      final api = BookingApiService(authService);
+      final api = PaymentApiService(authService);
 
       if (widget.isMultiSegment) {
         final draft = widget.bookingGroupDraft!;
