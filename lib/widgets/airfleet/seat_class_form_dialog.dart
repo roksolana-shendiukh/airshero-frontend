@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../services/airfleet_crud_api_service.dart';
+import '../../services/seat_layout_api_service.dart';
 
 class SeatClassFormDialog extends StatefulWidget {
-  final AirfleetCrudApiService api;
+  final SeatLayoutApiService api;
   final int airfleetId;
   final Map<String, dynamic>? layout;
   final List<Map<String, dynamic>> seatTypes;
@@ -30,7 +30,6 @@ class _SeatClassFormDialogState extends State<SeatClassFormDialog> {
 
   bool get _isEdit => widget.layout != null;
 
-  // Доступні класи кабіни
   static const _cabinClasses = [
     {'id': 1, 'name': 'First'},
     {'id': 2, 'name': 'Business'},
@@ -42,12 +41,10 @@ class _SeatClassFormDialogState extends State<SeatClassFormDialog> {
   void initState() {
     super.initState();
     final l = widget.layout;
-    _rows = TextEditingController(
-        text: l?['seatLayoutRows']?.toString() ?? '');
-    _cols = TextEditingController(
-        text: l?['seatLayoutColumns']?.toString() ?? '');
-    _classId    = l?['classId'] as int?;
-    _seatTypeId = l?['seatTypeId'] as int?;
+    _rows       = TextEditingController(text: l?['seat_layout_rows']?.toString() ?? '');
+    _cols       = TextEditingController(text: l?['seat_layout_columns']?.toString() ?? '');
+    _classId    = l?['class_id'] as int?;
+    _seatTypeId = l?['seat_type_id'] as int?;
   }
 
   @override
@@ -76,7 +73,7 @@ class _SeatClassFormDialogState extends State<SeatClassFormDialog> {
     try {
       if (_isEdit) {
         await widget.api.updateSeatLayout(
-          seatLayoutId: widget.layout!['seatLayoutId'] as int,
+          seatLayoutId: widget.layout!['seat_layout_id'] as int,
           classId:      _classId!,
           seatTypeId:   _seatTypeId!,
           rows:         int.parse(_rows.text),
@@ -119,7 +116,6 @@ class _SeatClassFormDialogState extends State<SeatClassFormDialog> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header
                 Row(
                   children: [
                     Text(
@@ -129,9 +125,9 @@ class _SeatClassFormDialogState extends State<SeatClassFormDialog> {
                     ),
                     const Spacer(),
                     IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.pop(context),
-                      padding: EdgeInsets.zero,
+                      icon:        const Icon(Icons.close),
+                      onPressed:   () => Navigator.pop(context),
+                      padding:     EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                     ),
                   ],
@@ -139,14 +135,12 @@ class _SeatClassFormDialogState extends State<SeatClassFormDialog> {
                 const SizedBox(height: 4),
                 Text(
                   'Define rows, columns and seat type for this class',
-                  style: TextStyle(
-                      fontSize: 11, color: colors.onSurfaceVariant),
+                  style: TextStyle(fontSize: 11, color: colors.onSurfaceVariant),
                 ),
                 const SizedBox(height: 20),
 
-                // Cabin class dropdown
                 DropdownButtonFormField<int>(
-                  value: _classId,
+                  value:     _classId,
                   decoration: _dec('Cabin class *'),
                   items: _cabinClasses
                       .map((c) => DropdownMenuItem<int>(
@@ -159,16 +153,13 @@ class _SeatClassFormDialogState extends State<SeatClassFormDialog> {
                 ),
                 const SizedBox(height: 12),
 
-                // Seat type dropdown
                 DropdownButtonFormField<int>(
-                  value: _seatTypeId,
+                  value:     _seatTypeId,
                   decoration: _dec('Seat type *'),
                   items: widget.seatTypes
                       .map((t) => DropdownMenuItem<int>(
-                            value: t['seatTypeId'] as int,
-                            child: Text(t['seatTypeName'] as String? ??
-                                t['typeName'] as String? ??
-                                '—'),
+                            value: t['seat_type_id'] as int,
+                            child: Text(t['seat_type_name'] as String? ?? '—'),
                           ))
                       .toList(),
                   validator: (v) => v == null ? 'Required' : null,
@@ -176,10 +167,9 @@ class _SeatClassFormDialogState extends State<SeatClassFormDialog> {
                 ),
                 const SizedBox(height: 12),
 
-                // Rows
                 TextFormField(
-                  controller: _rows,
-                  decoration: _dec('Number of rows *'),
+                  controller:   _rows,
+                  decoration:   _dec('Number of rows *'),
                   keyboardType: TextInputType.number,
                   validator: (v) {
                     if (v == null || v.isEmpty) return 'Required';
@@ -191,13 +181,12 @@ class _SeatClassFormDialogState extends State<SeatClassFormDialog> {
                 ),
                 const SizedBox(height: 12),
 
-                // Columns
                 TextFormField(
                   controller: _cols,
                   decoration: _dec('Columns layout *').copyWith(
-                    helperText: 'e.g. "3 3" for 3+3, "2 4 2" for 2+4+2',
-                    helperStyle:
-                        TextStyle(fontSize: 10, color: colors.onSurfaceVariant),
+                    helperText:  'e.g. "3 3" for 3+3, "2 4 2" for 2+4+2',
+                    helperStyle: TextStyle(
+                        fontSize: 10, color: colors.onSurfaceVariant),
                   ),
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) return 'Required';
@@ -206,13 +195,11 @@ class _SeatClassFormDialogState extends State<SeatClassFormDialog> {
                 ),
                 const SizedBox(height: 8),
 
-                // Preview
                 if (_cols.text.trim().isNotEmpty && _rows.text.isNotEmpty)
                   _buildPreview(colors),
 
                 const SizedBox(height: 20),
 
-                // Actions
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
@@ -225,8 +212,9 @@ class _SeatClassFormDialogState extends State<SeatClassFormDialog> {
                       onPressed: _saving ? null : _save,
                       child: _saving
                           ? const SizedBox(
-                              width: 16, height: 16,
-                              child: CircularProgressIndicator(
+                              width:  16,
+                              height: 16,
+                              child:  CircularProgressIndicator(
                                   strokeWidth: 2, color: Colors.white))
                           : Text(_isEdit ? 'Save' : 'Add class'),
                     ),
@@ -260,10 +248,10 @@ class _SeatClassFormDialogState extends State<SeatClassFormDialog> {
                 : const Color(0xFF1D9E75);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin:  const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: colors.surfaceContainerHigh,
+        color:        colors.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -271,38 +259,42 @@ class _SeatClassFormDialogState extends State<SeatClassFormDialog> {
         children: [
           Text('Preview',
               style: TextStyle(
-                  fontSize: 10,
-                  color: colors.onSurfaceVariant,
+                  fontSize:   10,
+                  color:      colors.onSurfaceVariant,
                   fontWeight: FontWeight.w500)),
           const SizedBox(height: 6),
-          ...List.generate(rowCount, (r) => Padding(
-            padding: const EdgeInsets.only(bottom: 3),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                  width: 16,
-                  child: Text('${r + 1}',
-                      style: TextStyle(
-                          fontSize: 9, color: colors.onSurfaceVariant)),
-                ),
-                ...parts.asMap().entries.expand((e) => [
-                  if (e.key > 0) const SizedBox(width: 5),
-                  ...List.generate(
-                    e.value,
-                    (_) => Container(
-                      width: 16, height: 16,
-                      margin: const EdgeInsets.only(right: 2),
-                      decoration: BoxDecoration(
-                        color: classColor.withValues(alpha: 0.7),
-                        borderRadius: BorderRadius.circular(2),
+          ...List.generate(
+            rowCount,
+            (r) => Padding(
+              padding: const EdgeInsets.only(bottom: 3),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 16,
+                    child: Text('${r + 1}',
+                        style: TextStyle(
+                            fontSize: 9, color: colors.onSurfaceVariant)),
+                  ),
+                  ...parts.asMap().entries.expand((e) => [
+                    if (e.key > 0) const SizedBox(width: 5),
+                    ...List.generate(
+                      e.value,
+                      (_) => Container(
+                        width:  16,
+                        height: 16,
+                        margin: const EdgeInsets.only(right: 2),
+                        decoration: BoxDecoration(
+                          color:        classColor.withValues(alpha: 0.7),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
                       ),
                     ),
-                  ),
-                ]),
-              ],
+                  ]),
+                ],
+              ),
             ),
-          )),
+          ),
           if ((int.tryParse(_rows.text) ?? 0) > 4)
             Text('+ ${(int.tryParse(_rows.text) ?? 0) - 4} more rows',
                 style: TextStyle(
@@ -313,10 +305,9 @@ class _SeatClassFormDialogState extends State<SeatClassFormDialog> {
   }
 
   InputDecoration _dec(String label) => InputDecoration(
-        labelText: label,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        isDense: true,
+        labelText:      label,
+        border:         OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        isDense:        true,
       );
 }
