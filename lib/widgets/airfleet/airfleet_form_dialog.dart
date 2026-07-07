@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import '../../services/airfleet_crud_api_service.dart';
+import '../../services/airfleet_api_service.dart';
 
 class AirfleetFormDialog extends StatefulWidget {
-  final AirfleetCrudApiService api;
+  final AirfleetApiService api;
   final Map<String, dynamic>? airfleet;
   final List<Map<String, dynamic>> manufacturers;
 
@@ -30,7 +30,6 @@ class _AirfleetFormDialogState extends State<AirfleetFormDialog> {
   int? _manufacturerId;
   bool _saving = false;
 
-  // Фото
   final List<_PhotoEntry> _photos = [];
   bool _uploadingPhoto = false;
 
@@ -40,13 +39,13 @@ class _AirfleetFormDialogState extends State<AirfleetFormDialog> {
   void initState() {
     super.initState();
     final a = widget.airfleet;
-    _model   = TextEditingController(text: a?['aircraftModel'] ?? '');
-    _seats   = TextEditingController(text: a?['seatCapacity']?.toString() ?? '');
-    _speed   = TextEditingController(text: a?['aircraftSpeed']?.toString() ?? '');
-    _range   = TextEditingController(text: a?['aircraftRangeKm']?.toString() ?? '');
-    _baggage = TextEditingController(text: a?['baggageCapacity']?.toString() ?? '');
-    _fuel    = TextEditingController(text: a?['aircraftFuelConsumption']?.toString() ?? '');
-    _manufacturerId = a?['manufacturerId'] as int? ?? a?['airfleetManufacturerId'] as int?;
+    _model   = TextEditingController(text: a?['aircraft_model'] ?? '');
+    _seats   = TextEditingController(text: a?['seat_capacity']?.toString() ?? '');
+    _speed   = TextEditingController(text: a?['aircraft_speed']?.toString() ?? '');
+    _range   = TextEditingController(text: a?['aircraft_range_km']?.toString() ?? '');
+    _baggage = TextEditingController(text: a?['baggage_capacity']?.toString() ?? '');
+    _fuel    = TextEditingController(text: a?['aircraft_fuel_consumption']?.toString() ?? '');
+    _manufacturerId = a?['airfleet_manufacturer_id'] as int?;
   }
 
   @override
@@ -72,7 +71,7 @@ class _AirfleetFormDialogState extends State<AirfleetFormDialog> {
     if (result == null || result.files.isEmpty) return;
 
     setState(() => _uploadingPhoto = true);
-    final airfleetId = widget.airfleet!['airfleetId'] as int;
+    final airfleetId = widget.airfleet!['airfleet_id'] as int;
 
     for (final file in result.files) {
       if (file.bytes == null) continue;
@@ -100,7 +99,7 @@ class _AirfleetFormDialogState extends State<AirfleetFormDialog> {
     try {
       if (_isEdit) {
         await widget.api.updateAirfleet(
-          airfleetId:       widget.airfleet!['airfleetId'] as int,
+          airfleetId: widget.airfleet!['airfleet_id'] as int,
           manufacturerId:   _manufacturerId!,
           model:            _model.text.trim(),
           rangeKm:          double.parse(_range.text),
@@ -176,12 +175,12 @@ class _AirfleetFormDialogState extends State<AirfleetFormDialog> {
                       _field('Model *', _model, required: true),
                       const SizedBox(height: 10),
                       DropdownButtonFormField<int>(
-                        value: _manufacturerId,
+                        initialValue: _manufacturerId,
                         decoration: _dec('Manufacturer *'),
                         items: widget.manufacturers
                             .map((m) => DropdownMenuItem<int>(
-                                  value: m['manufacturerId'] as int,
-                                  child: Text(m['manufacturerName'] as String),
+                                  value: m['airfleet_manufacturer_id'] as int,
+                                  child: Text(m['airfleet_manufacturer_name'] as String),
                                 ))
                             .toList(),
                         validator: (v) => v == null ? 'Required' : null,
