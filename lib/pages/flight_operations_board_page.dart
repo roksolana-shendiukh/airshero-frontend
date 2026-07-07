@@ -133,7 +133,6 @@ class _FlightOperationsBoardPageState extends State<FlightOperationsBoardPage> {
       builder: (context) => GatePickerDialog(
         operationId: operationId,
         api: _apiService,
-        operation: row.operation!,
       ),
     );
 

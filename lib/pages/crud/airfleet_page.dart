@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
-import '../../services/airfleet_crud_api_service.dart';
+import '../../services/airfleet_api_service.dart';
+import '../../services/airfleet_manufacturer_api_service.dart';
+import '../../services/seat_layout_api_service.dart';
 import '../../services/flight_operation_api_service.dart';
 import '../../services/planning_service.dart';
 import '../../widgets/responsive_layout.dart';
@@ -18,22 +20,26 @@ class AirfleetPage extends StatefulWidget {
 }
 
 class _AirfleetPageState extends State<AirfleetPage> {
-  late final AirfleetCrudApiService _api;
-  late final FlightOperationApiService _flightApi;
-  late final PlanningService _planningService;
+  late final AirfleetApiService             _api;
+  late final AirfleetManufacturerApiService _manufacturerApi;
+  late final SeatLayoutApiService           _seatLayoutApi;
+  late final FlightOperationApiService      _flightApi;
+  late final PlanningService                _planningService;
 
-  List<Map<String, dynamic>> _airfleets = [];
+  List<Map<String, dynamic>> _airfleets     = [];
   List<Map<String, dynamic>> _manufacturers = [];
-  Map<String, dynamic>? _selected;
-  bool _loading = true;
+  Map<String, dynamic>?      _selected;
+  bool    _loading = true;
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    final auth = context.read<AuthService>();
-    _api = AirfleetCrudApiService(auth);
-    _flightApi = FlightOperationApiService(auth);
+    final auth       = context.read<AuthService>();
+    _api             = AirfleetApiService(auth);
+    _manufacturerApi = AirfleetManufacturerApiService(auth);
+    _seatLayoutApi   = SeatLayoutApiService(auth);
+    _flightApi       = FlightOperationApiService(auth);
     _planningService = PlanningService(auth);
     _loadData();
   }
@@ -43,15 +49,15 @@ class _AirfleetPageState extends State<AirfleetPage> {
     try {
       final results = await Future.wait([
         _api.getAirfleets(),
-        _api.getManufacturers(),
+        _manufacturerApi.getManufacturers(),
       ]);
       if (!mounted) return;
       setState(() {
-        _airfleets = results[0] as List<Map<String, dynamic>>;
+        _airfleets     = results[0] as List<Map<String, dynamic>>;
         _manufacturers = results[1] as List<Map<String, dynamic>>;
         if (_selected != null) {
           _selected = _airfleets.firstWhere(
-            (a) => a['airfleetId'] == _selected!['airfleetId'],
+            (a) => a['airfleet_id'] == _selected!['airfleet_id'],
             orElse: () => {},
           );
           if (_selected!.isEmpty) _selected = null;
@@ -68,8 +74,8 @@ class _AirfleetPageState extends State<AirfleetPage> {
     final result = await showDialog<bool>(
       context: context,
       builder: (_) => AirfleetFormDialog(
-        api: _api,
-        airfleet: airfleet,
+        api:           _api,
+        airfleet:      airfleet,
         manufacturers: _manufacturers,
       ),
     );
@@ -80,8 +86,8 @@ class _AirfleetPageState extends State<AirfleetPage> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Delete Aircraft?'),
-        content: Text('Permanently remove ${a['aircraftModel']}?'),
+        title:   const Text('Delete Aircraft?'),
+        content: Text('Permanently remove ${a['aircraft_model']}?'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -96,8 +102,8 @@ class _AirfleetPageState extends State<AirfleetPage> {
       ),
     );
     if (ok == true) {
-      await _api.deleteAirfleet(a['airfleetId'] as int);
-      if (_selected?['airfleetId'] == a['airfleetId']) {
+      await _api.deleteAirfleet(a['airfleet_id'] as int);
+      if (_selected?['airfleet_id'] == a['airfleet_id']) {
         setState(() => _selected = null);
       }
       _loadData();
@@ -126,10 +132,10 @@ class _AirfleetPageState extends State<AirfleetPage> {
             ),
             const Spacer(),
             CustomButton(
-              label: 'Add Aircraft',
-              icon: Icons.add,
+              label:            'Add Aircraft',
+              icon:             Icons.add,
               isIconAfterLabel: false,
-              onPressed: () => _showAirfleetForm(),
+              onPressed:        () => _showAirfleetForm(),
             ),
           ],
         ),
@@ -146,19 +152,16 @@ class _AirfleetPageState extends State<AirfleetPage> {
                           width: 400,
                           child: AirfleetListPanel(
                             airfleets: _airfleets,
-                            selected: _selected,
+                            selected:  _selected,
                             flightApi: _flightApi,
-                            onSelect: (a) =>
-                                setState(() => _selected = a),
-                            onAdd: () => _showAirfleetForm(),
-                            onEdit: (a) => _showAirfleetForm(a),
-                            onDelete: (a) => _confirmDelete(a),
+                            onSelect:  (a) => setState(() => _selected = a),
+                            onAdd:     () => _showAirfleetForm(),
+                            onEdit:    (a) => _showAirfleetForm(a),
+                            onDelete:  (a) => _confirmDelete(a),
                           ),
                         ),
                         VerticalDivider(
-                            width: 1,
-                            color: colors.outlineVariant),
-                        // ── Права панель ──────────────────
+                            width: 1, color: colors.outlineVariant),
                         Expanded(
                           child: _selected == null
                               ? Center(
@@ -167,7 +170,7 @@ class _AirfleetPageState extends State<AirfleetPage> {
                                     children: [
                                       Icon(
                                         Icons.airline_seat_recline_normal_outlined,
-                                        size: 48,
+                                        size:  48,
                                         color: colors.outline
                                             .withValues(alpha: 0.25),
                                       ),
@@ -175,16 +178,17 @@ class _AirfleetPageState extends State<AirfleetPage> {
                                       Text(
                                         'Select an aircraft to view seat layout',
                                         style: TextStyle(
-                                            color: colors.onSurfaceVariant,
+                                            color:    colors.onSurfaceVariant,
                                             fontSize: 14),
                                       ),
                                     ],
                                   ),
                                 )
                               : SeatLayoutPanel(
-                                  key: ValueKey(_selected!['airfleetId']),
-                                  airfleet: _selected!,
-                                  api: _api,
+                                  key:           ValueKey(_selected!['airfleet_id']),
+                                  airfleet:      _selected!,
+                                  airfleetApi:   _api,
+                                  seatLayoutApi: _seatLayoutApi,
                                 ),
                         ),
                       ],
@@ -203,7 +207,7 @@ class _AirfleetPageState extends State<AirfleetPage> {
           const Text('No aircraft registered'),
           const SizedBox(height: 16),
           CustomButton(
-              label: 'Add First Aircraft',
+              label:     'Add First Aircraft',
               onPressed: () => _showAirfleetForm()),
         ],
       ),

@@ -17,6 +17,7 @@ import '../services/recent_searches_service.dart';
 import '../models/args/baggage_selection_args.dart';
 import '../services/navigation_storage_service.dart';
 import '../models/booking_group_draft.dart';
+import '../services/flight_api_service.dart';
 
 class _LegPair {
   final FlightCombo leg1;
@@ -121,16 +122,16 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
 
     try {
       final authService = context.read<AuthService>();
-      final service = BookingApiService(authService);
-
+      final flightService = FlightApiService(authService);
+      
       if (_isMultiSegment) {
         final results = await Future.wait([
-          service.searchFlights(
+          flightService .searchFlights(
             fromCityId: widget.fromCityId,
             toCityId: widget.toCityId,
             departDate: widget.departDate,
           ),
-          service.searchFlights(
+          flightService .searchFlights(
             fromCityId: widget.toCityId,
             toCityId: widget.bookingGroupDraft!.finalDestinationCityId,
             departDate: widget.leg2Date!,
@@ -177,13 +178,13 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
 
       } else {
         final futures = [
-          service.searchFlights(
+          flightService .searchFlights(
             fromCityId: widget.fromCityId,
             toCityId: widget.toCityId,
             departDate: widget.departDate,
           ),
           if (_isRoundTrip)
-            service.searchFlights(
+            flightService .searchFlights(
               fromCityId: widget.toCityId,
               toCityId: widget.fromCityId,
               departDate: widget.returnDate!,
@@ -244,7 +245,7 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
     
     try {
       final authService = context.read<AuthService>();
-      final service = BookingApiService(authService);
+      final flightService = FlightApiService(authService);
       
       final allFlightIds = [
         ..._outboundFlightIds,
@@ -252,7 +253,7 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
         ..._leg2FlightIds,
       ].toSet().toList();
       
-      final availability = await service.getFlightsAvailability(allFlightIds);
+      final availability = await flightService .getFlightsAvailability(allFlightIds);
 
       bool isAvailable(List<PassengerClassAssignment> assignments, int flightId) {
         final flightAvail = availability[flightId] ?? [];
@@ -334,7 +335,7 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
 
     try {
       final authService = context.read<AuthService>();
-      final service = BookingApiService(authService);
+      final flightService = FlightApiService(authService);
 
       final leg1ClassNames = newState.passengerClasses.values.any((c) => c == Class.any)
           ? null
@@ -352,7 +353,7 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
           : null;
 
       final results = await Future.wait([
-        service.filterFlights(
+        flightService .filterFlights(
           flightIds: _outboundFlightIds,
           classNames: leg1ClassNames,
           minPrice: newState.selectedMinPrice != newState.minPrice
@@ -363,7 +364,7 @@ class _SearchResultsPageState extends State<SearchResultsPage> {
           sortBy: newState.sortOrder == SortOrder.priceAsc ? 'price_asc' : 'price_desc',
           departureSlots: departureSlots,
         ),
-        service.filterFlights(
+        flightService .filterFlights(
           flightIds: _leg2FlightIds,
           classNames: leg2ClassNames,
           minPrice: newState.selectedMinPrice != newState.minPrice
@@ -421,7 +422,7 @@ debugPrint('pairs after filter: ${pairs.length}');
 
     try {
       final authService = context.read<AuthService>();
-      final service = BookingApiService(authService);
+      final bookingService = BookingApiService(authService);
 
       final totalPassengers =
           widget.passengers.values.reduce((a, b) => a + b);
@@ -438,7 +439,7 @@ debugPrint('pairs after filter: ${pairs.length}');
         };
       });
 
-      final result = await service.reserveBooking({
+      final result = await bookingService.reserveBooking({
         'passengers': passengersList,
         'total_amount': resolvedCombo.totalPrice,
       });
@@ -498,7 +499,7 @@ debugPrint('pairs after filter: ${pairs.length}');
 
     try {
       final authService = context.read<AuthService>();
-      final service = BookingApiService(authService);
+      final bookingService = BookingApiService(authService);
 
       final totalPassengers =
           widget.passengers.values.reduce((a, b) => a + b);
@@ -517,7 +518,7 @@ debugPrint('pairs after filter: ${pairs.length}');
         return {'flight_price_id': a.flightPriceId};
       });
 
-      final result = await service.reserveGroupBooking({
+      final result = await bookingService.reserveGroupBooking({
         'booking1': {
           'passengers': passengers1,
           'total_amount': leg1.totalPrice,
@@ -649,8 +650,8 @@ debugPrint('pairs after filter: ${pairs.length}');
 
     try {
       final authService = context.read<AuthService>();
-      final service = BookingApiService(authService);
-
+      final flightService = FlightApiService(authService);
+      
       final hasAnyClass =
           newState.passengerClasses.values.any((c) => c == Class.any);
       final classNames = hasAnyClass
@@ -666,7 +667,7 @@ debugPrint('pairs after filter: ${pairs.length}');
           ? newState.departureSlots.map((s) => s.name).toList()
           : null;
 
-      final outboundFiltered = await service.filterFlights(
+      final outboundFiltered = await flightService .filterFlights(
         flightIds: _outboundFlightIds,
         classNames: classNames,
         minPrice: newState.selectedMinPrice != newState.minPrice
@@ -698,7 +699,7 @@ debugPrint('pairs after filter: ${pairs.length}');
             ? newState.returnSlots.map((s) => s.name).toList()
             : null;
 
-        final returnFiltered = await service.filterFlights(
+        final returnFiltered = await flightService .filterFlights(
           flightIds: _returnFlightIds,
           classNames: returnClassNames,
           minPrice: newState.selectedMinPrice != newState.minPrice
@@ -783,7 +784,7 @@ debugPrint('pairs after filter: ${pairs.length}');
           body,
           if (_isBooking)
             Container(
-              color: Colors.black.withOpacity(0.3),
+              color: Colors.black.withValues(alpha: 0.3),
               child: Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
