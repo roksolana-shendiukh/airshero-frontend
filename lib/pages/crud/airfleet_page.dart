@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
-import '../../services/airfleet_crud_api_service.dart';
+import '../../services/airfleet_api_service.dart';
+import '../../services/airfleet_manufacturer_api_service.dart';
+import '../../services/seat_layout_api_service.dart';
 import '../../services/flight_operation_api_service.dart';
 import '../../services/planning_service.dart';
 import '../../widgets/responsive_layout.dart';
@@ -18,7 +20,9 @@ class AirfleetPage extends StatefulWidget {
 }
 
 class _AirfleetPageState extends State<AirfleetPage> {
-  late final AirfleetCrudApiService _api;
+  late final AirfleetApiService _api;
+  late final AirfleetManufacturerApiService _manufacturerApi;
+  late final SeatLayoutApiService _seatLayoutApi;
   late final FlightOperationApiService _flightApi;
   late final PlanningService _planningService;
 
@@ -33,7 +37,9 @@ class _AirfleetPageState extends State<AirfleetPage> {
     super.initState();
     final auth = context.read<AuthService>();
     _api = AirfleetCrudApiService(auth);
-    _flightApi = FlightOperationApiService(auth);
+    _api             = AirfleetApiService(auth);
+    _manufacturerApi = AirfleetManufacturerApiService(auth);
+    _seatLayoutApi   = SeatLayoutApiService(auth);
     _planningService = PlanningService(auth);
     _loadData();
   }
