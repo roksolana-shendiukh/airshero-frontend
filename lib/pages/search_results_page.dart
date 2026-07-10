@@ -870,7 +870,7 @@ debugPrint('pairs after filter: ${pairs.length}');
                     _selectedPairIndex =
                         _selectedPairIndex == index ? null : index),
                 onBook: () => _handleBookPair(index),
-                apiService: BookingApiService(context.read<AuthService>()),
+                apiService: FlightApiService(context.read<AuthService>()),
               );
             },
           );
@@ -1042,7 +1042,7 @@ debugPrint('pairs after filter: ${pairs.length}');
           return FlightRouteCard(
             combo: _filteredCombos[index],
             onBook: _handleBook,
-            apiService: BookingApiService(context.read<AuthService>()),
+            apiService: FlightApiService(context.read<AuthService>()),
           );
         },
       );
