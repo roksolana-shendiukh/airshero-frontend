@@ -139,7 +139,7 @@ class _FlightRouteCardState extends State<FlightRouteCard> {
               : null,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
+              color: Colors.black.withValues(alpha: 0.08),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -497,11 +497,11 @@ class _FlightRouteCardState extends State<FlightRouteCard> {
         color: Theme.of(context)
             .colorScheme
             .errorContainer
-            .withOpacity(0.2),
+            .withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color:
-              Theme.of(context).colorScheme.error.withOpacity(0.3),
+              Theme.of(context).colorScheme.error.withValues(alpha: 0.3),
         ),
       ),
       child: Column(
