@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../custom/custom_button.dart';
 import 'flight_route_section.dart';
 import '../../models/flight_combo.dart';
-import '../../services/booking_api_service.dart';
+import '../../services/flight_api_service.dart';
 
 class MultiSegmentPairCard extends StatefulWidget {
   final FlightCombo leg1;
@@ -16,7 +16,7 @@ class MultiSegmentPairCard extends StatefulWidget {
   final DateTime leg2Date;
   final VoidCallback onBook;
   final VoidCallback onTap;
-  final BookingApiService? apiService;
+  final FlightApiService? apiService;
 
   const MultiSegmentPairCard({
     super.key,
@@ -95,7 +95,7 @@ class _MultiSegmentPairCardState extends State<MultiSegmentPairCard> {
               : null,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
+              color: Colors.black.withValues(alpha: 0.08),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
