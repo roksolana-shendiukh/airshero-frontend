@@ -5,9 +5,10 @@ import '../custom/custom_button.dart';
 import '../passenger_selector.dart';
 import '../../services/recent_searches_service.dart';
 import '../../models/city_model.dart';
-import '../../services/booking_api_service.dart';
 import '../../services/auth_service.dart';
 import '../../models/flight_alternatives_model.dart';
+import '../../services/city_api_service.dart';
+import '../../services/flight_api_service.dart';
 
 typedef SearchCallback = void Function({
   required int fromCityId,
@@ -67,7 +68,8 @@ class FlightSearchFormState extends State<FlightSearchForm> {
   FlightAlternatives? _alternatives;
 
   bool _routeExists = true;
-  late final BookingApiService _apiService;
+  late final CityApiService _cityApiService;
+  late final FlightApiService _flightApiService;
 
   DateTime? departDate;
   DateTime? returnDate;
@@ -113,7 +115,8 @@ class FlightSearchFormState extends State<FlightSearchForm> {
   @override
   void initState() {
     super.initState();
-    _apiService = BookingApiService(AuthService());
+    _cityApiService  = CityApiService(AuthService());
+    _flightApiService = FlightApiService(AuthService());
     _loadRecentSearches();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       widget.onOverlayControllerReady?.call(_closeOverlaysIfOutsideFields);
@@ -154,11 +157,11 @@ class FlightSearchFormState extends State<FlightSearchForm> {
 
     try {
       final results = await Future.wait([
-        _apiService.getAvailableDates(
+        _cityApiService.getAvailableDates(
           _selectedFromCity!.cityId,
           _selectedToCity!.cityId,
         ),
-        _apiService.getAvailableDates(
+        _cityApiService.getAvailableDates(
           _selectedToCity!.cityId,
           _selectedFromCity!.cityId,
         ),
@@ -201,7 +204,7 @@ class FlightSearchFormState extends State<FlightSearchForm> {
     if (_selectedFromCity == null || _selectedToCity == null) return;
 
     try {
-      final alts = await _apiService.getAlternatives(
+      final alts = await _flightApiService.getAlternatives(
         _selectedFromCity!.cityId,
         _selectedToCity!.cityId,
       );
@@ -221,8 +224,8 @@ class FlightSearchFormState extends State<FlightSearchForm> {
   void applyAlternativeCity(int cityId, String cityName) {
     setState(() {
       _selectedToCity = CityModel(
-        cityId: cityId,
-        cityName: cityName,
+        cityId:      cityId,
+        cityName:    cityName,
         countryName: '',
       );
       toLocation = cityName;
@@ -405,7 +408,7 @@ class FlightSearchFormState extends State<FlightSearchForm> {
                         onCitySelected: (city) {
                           setState(() {
                             _selectedFromCity = city;
-                            fromLocation = city.cityName;
+                            fromLocation = city.cityName ?? '';
                           });
                           _fetchAvailableDates();
                         },
@@ -451,7 +454,7 @@ class FlightSearchFormState extends State<FlightSearchForm> {
                         onCitySelected: (city) {
                           setState(() {
                             _selectedToCity = city;
-                            toLocation = city.cityName;
+                            toLocation = city.cityName ?? '';
                           });
                           _fetchAvailableDates();
                         },

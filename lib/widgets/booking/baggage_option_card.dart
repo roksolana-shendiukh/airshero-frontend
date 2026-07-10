@@ -90,7 +90,7 @@ class _BaggageOptionCardState extends State<BaggageOptionCard> {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Icon(
-                        _getIconForType(widget.option.type.id),
+                        _getIconForType(widget.option.type?.baggageTypeId ?? 0),
                         color: Theme.of(context).colorScheme.primary,
                         size: 24,
                       ),
@@ -98,7 +98,7 @@ class _BaggageOptionCardState extends State<BaggageOptionCard> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        widget.option.type.name,
+                        widget.option.type?.baggageTypeName ?? '—',
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -121,7 +121,7 @@ class _BaggageOptionCardState extends State<BaggageOptionCard> {
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        widget.option.rule.dimension,
+                        widget.option.rule?.baggageDimension ?? '—',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
@@ -143,7 +143,7 @@ class _BaggageOptionCardState extends State<BaggageOptionCard> {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      'Max ${widget.option.rule.maxWeight.toStringAsFixed(0)} kg',
+                      'Max ${widget.option.rule?.baggageMaxWeight?.toStringAsFixed(0) ?? '0'} kg',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
@@ -157,7 +157,7 @@ class _BaggageOptionCardState extends State<BaggageOptionCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '\$${widget.option.price.toStringAsFixed(2)}',
+                      '\$${widget.option.baggagePrice?.toStringAsFixed(2) ?? '0.00'}',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         color: Theme.of(context).colorScheme.primary,
                         fontWeight: FontWeight.bold,

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../services/airfleet_crud_api_service.dart';
+import '../../services/seat_layout_api_service.dart';
 import '../../widgets/custom/custom_input_field.dart';
 import '../../widgets/custom/custom_select_field.dart';
 
 class SeatLayoutFormDialog extends StatefulWidget {
-  final AirfleetCrudApiService api;
+  final SeatLayoutApiService api;
   final int airfleetId;
   final Map<String, dynamic>? layout;
   final List<Map<String, dynamic>> seatTypes;
@@ -34,7 +34,6 @@ class _SeatLayoutFormDialogState extends State<SeatLayoutFormDialog> {
 
   bool _saving = false;
 
-  // Визначення класів згідно з вашою логікою БД
   static const _classes = [
     {'id': 0, 'name': 'Economy'},
     {'id': 1, 'name': 'Premium Economy'},
@@ -47,14 +46,17 @@ class _SeatLayoutFormDialogState extends State<SeatLayoutFormDialog> {
     super.initState();
     if (widget.layout != null) {
       final l = widget.layout!;
-      _rows = l['seatLayoutRows']?.toString() ?? '';
-      _cols = l['seatLayoutColumns'] ?? '';
-      _classId = l['classId'];
-      _seatTypeId = l['seatTypeId'];
-      
-      final classMatch = _classes.firstWhere((c) => c['id'] == _classId, orElse: () => {});
+      _rows       = l['seat_layout_rows']?.toString() ?? '';
+      _cols       = l['seat_layout_columns'] ?? '';
+      _classId    = l['class_id'] as int?;
+      _seatTypeId = l['seat_type_id'] as int?;
+
+      final classMatch = _classes.firstWhere(
+          (c) => c['id'] == _classId, orElse: () => {});
       _className = classMatch['name'] as String?;
-      _seatTypeName = widget.seatTypes.firstWhere((t) => t['seatTypeId'] == _seatTypeId, orElse: () => {})['seatTypeName'];
+      _seatTypeName = widget.seatTypes.firstWhere(
+          (t) => t['seat_type_id'] == _seatTypeId,
+          orElse: () => {})['seat_type_name'] as String?;
     }
   }
 
@@ -72,24 +74,25 @@ class _SeatLayoutFormDialogState extends State<SeatLayoutFormDialog> {
       if (widget.layout == null) {
         await widget.api.createSeatLayout(
           airfleetId: widget.airfleetId,
-          classId: _classId!,
+          classId:    _classId!,
           seatTypeId: _seatTypeId!,
-          rows: int.parse(_rows),
-          columns: _cols.trim().toUpperCase(),
+          rows:       int.parse(_rows),
+          columns:    _cols.trim().toUpperCase(),
         );
       } else {
         await widget.api.updateSeatLayout(
-          seatLayoutId: widget.layout!['seatLayoutId'] as int,
-          classId: _classId!,
-          seatTypeId: _seatTypeId!,
-          rows: int.parse(_rows),
-          columns: _cols.trim().toUpperCase(),
+          seatLayoutId: widget.layout!['seat_layout_id'] as int,
+          classId:      _classId!,
+          seatTypeId:   _seatTypeId!,
+          rows:         int.parse(_rows),
+          columns:      _cols.trim().toUpperCase(),
         );
       }
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.toString())));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -114,36 +117,38 @@ class _SeatLayoutFormDialogState extends State<SeatLayoutFormDialog> {
             children: [
               Text(
                 isEdit ? 'Edit Seat Class' : 'Add Seat Class',
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                    fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 20),
-              
-              // Вибір класу
+
               CustomSelectField(
                 label: 'Service Class',
-                icon: Icons.stars_outlined,
+                icon:  Icons.stars_outlined,
                 value: _className ?? '',
                 items: _classes.map((c) => c['name'] as String).toList(),
                 onChanged: (val) {
                   final c = _classes.firstWhere((e) => e['name'] == val);
                   setState(() {
-                    _classId = c['id'] as int;
+                    _classId   = c['id'] as int;
                     _className = val;
                   });
                 },
               ),
               const SizedBox(height: 16),
 
-              // Вибір типу крісла
               CustomSelectField(
                 label: 'Seat Type',
-                icon: Icons.event_seat_outlined,
+                icon:  Icons.event_seat_outlined,
                 value: _seatTypeName ?? '',
-                items: widget.seatTypes.map((t) => t['seatTypeName'] as String).toList(),
+                items: widget.seatTypes
+                    .map((t) => t['seat_type_name'] as String)
+                    .toList(),
                 onChanged: (val) {
-                  final t = widget.seatTypes.firstWhere((e) => e['seatTypeName'] == val);
+                  final t = widget.seatTypes
+                      .firstWhere((e) => e['seat_type_name'] == val);
                   setState(() {
-                    _seatTypeId = t['seatTypeId'] as int;
+                    _seatTypeId   = t['seat_type_id'] as int;
                     _seatTypeName = val;
                   });
                 },
@@ -155,29 +160,34 @@ class _SeatLayoutFormDialogState extends State<SeatLayoutFormDialog> {
                 children: [
                   Expanded(
                     child: CustomInputField(
-                      label: 'Rows count',
-                      icon: Icons.format_list_numbered,
-                      value: _rows,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      onChanged: (v) => setState(() => _rows = v),
+                      label:            'Rows count',
+                      icon:             Icons.format_list_numbered,
+                      value:            _rows,
+                      keyboardType:     TextInputType.number,
+                      inputFormatters:  [FilteringTextInputFormatter.digitsOnly],
+                      onChanged:        (v) => setState(() => _rows = v),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: CustomInputField(
-                      label: 'Pattern',
-                      icon: Icons.grid_on,
-                      value: _cols,
-                      hint: 'e.g. ABC DEF',
-                      onChanged: (v) => setState(() => _cols = v.toUpperCase()),
+                      label:     'Pattern',
+                      icon:      Icons.grid_on,
+                      value:     _cols,
+                      hint:      'e.g. ABC DEF',
+                      onChanged: (v) =>
+                          setState(() => _cols = v.toUpperCase()),
                     ),
                   ),
                 ],
               ),
 
               const SizedBox(height: 20),
-              const Text('Layout Preview:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey)),
+              const Text('Layout Preview:',
+                  style: TextStyle(
+                      fontSize:   12,
+                      fontWeight: FontWeight.w600,
+                      color:      Colors.grey)),
               const SizedBox(height: 8),
               _buildColumnsPreview(colors),
 
@@ -192,19 +202,24 @@ class _SeatLayoutFormDialogState extends State<SeatLayoutFormDialog> {
                   const SizedBox(width: 12),
                   SizedBox(
                     height: 44,
-                    width: 120,
+                    width:  120,
                     child: FilledButton(
                       onPressed: _saving ? null : _save,
                       style: FilledButton.styleFrom(
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
                       ),
                       child: _saving
-                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          ? const SizedBox(
+                              width:  20,
+                              height: 20,
+                              child:  CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white))
                           : Text(isEdit ? 'Update' : 'Create'),
                     ),
                   ),
                 ],
-              )
+              ),
             ],
           ),
         ),
@@ -213,33 +228,41 @@ class _SeatLayoutFormDialogState extends State<SeatLayoutFormDialog> {
   }
 
   Widget _buildColumnsPreview(ColorScheme colors) {
-    // Розбиваємо рядок на символи, враховуючи пробіли як проходи
     final chars = _cols.split('');
     if (chars.isEmpty) return const SizedBox();
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest.withOpacity(0.3),
+        color:        colors.surfaceContainerHighest.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: chars.map((char) {
           if (char == ' ') {
-            return const SizedBox(width: 20, child: Center(child: Text('|', style: TextStyle(color: Colors.grey))));
+            return const SizedBox(
+                width: 20,
+                child: Center(
+                    child: Text('|',
+                        style: TextStyle(color: Colors.grey))));
           }
           return Container(
-            width: 28,
+            width:  28,
             height: 28,
             margin: const EdgeInsets.symmetric(horizontal: 2),
             decoration: BoxDecoration(
-              color: colors.primaryContainer,
+              color:        colors.primaryContainer,
               borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: colors.primary.withOpacity(0.5)),
+              border:       Border.all(
+                  color: colors.primary.withValues(alpha: 0.5)),
             ),
             alignment: Alignment.center,
-            child: Text(char, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: colors.onPrimaryContainer)),
+            child: Text(char,
+                style: TextStyle(
+                    fontSize:   10,
+                    fontWeight: FontWeight.bold,
+                    color:      colors.onPrimaryContainer)),
           );
         }).toList(),
       ),
