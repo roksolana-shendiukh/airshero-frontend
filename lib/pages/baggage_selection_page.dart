@@ -95,7 +95,7 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
   String? _baggageError;
 
   List<BaggagePricingInFlight> _leg2BaggageOptions = [];
-  Map<int, Map<int, int>> _passengerLeg2BaggageSelections = {};
+  final Map<int, Map<int, int>> _passengerLeg2BaggageSelections = {};
 
   final Map<int, String> _searchDocumentNumbers = {};
 
@@ -173,11 +173,14 @@ class _BaggageSelectionPageState extends State<BaggageSelectionPage> {
   }
 
   String _getPassengerLabel(int index) {
-    final adultsCount = widget.passengers['adults'] ?? 0;
+    final adultsCount   = widget.passengers['adults']   ?? 0;
     final childrenCount = widget.passengers['children'] ?? 0;
-    if (index < adultsCount) return 'Adult ${index + 1}';
-    if (index < adultsCount + childrenCount)
+    if (index < adultsCount) {
+      return 'Adult ${index + 1}';
+    }
+    if (index < adultsCount + childrenCount) {
       return 'Child ${index - adultsCount + 1}';
+    }
     return 'Infant ${index - adultsCount - childrenCount + 1}';
   }
 
