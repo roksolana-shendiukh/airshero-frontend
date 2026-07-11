@@ -63,8 +63,8 @@ class _BoardingPassesPageState extends State<BoardingPassesPage> {
       ]);
       if (mounted) {
         setState(() {
-          _cities = results[0] as List<String>;
-          _classes = results[1] as List<String>;
+          _cities  = results[0];
+          _classes = results[1];
         });
       }
     } catch (e) {
