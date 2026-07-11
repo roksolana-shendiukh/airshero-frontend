@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'stat_card.dart';
-import '../widgets/checkIn/checkin_passenger_bar.dart';
+import '../checkin/checkin_passenger_bar.dart';
 
 class ActiveBoardingBody extends StatelessWidget {
   final int totalPassengers;
