@@ -40,6 +40,6 @@ class AirfleetModel {
       );
 
   String get label => airfleetManufacturerName != null
-      ? '$airfleetManufacturerName $aircraftModel'
-      : aircraftModel ?? '';
+    ? '$airfleetManufacturerName $aircraftModel'
+    : aircraftModel ?? '';
 }
