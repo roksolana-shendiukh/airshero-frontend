@@ -57,9 +57,9 @@ class _AirportsPageState extends State<AirportsPage> {
         _airports      = results[0];
         _countries     = results[1];
         _cities        = results[2];
-        _terminalTypes = (results[3] as List<Map<String, dynamic>>)
-            .map((e) => e['terminal_type_name'].toString())
-            .toList();
+        _terminalTypes = (results[3] as List)
+          .map((e) => (e as Map<String, dynamic>)['terminal_type_name'].toString())
+          .toList();
         _isLoading = false;
       });
     } catch (e) {
