@@ -79,7 +79,7 @@ class CustomDropdownOverlay extends StatelessWidget {
                           leading: Icon(Icons.location_city, color: Theme.of(context).colorScheme.primary),
                           title: Text(city.displayName, style: const TextStyle(fontWeight: FontWeight.w500)),
                           onTap: () {
-                            onSelect(city.cityName); 
+                            onSelect(city.cityName ?? ''); 
                             onCitySelected?.call(city); 
                           },
                         );

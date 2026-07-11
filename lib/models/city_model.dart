@@ -1,7 +1,7 @@
 class CityModel {
   final int cityId;
   final int? countryId;
-  final String? countryName; 
+  final String? countryName;
   final String? cityName;
 
   const CityModel({
@@ -10,6 +10,10 @@ class CityModel {
     this.countryName,
     this.cityName,
   });
+
+  String get displayName => countryName != null
+      ? '${cityName ?? ''}, $countryName'
+      : cityName ?? '';
 
   factory CityModel.fromJson(Map<String, dynamic> json) => CityModel(
         cityId:      (json['city_id'] as num).toInt(),
