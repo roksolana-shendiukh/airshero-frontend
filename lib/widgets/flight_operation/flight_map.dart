@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
@@ -248,15 +247,23 @@ class _FlightMapState extends State<FlightMap> {
   }
 
   Marker _buildAirportMarker(AirportModel airport, ColorScheme colors) {
+    if (airport.latitude == null || airport.longitude == null) {
+      return Marker(
+        point:  const LatLng(0, 0),
+        width:  0,
+        height: 0,
+        child:  const SizedBox.shrink(),
+      );
+    }
     return Marker(
-      point:  LatLng(airport.latitude, airport.longitude),
+      point:  LatLng(airport.latitude!, airport.longitude!),
       width:  24,
       height: 24,
       child: Tooltip(
-        message: airport.airportCode,
+        message: airport.airportCode ?? '',
         child: GestureDetector(
           onTap: () => _mapController.move(
-            LatLng(airport.latitude, airport.longitude), 8.0),
+            LatLng(airport.latitude!, airport.longitude!), 8.0),
           child: Icon(
             Icons.location_on,
             size:  20,
