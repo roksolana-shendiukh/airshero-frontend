@@ -3,7 +3,7 @@ import '../../models/hub_selection_model.dart';
 import '../../widgets/booking/segment_date_form.dart';
 import '../../widgets/custom/custom_input_field.dart';
 import '../../widgets/custom/custom_button.dart';
-import '../../widgets/passenger_selector.dart';
+import '../../widgets/booking/flight_search_form.dart';
 
 class MultiSegmentSection extends StatelessWidget {
   final HubSelection hub;
@@ -80,10 +80,10 @@ class MultiSegmentSection extends StatelessWidget {
               topRight: Radius.circular(4),
             ),
             border: Border(
-              left: BorderSide(color: colors.primary, width: 3),
-              top: BorderSide(color: colors.outlineVariant.withOpacity(0.5)),
-              right: BorderSide(color: colors.outlineVariant.withOpacity(0.5)),
-              bottom: BorderSide(color: colors.outlineVariant.withOpacity(0.5)),
+              left:   BorderSide(color: colors.primary, width: 3),
+              top:    BorderSide(color: colors.outlineVariant.withValues(alpha: 0.5)),
+              right:  BorderSide(color: colors.outlineVariant.withValues(alpha: 0.5)),
+              bottom: BorderSide(color: colors.outlineVariant.withValues(alpha: 0.5)),
             ),
           ),
           child: Row(
@@ -192,9 +192,9 @@ class MultiSegmentSection extends StatelessWidget {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: colors.surfaceContainerLow.withOpacity(0.5),
+          color: colors.surfaceContainerLow.withValues(alpha: 0.5),
+          border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.3)),
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: colors.outlineVariant.withOpacity(0.3)),
         ),
         child: Row(
           children: [
@@ -224,7 +224,7 @@ class MultiSegmentSection extends StatelessWidget {
         decoration: BoxDecoration(
           color: colors.surfaceContainerLow,
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: colors.outlineVariant.withOpacity(0.6)),
+          border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.6)),
         ),
         child: Row(
           children: [
@@ -251,7 +251,7 @@ class MultiSegmentSection extends StatelessWidget {
         decoration: BoxDecoration(
           color: colors.surfaceContainerLow,
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: colors.primary.withOpacity(0.4)),
+          border: Border.all(color: colors.primary.withValues(alpha: 0.4)),
         ),
         child: Row(
           children: [
@@ -302,7 +302,7 @@ class MultiSegmentSection extends StatelessWidget {
         decoration: BoxDecoration(
           color: colors.surfaceContainerLow,
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: colors.outlineVariant.withOpacity(0.6)),
+          border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.6)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
