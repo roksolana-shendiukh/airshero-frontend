@@ -55,7 +55,8 @@ class _CheckInPageState extends State<CheckInPage> {
   String?   _passengerDateOfBirth;
   int?      _bookingItemId;
   String?   _ticketNumber;
-  int?      _boardingPassId;
+  // ignore: unused_field
+  int? _boardingPassId;
 
   Map<String, dynamic>?      _bookingData;
   List<Map<String, dynamic>> _baggageUnits = [];
