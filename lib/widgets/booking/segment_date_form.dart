@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../custom/custom_input_field.dart';
-import '../../services/booking_api_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/city_api_service.dart';
 
 class SegmentDateForm extends StatefulWidget {
   final int fromCityId;
@@ -48,15 +48,13 @@ class _SegmentDateFormState extends State<SegmentDateForm> {
 
   
   final GlobalKey _dateFieldKey = GlobalKey();
-  late final BookingApiService _apiService;
+  late final CityApiService _apiService;
 
-  bool get _isLeg2 => widget.leg1Date != null ||
-      (widget.leg1Date == null && _isLocked);
 
   @override
   void initState() {
     super.initState();
-    _apiService = BookingApiService(AuthService());
+    _apiService = CityApiService(AuthService());
 
     if (widget.finalDestinationCityId != null) {
       _loadLeg1ConnectingDates();
@@ -84,7 +82,6 @@ class _SegmentDateFormState extends State<SegmentDateForm> {
     }
   }
 
-  bool get _isLeg2Mode => false; 
 
   @override
   void didUpdateWidget(SegmentDateForm oldWidget) {
@@ -287,7 +284,7 @@ class _SegmentDateFormState extends State<SegmentDateForm> {
                     ? Container(
                         height: 56,
                         decoration: BoxDecoration(
-                          color: colors.surfaceContainerHighest.withOpacity(0.4),
+                          color: colors.surfaceContainerHighest.withValues(alpha: 0.4),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         alignment: Alignment.centerLeft,
@@ -303,7 +300,7 @@ class _SegmentDateFormState extends State<SegmentDateForm> {
                         ? Container(
                             height: 56,
                             decoration: BoxDecoration(
-                              color: colors.errorContainer.withOpacity(0.3),
+                              color: colors.errorContainer.withValues(alpha: 0.3),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             alignment: Alignment.centerLeft,
