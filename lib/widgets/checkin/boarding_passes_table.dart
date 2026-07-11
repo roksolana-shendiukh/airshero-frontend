@@ -25,17 +25,17 @@ class _BoardingPassesTableState extends State<BoardingPassesTable> {
   final Map<int, List<Map<String, dynamic>>> _baggageCache = {};
   final Map<int, bool> _loadingBaggage = {};
 
-  Map<String, double> _columnWidths = {
-    'expand': 48,
-    'ticket': 150,
+  final Map<String, double> _columnWidths = {
+    'expand':    48,
+    'ticket':    150,
     'passenger': 180,
-    'flight': 100,
-    'route': 180,
+    'flight':    100,
+    'route':     180,
     'departure': 160,
-    'seat': 80,
-    'class': 120,
-    'issuedAt': 160,
-    'bags': 80,
+    'seat':      80,
+    'class':     120,
+    'issuedAt':  160,
+    'bags':      80,
   };
 
   double get _totalWidth =>
@@ -132,7 +132,7 @@ class _BoardingPassesTableState extends State<BoardingPassesTable> {
                       itemCount: pageItems.length,
                       itemBuilder: (context, index) {
                         final pass = pageItems[index];
-                        final id = pass['boardingPassId'] as int;
+                        final id = pass['boarding_pass_id'] as int;
                         final isExpanded = _expandedRows.contains(id);
                         final isLoading = _loadingBaggage[id] == true;
                         final bags = _baggageCache[id] ?? [];
@@ -146,15 +146,13 @@ class _BoardingPassesTableState extends State<BoardingPassesTable> {
                                 height: 44,
                                 decoration: BoxDecoration(
                                   color: isExpanded
-                                      ? colors.primaryContainer
-                                          .withOpacity(0.15)
+                                      ? colors.primaryContainer.withValues(alpha: 0.15)
                                       : index.isEven
                                           ? null
-                                          : colors.surfaceContainerLow
-                                              .withOpacity(0.3),
+                                          : colors.surfaceContainerLow.withValues(alpha: 0.3),
                                   border: Border(
                                     bottom: BorderSide(
-                                      color: colors.outline.withOpacity(0.08),
+                                      color: colors.outline.withValues(alpha: 0.08),
                                     ),
                                   ),
                                 ),
@@ -179,7 +177,7 @@ class _BoardingPassesTableState extends State<BoardingPassesTable> {
                                     _cell(
                                       _columnWidths['ticket']!,
                                       Text(
-                                        pass['ticketNumber'] ?? '—',
+                                        pass['ticket_number'] ?? '—',
                                         style: Theme.of(context)
                                             .textTheme
                                             .bodyMedium
@@ -194,7 +192,7 @@ class _BoardingPassesTableState extends State<BoardingPassesTable> {
                                     _cell(
                                       _columnWidths['passenger']!,
                                       Text(
-                                        pass['passengerName'] ?? '—',
+                                        pass['passenger_name'] ?? '—',
                                         style: Theme.of(context)
                                             .textTheme
                                             .bodyMedium,
@@ -205,7 +203,7 @@ class _BoardingPassesTableState extends State<BoardingPassesTable> {
                                     _cell(
                                       _columnWidths['flight']!,
                                       Text(
-                                        pass['flightNumber'] ?? '—',
+                                        pass['flight_number'] ?? '—',
                                         style: Theme.of(context)
                                             .textTheme
                                             .bodyMedium
@@ -222,7 +220,7 @@ class _BoardingPassesTableState extends State<BoardingPassesTable> {
                                         children: [
                                           Flexible(
                                             child: Text(
-                                              pass['departsAirport'] ?? '—',
+                                              pass['departs_airport'] ?? '—',
                                               style: Theme.of(context)
                                                   .textTheme
                                                   .bodyMedium,
@@ -238,7 +236,7 @@ class _BoardingPassesTableState extends State<BoardingPassesTable> {
                                           ),
                                           Flexible(
                                             child: Text(
-                                              pass['arrivesAirport'] ?? '—',
+                                              pass['arrives_airport'] ?? '—',
                                               style: Theme.of(context)
                                                   .textTheme
                                                   .bodyMedium,
@@ -252,7 +250,7 @@ class _BoardingPassesTableState extends State<BoardingPassesTable> {
                                     _cell(
                                       _columnWidths['departure']!,
                                       Text(
-                                        _formatDate(pass['departsDatetime']),
+                                        _formatDate(pass['departs_datetime']),
                                         style: Theme.of(context)
                                             .textTheme
                                             .bodySmall,
@@ -273,15 +271,15 @@ class _BoardingPassesTableState extends State<BoardingPassesTable> {
 
                                     _cell(
                                       _columnWidths['class']!,
-                                      pass['className'] != null
-                                          ? _ClassChip(className: pass['className'] as String)
+                                      pass['class_name'] != null
+                                          ? _ClassChip(className: pass['class_name'] as String)
                                           : const Text('—'),
                                     ),
 
                                     _cell(
-                                      _columnWidths['issuedAt']!,
+                                      _columnWidths['issued_at']!,
                                       Text(
-                                        _formatDate(pass['issuedAt']),
+                                        _formatDate(pass['issued_at']),
                                         style: Theme.of(context)
                                             .textTheme
                                             .bodySmall
@@ -301,7 +299,7 @@ class _BoardingPassesTableState extends State<BoardingPassesTable> {
                                               color: colors.onSurfaceVariant),
                                           const SizedBox(width: 4),
                                           Text(
-                                            '${pass['bagCount'] ?? 0}',
+                                            '${pass['bag_count'] ?? 0}',
                                             style: Theme.of(context)
                                                 .textTheme
                                                 .bodyMedium,
@@ -321,7 +319,7 @@ class _BoardingPassesTableState extends State<BoardingPassesTable> {
                                   color: colors.surfaceContainerLowest,
                                   border: Border(
                                     bottom: BorderSide(
-                                        color: colors.outline.withOpacity(0.12)),
+                                        color: colors.outline.withValues(alpha: 0.12)),
                                   ),
                                 ),
                                 child: isLoading
@@ -481,7 +479,7 @@ class _BoardingPassesTableState extends State<BoardingPassesTable> {
             height: 52,
             decoration: BoxDecoration(
               border: Border(
-                  top: BorderSide(color: colors.outline.withOpacity(0.15))),
+                  top: BorderSide(color: colors.outline.withValues(alpha: 0.15))),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -589,12 +587,11 @@ class _BoardingPassesHeader extends StatelessWidget {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Container(
-        width: columnWidths.values.fold<double>(0.0, (s, w) => s + (w ?? 0.0)),
         height: 44,
         decoration: BoxDecoration(
-          color: colors.surfaceContainerHighest.withOpacity(0.5),
+          color: colors.surfaceContainerHighest.withValues(alpha: 0.5),
           border:
-              Border(bottom: BorderSide(color: colors.outline.withOpacity(0.2))),
+              Border(bottom: BorderSide(color: colors.outline.withValues(alpha: 0.2))),
           borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(8),
             topRight: Radius.circular(8),
@@ -651,7 +648,7 @@ class _BoardingPassesHeader extends StatelessWidget {
                   child: Container(
                       width: 1,
                       height: 20,
-                      color: colors.outline.withOpacity(0.3)),
+                      color: colors.outline.withValues(alpha: 0.3)),
                 ),
               ),
             ),

@@ -3,8 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'custom_dropdown_overlay.dart';
 import '/models/city_model.dart';
-import '/services/booking_api_service.dart';
 import '/services/auth_service.dart';
+import '/services/city_api_service.dart';
 
 class CustomInputField extends StatefulWidget {
   final String label;
@@ -102,7 +102,7 @@ class _CustomInputFieldState extends State<CustomInputField> {
 
     if (_overlayEntry == null) _showOverlay();
 
-    if (value.trim().length < 1) {
+    if (value.trim().isEmpty) {
       setState(() {
         _searchResults = [];
         _isSearching = false;
@@ -116,7 +116,7 @@ class _CustomInputFieldState extends State<CustomInputField> {
 
     try {
       final authService = context.read<AuthService>();
-      final service = BookingApiService(authService);
+      final service = CityApiService(authService);
       final results = await service.searchCities(value.trim());
       if (mounted) {
         setState(() {

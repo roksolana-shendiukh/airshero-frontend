@@ -22,7 +22,6 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
   String _selectedDateFilter = 'this_month';
 
   String _searchQuery = '';
-  int _currentPage = 0;
 
   final List<String> _statusOptions = [
     'All',
@@ -105,6 +104,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
     return departs.isAfter(DateTime.now().add(const Duration(hours: 3)));
   }
 
+
   Future<void> _handleCancel(Map<String, dynamic> booking) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -135,7 +135,7 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
       },
     );
 
-    if (confirmed != true) return;
+    if (confirmed != true || !mounted) return;
 
     try {
       final authService = context.read<AuthService>();
@@ -207,7 +207,6 @@ class _MyBookingsPageState extends State<MyBookingsPage> {
                     value: _searchQuery,
                     onChanged: (q) => setState(() {
                       _searchQuery = q;
-                      _currentPage = 0;
                     }),
                   ),
                 ),

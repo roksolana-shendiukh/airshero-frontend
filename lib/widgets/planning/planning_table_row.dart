@@ -59,10 +59,10 @@ class PlanningTableRow extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  '${_fmtTime(flight.departsDatetime)} — ${_fmtTime(flight.arrivesDattime)}',
+                  '${_fmtTime(flight.departsDatetime)} — ${_fmtTime(flight.arrivesDatetime)}',
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                 ),
-                if (flight.arrivesDattime.day != flight.departsDatetime.day)
+                if (flight.arrivesDatetime.day != flight.departsDatetime.day)
                   Text('+1 day', style: TextStyle(fontSize: 10, color: colors.error)),
               ],
             )),
@@ -85,7 +85,7 @@ class PlanningTableRow extends StatelessWidget {
             if (columnWidths.containsKey('actions'))
               _buildCenteredCell('actions', IconButton(
                 icon: Icon(Icons.edit_calendar_rounded, size: 20, 
-                      color: isActionable ? colors.primary : Colors.grey.withOpacity(0.3)),
+                      color: Colors.grey.withOpacity(0.3) → Colors.grey.withValues(alpha: 0.3),
                 onPressed: isActionable ? () => onEditTap(flight) : null,
               )),
           ],
@@ -133,8 +133,8 @@ class _LoadBar extends StatelessWidget {
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
               value: percent / 100,
-              minHeight: 6, // Трішки товща лінія
-              backgroundColor: Colors.grey.withOpacity(0.2),
+              minHeight: 6,
+              backgroundColor: Colors.grey.withValues(alpha: 0.2),
               valueColor: AlwaysStoppedAnimation<Color>(barColor),
             ),
           ),

@@ -5,7 +5,6 @@ import '../widgets/booking/alternatives_section.dart';
 import '../widgets/booking/multi_segment_section.dart';
 import '../widgets/responsive_layout.dart';
 import '../widgets/animation/animated_flight_progress.dart';
-import '../widgets/custom/custom_input_field.dart';
 import '../widgets/custom/custom_date_range_picker.dart';
 import '../widgets/passenger_selector.dart';
 import '../config/routes.dart';
@@ -42,6 +41,7 @@ class _BookingsPageState extends State<BookingsPage> {
 
   bool _isLoadingLeg2 = false;
   List<String> _leg2Dates = [];
+  // ignore: unused_field
   List<String> _suggestedLeg1Dates = [];
 
   OverlayEntry? _segmentCalendarOverlay;
@@ -194,13 +194,10 @@ class _BookingsPageState extends State<BookingsPage> {
       if (!mounted) return;
 
       final leg2Dates = List<String>.from(result['leg2_dates'] ?? []);
-      final suggestedLeg1Dates =
-          List<String>.from(result['suggested_leg1_dates'] ?? []);
 
       setState(() {
         _isLoadingLeg2 = false;
         _leg2Dates = leg2Dates;
-        _suggestedLeg1Dates = suggestedLeg1Dates;
       });
 
       if (leg2Dates.length == 1) {
@@ -217,7 +214,9 @@ class _BookingsPageState extends State<BookingsPage> {
     if (hub == null ||
         mainData == null ||
         _leg1Date == null ||
-        _leg2Date == null) return;
+        _leg2Date == null) {
+      return;
+    }
 
     setState(() => _isSearching = true);
 

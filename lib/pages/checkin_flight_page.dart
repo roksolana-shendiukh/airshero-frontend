@@ -29,7 +29,6 @@ class _CheckInFlightsPageState extends State<CheckInFlightsPage> {
   String? _error;
 
   Timer? _ticker;
-  DateTime _now = DateTime.now();
   bool _isActioning = false;
   int _checkedIn = 0;
   int _totalPassengers = 0;
@@ -91,31 +90,36 @@ class _CheckInFlightsPageState extends State<CheckInFlightsPage> {
     });
     try {
       final flights = await _apiService.getActiveFlights();
-      if (mounted) setState(() {
-        _flights = flights;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _flights = flights;
+          _isLoading = false;
+        });
+      }
       _startTickerIfNeeded();
 
+      if (!mounted) return;
       final activeFlight = context.read<CheckInService>().activeFlight;
       if (activeFlight != null) {
         await _loadStats(activeFlight['flight_operation_id'] as int);
       }
     } catch (e) {
-      if (mounted) setState(() {
-        _error = e.toString();
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
     }
   }
-
+  
   void _startTickerIfNeeded() {
     final activeFlight = context.read<CheckInService>().activeFlight;
     if (activeFlight != null &&
         activeFlight['boarding_start_time'] != null) {
       _ticker?.cancel();
       _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-        if (mounted) setState(() => _now = DateTime.now());
+        if (mounted) setState(() {});
       });
     }
   }

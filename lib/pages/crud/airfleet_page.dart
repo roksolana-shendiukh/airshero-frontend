@@ -5,7 +5,6 @@ import '../../services/airfleet_api_service.dart';
 import '../../services/airfleet_manufacturer_api_service.dart';
 import '../../services/seat_layout_api_service.dart';
 import '../../services/flight_operation_api_service.dart';
-import '../../services/planning_service.dart';
 import '../../widgets/responsive_layout.dart';
 import '../../widgets/custom/custom_button.dart';
 import '../../widgets/airfleet/airfleet_list_panel.dart';
@@ -24,7 +23,6 @@ class _AirfleetPageState extends State<AirfleetPage> {
   late final AirfleetManufacturerApiService _manufacturerApi;
   late final SeatLayoutApiService           _seatLayoutApi;
   late final FlightOperationApiService      _flightApi;
-  late final PlanningService                _planningService;
 
   List<Map<String, dynamic>> _airfleets     = [];
   List<Map<String, dynamic>> _manufacturers = [];
@@ -40,7 +38,6 @@ class _AirfleetPageState extends State<AirfleetPage> {
     _manufacturerApi = AirfleetManufacturerApiService(auth);
     _seatLayoutApi   = SeatLayoutApiService(auth);
     _flightApi       = FlightOperationApiService(auth);
-    _planningService = PlanningService(auth);
     _loadData();
   }
 
@@ -53,8 +50,8 @@ class _AirfleetPageState extends State<AirfleetPage> {
       ]);
       if (!mounted) return;
       setState(() {
-        _airfleets     = results[0] as List<Map<String, dynamic>>;
-        _manufacturers = results[1] as List<Map<String, dynamic>>;
+        _airfleets     = results[0];
+        _manufacturers = results[1];
         if (_selected != null) {
           _selected = _airfleets.firstWhere(
             (a) => a['airfleet_id'] == _selected!['airfleet_id'],

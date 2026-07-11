@@ -86,12 +86,14 @@ class _AirfleetCardState extends State<_AirfleetCard> {
 
   Future<void> _loadPhotos() async {
     debugPrint('>>> loading photos for airfleet ${widget.airfleet.airfleetId}');
-  final photos = await widget.apiService.getAirfleetPhotos(widget.airfleet.airfleetId);
-  debugPrint('>>> photos count: ${photos.length}');
-    if (mounted) setState(() {
-      _photos      = photos;
-      _loadedPhotos = true;
-    });
+    final photos = await widget.apiService.getAirfleetPhotos(widget.airfleet.airfleetId);
+    debugPrint('>>> photos count: ${photos.length}');
+    if (mounted) {
+      setState(() {
+        _photos       = photos;
+        _loadedPhotos = true;
+      });
+    }
   }
 
   @override
@@ -258,7 +260,7 @@ class _AirfleetCardState extends State<_AirfleetCard> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          widget.airfleet.aircraftModel,
+                          widget.airfleet.aircraftModel ?? '—',
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -267,12 +269,10 @@ class _AirfleetCardState extends State<_AirfleetCard> {
                                 : colors.onSurface,
                           ),
                         ),
-                        if (widget.airfleet.manufacturerName != null)
+                        if (widget.airfleet.airfleetManufacturerName != null)
                           Text(
-                            widget.airfleet.manufacturerName!,
-                            style: TextStyle(
-                                fontSize: 12,
-                                color: colors.onSurfaceVariant),
+                            widget.airfleet.airfleetManufacturerName!,
+                            style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant),
                           ),
                       ],
                     ),

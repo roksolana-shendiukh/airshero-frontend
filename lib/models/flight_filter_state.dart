@@ -238,24 +238,34 @@ class FlightFilterState {
   List<FlightCombo> apply(List<FlightCombo> combos) {
     var result = combos.where((combo) {
       if (combo.totalPrice < selectedMinPrice ||
-          combo.totalPrice > selectedMaxPrice) return false;
+          combo.totalPrice > selectedMaxPrice) {
+        return false;
+      }
 
       if (selectedAirlines.isNotEmpty &&
-          !selectedAirlines.contains(combo.outbound.airlineName)) return false;
+          !selectedAirlines.contains(combo.outbound.airlineName)) {
+        return false;
+      }
 
       if (hasDurationRange) {
         final dur = _parseDurationMinutes(combo.outbound.flightDuration);
-        if (dur < selectedMinDuration || dur > selectedMaxDuration) return false;
+        if (dur < selectedMinDuration || dur > selectedMaxDuration) {
+          return false;
+        }
       }
 
       if (departureSlots.isNotEmpty) {
         final hour = combo.outbound.departsDatetime.hour;
-        if (!departureSlots.any((s) => s.matches(hour))) return false;
+        if (!departureSlots.any((s) => s.matches(hour))) {
+          return false;
+        }
       }
 
       if (returnSlots.isNotEmpty && combo.returnFlight != null) {
         final hour = combo.returnFlight!.departsDatetime.hour;
-        if (!returnSlots.any((s) => s.matches(hour))) return false;
+        if (!returnSlots.any((s) => s.matches(hour))) {
+          return false;
+        }
       }
 
       for (final entry in passengerClasses.entries) {
@@ -263,7 +273,9 @@ class FlightFilterState {
         if (requested == Class.any) continue;
         final hasMatch = combo.outboundAssignments
             .any((a) => a.assignedClass == requested.label);
-        if (!hasMatch) return false;
+        if (!hasMatch) {
+          return false;
+        }
       }
 
       if (combo.returnFlight != null) {
@@ -272,7 +284,9 @@ class FlightFilterState {
           if (requested == Class.any) continue;
           final hasMatch = combo.returnAssignments
               .any((a) => a.assignedClass == requested.label);
-          if (!hasMatch) return false;
+          if (!hasMatch) {
+            return false;
+          }
         }
       }
 
@@ -290,7 +304,7 @@ class FlightFilterState {
 
     return result;
   }
-
+  
   FlightFilterState copyWith({
     Map<int, Class>? passengerClasses,
     Map<int, Class>? returnPassengerClasses,
