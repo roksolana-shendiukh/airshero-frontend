@@ -29,7 +29,6 @@ class _CheckInFlightsPageState extends State<CheckInFlightsPage> {
   String? _error;
 
   Timer? _ticker;
-  DateTime _now = DateTime.now();
   bool _isActioning = false;
   int _checkedIn = 0;
   int _totalPassengers = 0;
@@ -115,7 +114,7 @@ class _CheckInFlightsPageState extends State<CheckInFlightsPage> {
         activeFlight['boarding_start_time'] != null) {
       _ticker?.cancel();
       _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-        if (mounted) setState(() => _now = DateTime.now());
+        if (mounted) setState(() {});
       });
     }
   }
