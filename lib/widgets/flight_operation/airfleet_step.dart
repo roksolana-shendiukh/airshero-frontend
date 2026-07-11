@@ -88,10 +88,12 @@ class _AirfleetCardState extends State<_AirfleetCard> {
     debugPrint('>>> loading photos for airfleet ${widget.airfleet.airfleetId}');
     final photos = await widget.apiService.getAirfleetPhotos(widget.airfleet.airfleetId);
     debugPrint('>>> photos count: ${photos.length}');
-      if (mounted) setState(() {
-        _photos      = photos;
+    if (mounted) {
+      setState(() {
+        _photos       = photos;
         _loadedPhotos = true;
       });
+    }
   }
 
   @override
