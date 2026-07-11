@@ -54,11 +54,11 @@ class _AirportsPageState extends State<AirportsPage> {
       ]);
 
       setState(() {
-        _airports = results[0] as List<Map<String, dynamic>>;
-        _countries = results[1] as List<Map<String, dynamic>>;
-        _cities = results[2] as List<Map<String, dynamic>>;
+        _airports      = results[0];
+        _countries     = results[1];
+        _cities        = results[2];
         _terminalTypes = (results[3] as List<Map<String, dynamic>>)
-            .map((e) => e['terminalTypeName'].toString())
+            .map((e) => e['terminal_type_name'].toString())
             .toList();
         _isLoading = false;
       });
@@ -133,7 +133,7 @@ class _AirportsPageState extends State<AirportsPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Confirm Delete'),
+        title:   const Text('Confirm Delete'),
         content: Text('Delete ${airport['airport_name']}?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
@@ -141,7 +141,7 @@ class _AirportsPageState extends State<AirportsPage> {
         ],
       ),
     );
-    if (confirmed == true) {
+    if (confirmed == true && mounted) {
       final api = ObjectCrudService(context.read<AuthService>());
       await api.deleteAirport(airport['airport_id']);
       _loadData();
@@ -306,7 +306,7 @@ class _AirportsPageState extends State<AirportsPage> {
                     child: Container(
                       decoration: BoxDecoration(
                         color: colors.surface,
-                        border: Border.all(color: colors.outline.withOpacity(0.2)),
+                        border: Border.all(color: colors.outline.withValues(alpha: 0.2)),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: _isLoading
@@ -369,7 +369,7 @@ class _AirportsPageState extends State<AirportsPage> {
     final end = ((_currentPage + 1) * _rowsPerPage).clamp(0, total);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(border: Border(top: BorderSide(color: colors.outline.withOpacity(0.2)))),
+      decoration: BoxDecoration(border: Border(top: BorderSide(color: colors.outline.withValues(alpha: 0.2)))),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
@@ -394,14 +394,14 @@ class _AirportsPageState extends State<AirportsPage> {
     return Container(
       decoration: BoxDecoration(
         color: colors.surface,
-        border: Border.all(color: colors.outline.withOpacity(0.2)),
+        border: Border.all(color: colors.outline.withValues(alpha: 0.2)),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.flight_land, size: 48, color: colors.outline.withOpacity(0.5)),
+            Icon(Icons.flight_land, size: 48, color: colors.outline.withValues(alpha: 0.5)),
             const SizedBox(height: 16),
             Text('Select an airport to view\nTerminals and Gates', textAlign: TextAlign.center, style: TextStyle(color: colors.onSurfaceVariant)),
           ],
