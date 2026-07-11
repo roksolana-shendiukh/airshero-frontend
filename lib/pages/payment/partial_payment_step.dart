@@ -91,9 +91,6 @@ class _PartialPaymentStepState extends State<PartialPaymentStep> {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final remaining = widget.maxAllowed;
-    final isLastStep = widget.currentAmount != null &&
-        (widget.currentAmount! - remaining).abs() < 0.01 &&
-        remaining < widget.totalPrice;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
