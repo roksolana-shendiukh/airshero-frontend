@@ -83,13 +83,13 @@ class _CreateRoutePageState extends State<CreateRoutePage> {
   Future<void> _submit() async {
     setState(() => _isSubmitting = true);
     try {
-      final result = await _service.createRoute(
+      await _service.createRoute(
         airfleetId:       _selectedAirfleet!['airfleet_id'] as int,
         departsAirportId: _selectedDepartsAirport!['airport_id'] as int,
         arrivesAirportId: _selectedArrivesAirport!['airport_id'] as int,
-        flightStartDate: _flightStartDate!.toIso8601String().split('T')[0],
-        flightEndDate: _flightEndDate!.toIso8601String().split('T')[0],
-        scheduleGroups: _scheduleGroups,
+        flightStartDate:  _flightStartDate!.toIso8601String().split('T')[0],
+        flightEndDate:    _flightEndDate!.toIso8601String().split('T')[0],
+        scheduleGroups:   _scheduleGroups,
       );
 
       if (mounted) {
