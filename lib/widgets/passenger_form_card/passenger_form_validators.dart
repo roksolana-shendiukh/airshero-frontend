@@ -13,23 +13,26 @@ _AgeCategory _getAgeCategory(DateTime? dob) {
   return _AgeCategory.infant;
 }
 
-extension PassengerFormValidators on _PassengerFormCardState {
+extension _PassengerFormValidators on _PassengerFormCardState {
   String? get _ageMismatchMessage {
     if (_dateOfBirth == null) return null;
     final category = _getAgeCategory(_dateOfBirth);
     final type = widget.passengerType.toLowerCase();
     switch (type) {
       case 'adult':
-        if (category != _AgeCategory.adult)
+        if (category != _AgeCategory.adult) {
           return 'Adult passengers must be 12 years or older';
+        }
         break;
       case 'child':
-        if (category != _AgeCategory.child)
+        if (category != _AgeCategory.child) {
           return 'Child passengers must be between 3 and 11 years old';
+        }
         break;
       case 'infant':
-        if (category != _AgeCategory.infant)
+        if (category != _AgeCategory.infant) {
           return 'Infant passengers must be 2 years old or younger';
+        }
         break;
     }
     return null;
@@ -173,3 +176,7 @@ extension PassengerFormValidators on _PassengerFormCardState {
   }
 
 }
+
+
+
+

@@ -24,12 +24,12 @@ class AirportDetailPanel extends StatefulWidget {
 
 class _AirportDetailPanelState extends State<AirportDetailPanel> {
   List<Map<String, dynamic>> _terminals = [];
-  List<Map<String, dynamic>> _gates = [];
+  List<Map<String, dynamic>> _gates     = [];
 
   bool _isLoadingTerminals = true;
-  bool _isLoadingGates = false;
+  bool _isLoadingGates     = false;
 
-  String? _selectedTerminalName;
+  String?               _selectedTerminalName;
   Map<String, dynamic>? _selectedTerminal;
 
   String? _terminalError;
@@ -44,15 +44,15 @@ class _AirportDetailPanelState extends State<AirportDetailPanel> {
   @override
   void didUpdateWidget(AirportDetailPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.airport['airportId'] != widget.airport['airportId']) {
+    if (oldWidget.airport['airport_id'] != widget.airport['airport_id']) {
       setState(() {
-        _terminals = [];
-        _gates = [];
-        _selectedTerminal = null;
+        _terminals            = [];
+        _gates                = [];
+        _selectedTerminal     = null;
         _selectedTerminalName = null;
-        _isLoadingTerminals = true;
-        _terminalError = null;
-        _gateError = null;
+        _isLoadingTerminals   = true;
+        _terminalError        = null;
+        _gateError            = null;
       });
       _loadTerminals();
     }
@@ -61,40 +61,40 @@ class _AirportDetailPanelState extends State<AirportDetailPanel> {
   Future<void> _loadTerminals() async {
     setState(() {
       _isLoadingTerminals = true;
-      _terminalError = null;
+      _terminalError      = null;
     });
 
     try {
-      final api = ObjectCrudService(context.read<AuthService>());
-      final terminals = await api.getTerminals(widget.airport['airportId'] as int);
+      final api       = ObjectCrudService(context.read<AuthService>());
+      final terminals = await api.getTerminals(widget.airport['airport_id'] as int);
       if (mounted) {
         setState(() {
-          _terminals = terminals;
+          _terminals          = terminals;
           _isLoadingTerminals = false;
-          
+
           if (_selectedTerminal != null) {
             final updated = terminals.firstWhere(
-              (t) => t['terminalId'] == _selectedTerminal!['terminalId'],
+              (t) => t['terminal_id'] == _selectedTerminal!['terminal_id'],
               orElse: () => <String, dynamic>{},
             );
             if (updated.isEmpty) {
-              _selectedTerminal = null;
+              _selectedTerminal     = null;
               _selectedTerminalName = null;
-              _gates = [];
+              _gates                = [];
             } else {
               _selectedTerminal = updated;
             }
           } else if (terminals.isNotEmpty) {
-            _selectedTerminal = terminals.first;
-            _selectedTerminalName = terminals.first['terminalCode'] as String?;
-            _loadGates(_selectedTerminal!['terminalId'] as int);
+            _selectedTerminal     = terminals.first;
+            _selectedTerminalName = terminals.first['terminal_code'] as String?;
+            _loadGates(_selectedTerminal!['terminal_id'] as int);
           }
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _terminalError = e.toString().replaceAll('Exception: ', '');
+          _terminalError      = e.toString().replaceAll('Exception: ', '');
           _isLoadingTerminals = false;
         });
       }
@@ -104,23 +104,23 @@ class _AirportDetailPanelState extends State<AirportDetailPanel> {
   Future<void> _loadGates(int terminalId) async {
     setState(() {
       _isLoadingGates = true;
-      _gateError = null;
-      _gates = [];
+      _gateError      = null;
+      _gates          = [];
     });
 
     try {
-      final api = ObjectCrudService(context.read<AuthService>());
+      final api   = ObjectCrudService(context.read<AuthService>());
       final gates = await api.getGates(terminalId);
       if (mounted) {
         setState(() {
-          _gates = gates;
+          _gates          = gates;
           _isLoadingGates = false;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _gateError = e.toString().replaceAll('Exception: ', '');
+          _gateError      = e.toString().replaceAll('Exception: ', '');
           _isLoadingGates = false;
         });
       }
@@ -130,20 +130,19 @@ class _AirportDetailPanelState extends State<AirportDetailPanel> {
   void _onTerminalSelected(String? val) {
     if (val == null) return;
     final terminal = _terminals.firstWhere(
-      (t) => t['terminalCode'] == val,
+      (t) => t['terminal_code'] == val,
       orElse: () => <String, dynamic>{},
     );
     if (terminal.isEmpty) return;
     setState(() {
-      _selectedTerminal = terminal;
+      _selectedTerminal     = terminal;
       _selectedTerminalName = val;
-      _terminalError = null;
-      _gateError = null;
+      _terminalError        = null;
+      _gateError            = null;
     });
-    _loadGates(terminal['terminalId'] as int);
+    _loadGates(terminal['terminal_id'] as int);
   }
 
-  // --- ДОПОМІЖНИЙ ДІАЛОГ ДЛЯ ПОМИЛОК БЛОКУВАННЯ ---
   void _showBlockDialog(String title, String message) {
     showDialog(
       context: context,
@@ -167,14 +166,12 @@ class _AirportDetailPanelState extends State<AirportDetailPanel> {
     );
   }
 
-  // --- ВИДАЛЕННЯ ТЕРМІНАЛУ ---
   Future<void> _deleteTerminal() async {
     if (_selectedTerminal == null) return;
 
-    // ПЕРЕВІРКА ПЕРЕД ПІДТВЕРДЖЕННЯМ: Якщо є гейти - блокуємо одразу
     if (_gates.isNotEmpty) {
       _showBlockDialog(
-        'Cannot Delete Terminal', 
+        'Cannot Delete Terminal',
         'This terminal currently has ${_gates.length} gate(s). Please delete all gates first.',
       );
       return;
@@ -187,7 +184,7 @@ class _AirportDetailPanelState extends State<AirportDetailPanel> {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           title: const Text('Delete Terminal'),
-          content: Text('Are you sure you want to delete terminal "${_selectedTerminal!['terminalCode']}"?'),
+          content: Text('Are you sure you want to delete terminal "${_selectedTerminal!['terminal_code']}"?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -206,19 +203,19 @@ class _AirportDetailPanelState extends State<AirportDetailPanel> {
       },
     );
 
-    if (confirmed != true) return;
+    if (confirmed != true || !mounted) return;
 
     setState(() => _terminalError = null);
 
     try {
       final api = ObjectCrudService(context.read<AuthService>());
-      await api.deleteTerminal(_selectedTerminal!['terminalId'] as int);
-      
+      await api.deleteTerminal(_selectedTerminal!['terminal_id'] as int);
+
       if (mounted) {
         setState(() {
-          _selectedTerminal = null;
+          _selectedTerminal     = null;
           _selectedTerminalName = null;
-          _gates = [];
+          _gates                = [];
         });
         _loadTerminals();
       }
@@ -229,7 +226,6 @@ class _AirportDetailPanelState extends State<AirportDetailPanel> {
     }
   }
 
-  // --- ВИДАЛЕННЯ ГЕЙТУ ---
   Future<void> _deleteGate(Map<String, dynamic> gate) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -238,7 +234,7 @@ class _AirportDetailPanelState extends State<AirportDetailPanel> {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           title: const Text('Delete Gate'),
-          content: Text('Are you sure you want to delete gate "${gate['gateCode']}"?'),
+          content: Text('Are you sure you want to delete gate "${gate['gate_code']}"?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -257,23 +253,22 @@ class _AirportDetailPanelState extends State<AirportDetailPanel> {
       },
     );
 
-    if (confirmed != true) return;
+    if (confirmed != true || !mounted) return;
 
     setState(() => _gateError = null);
 
     try {
-      final api = ObjectCrudService(context.read<AuthService>());
-      final gateId = gate['gateId'] ?? gate['gate_id'] ?? gate['id'];
-      await api.deleteGate(gateId as int);
-      
+      final api    = ObjectCrudService(context.read<AuthService>());
+      final gateId = gate['gate_id'] as int;
+      await api.deleteGate(gateId);
+
       if (mounted) {
-        _loadGates(_selectedTerminal!['terminalId'] as int);
+        _loadGates(_selectedTerminal!['terminal_id'] as int);
       }
     } catch (e) {
       if (mounted) {
-        // Якщо бекенд не дав видалити через зв'язки з рейсами
         _showBlockDialog(
-          'Cannot Delete Gate', 
+          'Cannot Delete Gate',
           'This gate might be assigned to flight executions.\n\nDetails: ${e.toString().replaceAll('Exception: ', '')}',
         );
       }
@@ -283,7 +278,7 @@ class _AirportDetailPanelState extends State<AirportDetailPanel> {
   Future<void> _openAddTerminal() async {
     final result = await showDialog<bool>(
       context: context,
-      builder: (_) => AirportTerminalDialog(airportId: widget.airport['airportId'] as int),
+      builder: (_) => AirportTerminalDialog(airportId: widget.airport['airport_id'] as int),
     );
     if (result == true) _loadTerminals();
   }
@@ -293,8 +288,8 @@ class _AirportDetailPanelState extends State<AirportDetailPanel> {
     final result = await showDialog<bool>(
       context: context,
       builder: (_) => AirportTerminalDialog(
-        airportId: widget.airport['airportId'] as int,
-        terminal: _selectedTerminal,
+        airportId: widget.airport['airport_id'] as int,
+        terminal:  _selectedTerminal,
       ),
     );
     if (result == true) _loadTerminals();
@@ -305,23 +300,23 @@ class _AirportDetailPanelState extends State<AirportDetailPanel> {
     final result = await showDialog<bool>(
       context: context,
       builder: (_) => AirportGateDialog(
-        terminalId: _selectedTerminal!['terminalId'] as int,
-        terminalCode: _selectedTerminal!['terminalCode'] as String,
+        terminalId:   _selectedTerminal!['terminal_id'] as int,
+        terminalCode: _selectedTerminal!['terminal_code'] as String,
       ),
     );
-    if (result == true) _loadGates(_selectedTerminal!['terminalId'] as int);
+    if (result == true) _loadGates(_selectedTerminal!['terminal_id'] as int);
   }
 
   Future<void> _openEditGate(Map<String, dynamic> gate) async {
     final result = await showDialog<bool>(
       context: context,
       builder: (_) => AirportGateDialog(
-        terminalId: _selectedTerminal!['terminalId'] as int,
-        terminalCode: _selectedTerminal!['terminalCode'] as String,
-        gate: gate,
+        terminalId:   _selectedTerminal!['terminal_id'] as int,
+        terminalCode: _selectedTerminal!['terminal_code'] as String,
+        gate:         gate,
       ),
     );
-    if (result == true) _loadGates(_selectedTerminal!['terminalId'] as int);
+    if (result == true) _loadGates(_selectedTerminal!['terminal_id'] as int);
   }
 
   @override
@@ -330,8 +325,8 @@ class _AirportDetailPanelState extends State<AirportDetailPanel> {
 
     return Container(
       decoration: BoxDecoration(
-        color: colors.surface,
-        border: Border.all(color: colors.outline.withValues(alpha: 0.2)),
+        color:        colors.surface,
+        border:       Border.all(color: colors.outline.withValues(alpha: 0.2)),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Column(
@@ -371,23 +366,25 @@ class _AirportDetailPanelState extends State<AirportDetailPanel> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                       decoration: BoxDecoration(
-                        color: colors.primaryContainer.withValues(alpha: 0.4),
+                        color:        colors.primaryContainer.withValues(alpha: 0.4),
                         borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: colors.primary.withValues(alpha: 0.3)),
+                        border:       Border.all(color: colors.primary.withValues(alpha: 0.3)),
                       ),
                       child: Text(
-                        widget.airport['airportCode'] ?? '—',
+                        widget.airport['airport_code'] ?? '—',
                         style: TextStyle(
-                          fontSize: 11, fontWeight: FontWeight.w600,
-                          color: colors.primary, letterSpacing: 0.5,
+                          fontSize:   11,
+                          fontWeight: FontWeight.w600,
+                          color:      colors.primary,
+                          letterSpacing: 0.5,
                         ),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        widget.airport['cityName'] ?? '—',
-                        style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant),
+                        widget.airport['city_name'] ?? '—',
+                        style:    TextStyle(fontSize: 12, color: colors.onSurfaceVariant),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -395,25 +392,25 @@ class _AirportDetailPanelState extends State<AirportDetailPanel> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  widget.airport['airportName'] ?? '—',
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                  maxLines: 2, overflow: TextOverflow.ellipsis,
+                  widget.airport['airport_name'] ?? '—',
+                  style:    const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
           IconButton(
-            onPressed: widget.onClose,
-            icon: const Icon(Icons.close, size: 18),
-            visualDensity: VisualDensity.compact,
-            color: colors.onSurfaceVariant,
+            onPressed:       widget.onClose,
+            icon:            const Icon(Icons.close, size: 18),
+            visualDensity:   VisualDensity.compact,
+            color:           colors.onSurfaceVariant,
           ),
         ],
       ),
     );
   }
 
-  // ОНОВЛЕНИЙ TERMINAL SECTION: Select завжди видимий, помилка відображається НАД ним
   Widget _buildTerminalSection(ColorScheme colors) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -424,50 +421,66 @@ class _AirportDetailPanelState extends State<AirportDetailPanel> {
             Text(
               'Terminals',
               style: TextStyle(
-                fontSize: 12, fontWeight: FontWeight.w600,
-                color: colors.onSurfaceVariant, letterSpacing: 0.4,
+                fontSize:   12,
+                fontWeight: FontWeight.w600,
+                color:      colors.onSurfaceVariant,
+                letterSpacing: 0.4,
               ),
             ),
             Row(
               children: [
                 if (_selectedTerminal != null) ...[
                   _iconAction(
-                    icon: Icons.edit_outlined, tooltip: 'Edit terminal',
-                    onTap: _openEditTerminal, color: colors.onSurfaceVariant,
+                    icon:    Icons.edit_outlined,
+                    tooltip: 'Edit terminal',
+                    onTap:   _openEditTerminal,
+                    color:   colors.onSurfaceVariant,
                   ),
                   _iconAction(
-                    icon: Icons.delete_outline, tooltip: 'Delete terminal',
-                    onTap: _deleteTerminal, color: colors.error,
+                    icon:    Icons.delete_outline,
+                    tooltip: 'Delete terminal',
+                    onTap:   _deleteTerminal,
+                    color:   colors.error,
                   ),
                 ],
                 _iconAction(
-                  icon: Icons.add, tooltip: 'Add terminal',
-                  onTap: _openAddTerminal, color: colors.primary,
+                  icon:    Icons.add,
+                  tooltip: 'Add terminal',
+                  onTap:   _openAddTerminal,
+                  color:   colors.primary,
                 ),
               ],
             ),
           ],
         ),
         const SizedBox(height: 8),
-        
+
         if (_terminalError != null)
           Padding(
             padding: const EdgeInsets.only(bottom: 8.0),
-            child: Text(_terminalError!, style: TextStyle(fontSize: 12, color: colors.error)),
+            child: Text(_terminalError!,
+                style: TextStyle(fontSize: 12, color: colors.error)),
           ),
 
         if (_isLoadingTerminals)
-          const Center(child: Padding(padding: EdgeInsets.symmetric(vertical: 8), child: CircularProgressIndicator(strokeWidth: 2)))
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          )
         else if (_terminals.isEmpty)
-          Text('No terminals yet', style: TextStyle(fontSize: 13, color: colors.onSurfaceVariant))
+          Text('No terminals yet',
+              style: TextStyle(fontSize: 13, color: colors.onSurfaceVariant))
         else
           CustomSelectField(
-            label: 'Select terminal',
-            icon: Icons.apartment_outlined,
-            value: _selectedTerminalName ?? '',
-            items: _terminals.map((t) => t['terminalCode'] as String).toList(),
-            itemLabels: _terminals.map((t) => 'Terminal ${t['terminalCode']} · ${t['terminalTypeName'] ?? ''}').toList(),
-            onChanged: _onTerminalSelected,
+            label:      'Select terminal',
+            icon:       Icons.apartment_outlined,
+            value:      _selectedTerminalName ?? '',
+            items:      _terminals.map((t) => t['terminal_code'] as String).toList(),
+            itemLabels: _terminals.map((t) =>
+                'Terminal ${t['terminal_code']} · ${t['terminal_type_name'] ?? ''}').toList(),
+            onChanged:  _onTerminalSelected,
           ),
       ],
     );
@@ -483,13 +496,17 @@ class _AirportDetailPanelState extends State<AirportDetailPanel> {
             Text(
               'Gates',
               style: TextStyle(
-                fontSize: 12, fontWeight: FontWeight.w600,
-                color: colors.onSurfaceVariant, letterSpacing: 0.4,
+                fontSize:   12,
+                fontWeight: FontWeight.w600,
+                color:      colors.onSurfaceVariant,
+                letterSpacing: 0.4,
               ),
             ),
             _iconAction(
-              icon: Icons.add, tooltip: 'Add gate',
-              onTap: _openAddGate, color: colors.primary,
+              icon:    Icons.add,
+              tooltip: 'Add gate',
+              onTap:   _openAddGate,
+              color:   colors.primary,
             ),
           ],
         ),
@@ -498,17 +515,25 @@ class _AirportDetailPanelState extends State<AirportDetailPanel> {
         if (_gateError != null)
           Padding(
             padding: const EdgeInsets.only(bottom: 8.0),
-            child: Text(_gateError!, style: TextStyle(fontSize: 12, color: colors.error)),
+            child: Text(_gateError!,
+                style: TextStyle(fontSize: 12, color: colors.error)),
           ),
 
         if (_isLoadingGates)
-          const Center(child: Padding(padding: EdgeInsets.symmetric(vertical: 8), child: CircularProgressIndicator(strokeWidth: 2)))
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          )
         else if (_gates.isEmpty)
-          Text('No gates yet', style: TextStyle(fontSize: 13, color: colors.onSurfaceVariant))
+          Text('No gates yet',
+              style: TextStyle(fontSize: 13, color: colors.onSurfaceVariant))
         else
           Wrap(
-            spacing: 8, runSpacing: 8,
-            children: _gates.map((gate) => _buildGateChip(gate, colors)).toList(),
+            spacing:    8,
+            runSpacing: 8,
+            children:   _gates.map((gate) => _buildGateChip(gate, colors)).toList(),
           ),
       ],
     );
@@ -517,29 +542,37 @@ class _AirportDetailPanelState extends State<AirportDetailPanel> {
   Widget _buildGateChip(Map<String, dynamic> gate, ColorScheme colors) {
     return InputChip(
       label: Text(
-        gate['gateCode'] ?? '—',
+        gate['gate_code'] ?? '—',
         style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
       ),
       backgroundColor: colors.surfaceContainerHighest.withValues(alpha: 0.5),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(6),
-        side: BorderSide(color: colors.outline.withValues(alpha: 0.2)),
+        side:         BorderSide(color: colors.outline.withValues(alpha: 0.2)),
       ),
-      deleteIcon: const Icon(Icons.close, size: 16),
+      deleteIcon:      const Icon(Icons.close, size: 16),
       deleteIconColor: colors.error,
-      onPressed: () => _openEditGate(gate), 
-      onDeleted: () => _deleteGate(gate),  
-      tooltip: 'Tap to edit, click × to delete',
+      onPressed:       () => _openEditGate(gate),
+      onDeleted:       () => _deleteGate(gate),
+      tooltip:         'Tap to edit, click × to delete',
     );
   }
 
- 
-  Widget _iconAction({required IconData icon, required String tooltip, required VoidCallback onTap, required Color color}) {
+  Widget _iconAction({
+    required IconData     icon,
+    required String       tooltip,
+    required VoidCallback onTap,
+    required Color        color,
+  }) {
     return Tooltip(
       message: tooltip,
       child: InkWell(
-        onTap: onTap, borderRadius: BorderRadius.circular(4),
-        child: Padding(padding: const EdgeInsets.all(4), child: Icon(icon, size: 18, color: color)),
+        onTap:         onTap,
+        borderRadius:  BorderRadius.circular(4),
+        child: Padding(
+          padding: const EdgeInsets.all(4),
+          child:   Icon(icon, size: 18, color: color),
+        ),
       ),
     );
   }
