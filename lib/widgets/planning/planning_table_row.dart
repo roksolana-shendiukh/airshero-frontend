@@ -85,7 +85,7 @@ class PlanningTableRow extends StatelessWidget {
             if (columnWidths.containsKey('actions'))
               _buildCenteredCell('actions', IconButton(
                 icon: Icon(Icons.edit_calendar_rounded, size: 20, 
-                      color: Colors.grey.withOpacity(0.3) → Colors.grey.withValues(alpha: 0.3),
+                      color: isActionable ? colors.primary : Colors.grey.withValues(alpha: 0.3)),
                 onPressed: isActionable ? () => onEditTap(flight) : null,
               )),
           ],
