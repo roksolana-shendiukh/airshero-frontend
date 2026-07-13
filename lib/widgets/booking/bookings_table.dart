@@ -24,15 +24,15 @@ class _BookingsTableState extends State<BookingsTable> {
   static const int _pageSize = 20;
   int _currentPage = 0;
 
-  Map<String, double> _columnWidths = {
-    'number': 150,
-    'route': 180,
+  final Map<String, double> _columnWidths = {
+    'number':      150,
+    'route':       180,
     'bookingDate': 140,
-    'departure': 160,
-    'passengers': 100,
-    'amount': 130,
-    'status': 150,
-    'actions': 64,
+    'departure':   160,
+    'passengers':  100,
+    'amount':      130,
+    'status':      150,
+    'actions':     64,
   };
 
   double get _totalWidth =>
@@ -168,11 +168,11 @@ class _BookingsTableState extends State<BookingsTable> {
                                   color: index.isEven
                                       ? null
                                       : colors.surfaceContainerLow
-                                          .withOpacity(0.3),
+                                          .withValues(alpha: 0.3),
                                   border: Border(
                                     bottom: BorderSide(
                                       color:
-                                          colors.outline.withOpacity(0.08),
+                                          colors.outline.withValues(alpha: 0.08),
                                     ),
                                   ),
                                 ),
@@ -290,7 +290,7 @@ class _BookingsTableState extends State<BookingsTable> {
                                             horizontal: 8, vertical: 3),
                                         decoration: BoxDecoration(
                                           color:
-                                              statusColor.withOpacity(0.1),
+                                              statusColor.withValues(alpha: 0.1),
                                           borderRadius:
                                               BorderRadius.circular(12),
                                         ),
@@ -349,7 +349,7 @@ class _BookingsTableState extends State<BookingsTable> {
             height: 52,
             decoration: BoxDecoration(
               border: Border(
-                top: BorderSide(color: colors.outline.withOpacity(0.15)),
+                top: BorderSide(color: colors.outline.withValues(alpha: 0.15)),
               ),
             ),
             child: Row(
@@ -426,9 +426,9 @@ class _BookingsTableHeader extends StatelessWidget {
     return Container(
       height: 44,
       decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest.withOpacity(0.5),
+        color: colors.surfaceContainerHighest.withValues(alpha: 0.5),
         border: Border(
-          bottom: BorderSide(color: colors.outline.withOpacity(0.2)),
+          bottom: BorderSide(color: colors.outline.withValues(alpha: 0.2)),
         ),
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(8),
@@ -484,7 +484,7 @@ class _BookingsTableHeader extends StatelessWidget {
                   child: Container(
                     width: 1,
                     height: 20,
-                    color: colors.outline.withOpacity(0.3),
+                    color: colors.outline.withValues(alpha: 0.3),
                   ),
                 ),
               ),

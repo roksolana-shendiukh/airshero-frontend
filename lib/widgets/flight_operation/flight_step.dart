@@ -151,11 +151,11 @@ class _FlightCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: isSelected
-              ? colors.primaryContainer.withOpacity(0.15)
+              ? colors.primaryContainer.withValues(alpha: 0.15)
               : colors.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? colors.primary : colors.outlineVariant.withOpacity(0.5),
+            color: isSelected ? colors.primary : colors.outlineVariant.withValues(alpha: 0.5),
             width: isSelected ? 1.5 : 1,
           ),
         ),

@@ -36,7 +36,7 @@ class BoardTableColumns {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: colors.primary.withOpacity(0.08),
+                color: colors.primary.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(

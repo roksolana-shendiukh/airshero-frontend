@@ -159,7 +159,7 @@ class AlternativesSection extends StatelessWidget {
     return Divider(
       height: 1,
       thickness: 1,
-      color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.5),
+      color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
     );
   }
 }

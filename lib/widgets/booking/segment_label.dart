@@ -15,7 +15,7 @@ class SegmentLabel extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: colors.primaryContainer.withOpacity(0.4),
+        color: colors.primaryContainer.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(

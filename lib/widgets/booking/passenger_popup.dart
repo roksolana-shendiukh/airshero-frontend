@@ -47,7 +47,7 @@ class PassengerCountCell extends StatelessWidget {
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: colors.primary,
                       decoration: TextDecoration.underline,
-                      decorationColor: colors.primary.withOpacity(0.5),
+                      decorationColor: colors.primary.withValues(alpha: 0.5),
                     ),
               ),
             ],
@@ -68,7 +68,7 @@ class PassengerCountCell extends StatelessWidget {
       color: colors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: colors.outline.withOpacity(0.2)),
+        side: BorderSide(color: colors.outline.withValues(alpha: 0.2)),
       ),
       elevation: 8,
       position: RelativeRect.fromLTRB(
