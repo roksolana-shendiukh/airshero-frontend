@@ -44,12 +44,12 @@ class AvailabilityBadge extends StatelessWidget {
       icon = Icons.block_outlined;
       label = 'No seats available in $cls';
     } else if (available <= 5) {
-      badgeColor = Colors.orange.withOpacity(0.15);
+      badgeColor = Colors.orange.withValues(alpha: 0.15);
       textColor = Colors.orange.shade700;
       icon = Icons.warning_amber_outlined;
       label = '$available seat${available == 1 ? '' : 's'} left in $cls';
     } else {
-      badgeColor = colors.primaryContainer.withOpacity(0.4);
+      badgeColor = colors.primaryContainer.withValues(alpha: 0.4);
       textColor = colors.primary;
       icon = Icons.event_seat_outlined;
       label = '$available of $total seats available in $cls';
