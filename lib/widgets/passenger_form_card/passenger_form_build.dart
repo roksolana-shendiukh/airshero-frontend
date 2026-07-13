@@ -24,7 +24,7 @@ extension _PassengerFormBuild on _PassengerFormCardState {
           onPassengerFound: _fillFromPassenger,
           onClear: _clearFoundPassenger,
           onAddDocument: _onAddDocument,
-          onSearched: () => setState(() => _documentSearched = true),
+          onSearched: () => rebuild(() => _documentSearched = true),
           onTextChanged: widget.onSearchDocumentChanged,
           passengerType: widget.passengerType.toLowerCase(),
           departDate: widget.departDate,
@@ -40,7 +40,7 @@ extension _PassengerFormBuild on _PassengerFormCardState {
             authService: widget.authService,
             onPassengerFound: _fillFromPassengerOnly,
             onClear: () {},
-            onNotFound: () => setState(() {}),
+            onNotFound: () => rebuild(() {}),
             passengerType: widget.passengerType.toLowerCase(),
             departDate: widget.departDate,
           ),
@@ -225,7 +225,7 @@ extension _PassengerFormBuild on _PassengerFormCardState {
           onPassengerFound: _fillFromPassenger,
           onClear: _clearFoundPassenger,
           onAddDocument: _onAddDocument,
-          onSearched: () => setState(() => _documentSearched = true),
+          onSearched: () => rebuild(() => _documentSearched = true),
           onTextChanged: widget.onSearchDocumentChanged,
           passengerType: widget.passengerType.toLowerCase(),
           departDate: widget.departDate,
@@ -401,7 +401,7 @@ extension _PassengerFormBuild on _PassengerFormCardState {
               focusNode: emailFocusNode,
               onFocusChange: (hasFocus) {
                 if (!hasFocus) {
-                  setState(() {
+                  rebuild(() {
                     _emailTouched = true;
                     _emailInvalid = _emailController.text.isNotEmpty &&
                         !_isValidEmail(_emailController.text);
@@ -416,7 +416,7 @@ extension _PassengerFormBuild on _PassengerFormCardState {
                 keyboardType: TextInputType.emailAddress,
                 onChanged: (v) {
                   _emailController.text = v;
-                  setState(() {
+                  rebuild(() {
                     _emailInvalid = v.isNotEmpty && !_isValidEmail(v);
                   });
                   _notifyParent();
@@ -473,7 +473,7 @@ extension _PassengerFormBuild on _PassengerFormCardState {
                 onSearch: (query) async {
                   final ref = ReferenceApiService(widget.authService);
                   final results = await ref.getCitizenships(query: query);
-                  setState(() => _citizenships = results);
+                  rebuild(() => _citizenships = results);
                 },
                 errorText:
                     (_citizenshipTouched && _selectedCitizenshipId == null)
@@ -483,7 +483,7 @@ extension _PassengerFormBuild on _PassengerFormCardState {
                     ? (_) {}
                     : (value) {
                         _clearDocumentFields();
-                        setState(() => _selectedCitizenshipId =
+                        rebuild(() => _selectedCitizenshipId =
                             int.tryParse(value ?? ''));
                         _checkDocumentChanged();
                         _notifyParent();
@@ -515,7 +515,7 @@ extension _PassengerFormBuild on _PassengerFormCardState {
                           ? (_) {}
                           : (value) {
                               _clearDocumentFields();
-                              setState(() => _selectedDocumentTypeId =
+                              rebuild(() => _selectedDocumentTypeId =
                                   int.tryParse(value ?? ''));
                               _checkDocumentChanged();
                               _notifyParent();
@@ -539,7 +539,7 @@ extension _PassengerFormBuild on _PassengerFormCardState {
                           ? (_) {}
                           : (v) {
                               _documentNumberController.text = v;
-                              setState(() {
+                              rebuild(() {
                                 _documentNumberExistsError = false;
                                 _documentNumberInvalid = v.isNotEmpty &&
                                     !_isDocumentNumberPartiallyValid(v);
@@ -590,7 +590,7 @@ extension _PassengerFormBuild on _PassengerFormCardState {
                       focusNode: _documentIssueFocusNode,
                       onFocusChange: (hasFocus) {
                         if (!hasFocus) {
-                          setState(() => _documentIssueTouched = true);
+                          rebuild(() => _documentIssueTouched = true);
                         }
                       },
                       child: CustomInputField(
@@ -604,7 +604,7 @@ extension _PassengerFormBuild on _PassengerFormCardState {
                             ? (_) {}
                             : (v) {
                                 _documentIssueController.text = v;
-                                setState(() {});
+                                rebuild(() {});
                               },
                         onIconTap: _documentFieldsLocked
                             ? null
@@ -647,7 +647,7 @@ extension _PassengerFormBuild on _PassengerFormCardState {
                       focusNode: _documentExpireFocusNode,
                       onFocusChange: (hasFocus) {
                         if (!hasFocus) {
-                          setState(() => _documentExpireTouched = true);
+                          rebuild(() => _documentExpireTouched = true);
                         }
                       },
                       child: CustomInputField(
@@ -661,7 +661,7 @@ extension _PassengerFormBuild on _PassengerFormCardState {
                             ? (_) {}
                             : (v) {
                                 _documentExpireController.text = v;
-                                setState(() {});
+                                rebuild(() {});
                               },
                         onIconTap: _documentFieldsLocked
                             ? null
@@ -726,7 +726,7 @@ extension _PassengerFormBuild on _PassengerFormCardState {
                 text: v,
                 selection: TextSelection.collapsed(offset: v.length),
               );
-              setState(() {
+              rebuild(() {
                 if (v.isNotEmpty) _firstNameEdited = true;
                 final isDeleting = v.length < prev.length;
                 _firstNameInvalid =
@@ -775,7 +775,7 @@ extension _PassengerFormBuild on _PassengerFormCardState {
             onChanged: (v) {
               final prev = _lastNameController.text;
               _lastNameController.text = v;
-              setState(() {
+              rebuild(() {
                 if (v.isNotEmpty) _lastNameEdited = true;
                 final isDeleting = v.length < prev.length;
                 _lastNameInvalid =
@@ -816,7 +816,7 @@ extension _PassengerFormBuild on _PassengerFormCardState {
             items: _sexes.map((s) => s['id'].toString()).toList(),
             itemLabels: _sexes.map((s) => s['name'] as String).toList(),
             onChanged: (value) {
-              setState(() => _selectedSexId = value);
+              rebuild(() => _selectedSexId = value);
               _notifyParent();
             },
           );
