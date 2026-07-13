@@ -136,7 +136,7 @@ class _BookingProgressHeaderState extends State<BookingProgressHeader> {
         color: colors.surfaceContainerHigh,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
@@ -272,7 +272,7 @@ class _BookingProgressHeaderState extends State<BookingProgressHeader> {
                       border: Border.all(
                         color: isLast
                             ? colors.primary
-                            : colors.outline.withOpacity(0.3),
+                            : colors.outline.withValues(alpha: 0.3),
                       ),
                     ),
                     child: Row(
@@ -329,13 +329,13 @@ class _BookingProgressHeaderState extends State<BookingProgressHeader> {
       textColor = colors.onErrorContainer;
       iconColor = colors.error;
     } else if (isUrgent) {
-      bgColor = colors.errorContainer.withOpacity(0.5);
-      borderColor = colors.error.withOpacity(0.6);
+      bgColor = colors.errorContainer.withValues(alpha: 0.5);
+      borderColor = colors.error.withValues(alpha: 0.6);
       textColor = colors.error;
       iconColor = colors.error;
     } else {
-      bgColor = colors.primaryContainer.withOpacity(0.4);
-      borderColor = colors.primary.withOpacity(0.3);
+      bgColor = colors.primaryContainer.withValues(alpha: 0.4);
+      borderColor = colors.primary.withValues(alpha: 0.3);
       textColor = colors.primary;
       iconColor = colors.primary;
     }
