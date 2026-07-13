@@ -24,15 +24,15 @@ class _BookingsTableState extends State<BookingsTable> {
   static const int _pageSize = 20;
   int _currentPage = 0;
 
-  Map<String, double> _columnWidths = {
-    'number': 150,
-    'route': 180,
+  final Map<String, double> _columnWidths = {
+    'number':      150,
+    'route':       180,
     'bookingDate': 140,
-    'departure': 160,
-    'passengers': 100,
-    'amount': 130,
-    'status': 150,
-    'actions': 64,
+    'departure':   160,
+    'passengers':  100,
+    'amount':      130,
+    'status':      150,
+    'actions':     64,
   };
 
   double get _totalWidth =>
