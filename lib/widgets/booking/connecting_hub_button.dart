@@ -33,7 +33,7 @@ class _ConnectingHubButtonState extends State<ConnectingHubButton> {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             color: _hovered
-                ? colors.primary.withOpacity(0.08)
+                ? colors.primary.withValues(alpha: 0.08)
                 : colors.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
@@ -102,7 +102,7 @@ class _NearbyAirportButtonState extends State<NearbyAirportButton> {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             color: _hovered
-                ? colors.primary.withOpacity(0.06)
+                ? colors.primary.withValues(alpha: 0.06)
                 : colors.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
