@@ -316,7 +316,7 @@ Future<void> _onEditTap(OverviewFlight flight) async {
                           Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: colors.errorContainer.withOpacity(0.2),
+                              color: colors.errorContainer.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Row(
@@ -343,9 +343,9 @@ Future<void> _onEditTap(OverviewFlight flight) async {
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: colors.errorContainer.withOpacity(0.4),
+                      color: colors.errorContainer.withValues(alpha: 0.4),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: colors.error.withOpacity(0.5)),
+                      border: Border.all(color: colors.error.withValues(alpha: 0.5)),
                     ),
                     child: Row(
                       children: [
