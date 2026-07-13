@@ -1,6 +1,6 @@
 part of 'passenger_form_card.dart';
 
-extension PassengerFormBuild on _PassengerFormCardState {
+extension _PassengerFormBuild on _PassengerFormCardState {
   Widget _buildForm(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final ageMismatch = _ageMismatchMessage;
@@ -589,8 +589,9 @@ extension PassengerFormBuild on _PassengerFormCardState {
                     child: Focus(
                       focusNode: _documentIssueFocusNode,
                       onFocusChange: (hasFocus) {
-                        if (!hasFocus)
+                        if (!hasFocus) {
                           setState(() => _documentIssueTouched = true);
+                        }
                       },
                       child: CustomInputField(
                         label: 'Document Issue *',
@@ -645,8 +646,9 @@ extension PassengerFormBuild on _PassengerFormCardState {
                     child: Focus(
                       focusNode: _documentExpireFocusNode,
                       onFocusChange: (hasFocus) {
-                        if (!hasFocus)
+                        if (!hasFocus) {
                           setState(() => _documentExpireTouched = true);
+                        }
                       },
                       child: CustomInputField(
                         label: 'Document Expire *',
