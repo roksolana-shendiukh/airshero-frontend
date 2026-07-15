@@ -61,6 +61,7 @@ class PassengerFormCard extends StatefulWidget {
 }
 
 class _PassengerFormCardState extends State<PassengerFormCard> {
+  void rebuild(VoidCallback fn) => setState(fn);
   final _formKey = GlobalKey<FormState>();
 
   late TextEditingController _firstNameController;
