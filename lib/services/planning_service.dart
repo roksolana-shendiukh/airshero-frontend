@@ -501,7 +501,7 @@ class PlanningService {
     final uri = Uri.parse(
         '${AppConfig.baseUrl}/planning/flights/$flightId/times');
     
-    final response = await http.put(
+    await http.put(
       uri,
       headers: await _headers(),
       body: jsonEncode({
