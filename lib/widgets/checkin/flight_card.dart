@@ -189,7 +189,7 @@ class FlightCard extends StatelessWidget {
                       size: 13, color: Colors.green),
                   const SizedBox(width: 5),
                   Text(
-                    'Boarding completed · ${boardingStart!.substring(0, 5)} — ${boardingEnd!.substring(0, 5)}',
+                    'Boarding completed · ${boardingStart.substring(0, 5)} — ${boardingEnd.substring(0, 5)}',
                     style:
                         const TextStyle(fontSize: 11, color: Colors.green),
                   ),
