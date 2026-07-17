@@ -246,7 +246,6 @@ class _FlightConfigPageState extends State<FlightConfigPage> {
         }
 
         final stepIndex = i ~/ 2;
-        final step = _ConfigStep.values[stepIndex];
         final isActive = _currentIndex == stepIndex;
         final isDone = _currentIndex > stepIndex;
 
