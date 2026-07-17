@@ -338,7 +338,6 @@ class _SeatLayoutPanelState extends State<SeatLayoutPanel> {
   Widget _buildBlock(_SeatBlock block, ColorScheme colors) {
     const seatGap  = 4.0;
     const groupGap = 10.0;
-    const seatW    = 28.0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
