@@ -43,7 +43,6 @@ class _CheckInSearchStepState extends State<CheckInSearchStep> {
       ValueNotifier([]);
   final ValueNotifier<bool> _isSearchingNotifier = ValueNotifier(false);
 
-  bool    _documentNumberTouched = false;
   bool    _isLoading             = false;
   String? _apiError;
 
@@ -74,7 +73,6 @@ class _CheckInSearchStepState extends State<CheckInSearchStep> {
       selection: TextSelection.collapsed(offset: upper.length),
     );
     setState(() {
-      _documentNumberTouched = upper.isNotEmpty;
       _apiError              = null;
     });
     if (upper.trim().length < 2) {
@@ -128,7 +126,6 @@ class _CheckInSearchStepState extends State<CheckInSearchStep> {
   Future<void> _handleSearch({String? docNumber}) async {
     final doc = (docNumber ?? _controller.text).trim().toUpperCase();
     setState(() {
-      _documentNumberTouched = true;
       _apiError              = null;
     });
     if (doc.isEmpty) return;
@@ -164,7 +161,6 @@ class _CheckInSearchStepState extends State<CheckInSearchStep> {
     _suggestionsNotifier.value = [];
     _isSearchingNotifier.value = false;
     setState(() {
-      _documentNumberTouched = false;
       _apiError              = null;
     });
     _hideOverlay();
