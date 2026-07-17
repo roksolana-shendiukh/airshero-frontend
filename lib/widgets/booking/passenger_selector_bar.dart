@@ -35,8 +35,9 @@ class _PassengerSelectorBarState extends State<PassengerSelectorBar> {
     final adultsCount = widget.passengers['adults'] ?? 0;
     final childrenCount = widget.passengers['children'] ?? 0;
     if (index < adultsCount) return 'Adult ${index + 1}';
-    if (index < adultsCount + childrenCount)
+    if (index < adultsCount + childrenCount) {
       return 'Child ${index - adultsCount + 1}';
+    }
     return 'Infant ${index - adultsCount - childrenCount + 1}';
   }
 
@@ -54,35 +55,7 @@ class _PassengerSelectorBarState extends State<PassengerSelectorBar> {
           .fold<int>(0, (sum, qty) => sum + qty) ??
       0;
 
-  String _getPassengerDisplayName(int index) {
-    final data = widget.passengerData[index];
-    if (data == null ||
-        data.isEmpty ||
-        data['first_name'] == null ||
-        data['first_name'].toString().isEmpty) {
-      return _getPassengerLabel(index);
-    }
-    final firstName = data['first_name'].toString();
-    bool hasDuplicate = false;
-    for (int i = 0; i < widget.totalPassengers; i++) {
-      if (i != index) {
-        final otherData = widget.passengerData[i];
-        if (otherData != null &&
-            otherData['first_name']?.toString().toLowerCase() ==
-                firstName.toLowerCase()) {
-          hasDuplicate = true;
-          break;
-        }
-      }
-    }
-    if (hasDuplicate &&
-        data['last_name'] != null &&
-        data['last_name'].toString().isNotEmpty) {
-      return '$firstName ${data['last_name']}';
-    }
-    return firstName;
-  }
-
+  
   @override
   Widget build(BuildContext context) {
     return SizedBox(
