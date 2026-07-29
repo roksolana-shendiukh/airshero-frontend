@@ -26,7 +26,6 @@ class _PlanningTimePickerOverlayState
   late FixedExtentScrollController _hourCtrl;
   late FixedExtentScrollController _minuteCtrl;
 
-  // Manual input mode
   bool _isManualInput = false;
   late TextEditingController _textCtrl;
   final FocusNode _focusNode = FocusNode();
@@ -58,22 +57,8 @@ class _PlanningTimePickerOverlayState
     widget.onTimeSelected(_formattedTime);
   }
 
-  /// Switch to manual text input mode
-  void _enterManualMode() {
-    setState(() {
-      _isManualInput = true;
-      _textCtrl.text = _formattedTime;
-      // Select all text for quick overwrite
-      _textCtrl.selection =
-          TextSelection(baseOffset: 0, extentOffset: _textCtrl.text.length);
-    });
-    Future.microtask(() => _focusNode.requestFocus());
-  }
-
-  /// Validate and apply manually typed time, then switch back to wheel mode
   void _applyManualInput() {
     final raw = _textCtrl.text.trim();
-    // Accept formats: HH:MM or HHMM
     final normalized = raw.replaceAll(':', '');
     if (normalized.length == 4) {
       final h = int.tryParse(normalized.substring(0, 2));
@@ -84,7 +69,6 @@ class _PlanningTimePickerOverlayState
           _minute = m;
           _isManualInput = false;
         });
-        // Scroll wheels to match
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _hourCtrl.jumpToItem(_hour);
           _minuteCtrl.jumpToItem(_minute);
@@ -93,7 +77,6 @@ class _PlanningTimePickerOverlayState
         return;
       }
     }
-    // Invalid — just exit manual mode without changing
     setState(() => _isManualInput = false);
   }
 
@@ -115,13 +98,11 @@ class _PlanningTimePickerOverlayState
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // ── Manual input row (shown when in text mode) ──────────────
             if (_isManualInput) ...[
               _buildManualInputRow(colors),
               const SizedBox(height: 8),
             ],
 
-            // ── Wheel row ───────────────────────────────────────────────
             Row(
               children: [
                 Expanded(

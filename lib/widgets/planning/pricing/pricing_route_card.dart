@@ -74,10 +74,6 @@ class _PricingRouteCardState extends State<PricingRouteCard> {
     return '${dt.day.toString().padLeft(2, '0')}.${dt.month.toString().padLeft(2, '0')}.${dt.year}';
   }
 
-  String _fmtTime(String iso) {
-    final dt = DateTime.parse(iso);
-    return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-  }
 
   Set<String> _allClasses() {
     final classes = <String>{};
@@ -90,14 +86,6 @@ class _PricingRouteCardState extends State<PricingRouteCard> {
     return classes;
   }
 
-  // Час беремо з першого рейсу — для всіх однаковий
-  String _routeTime() {
-    if (_flights.isEmpty) return '';
-    final f = _flights.first;
-    final dep = _fmtTime(f['departsDatetime'] as String);
-    final arr = _fmtTime(f['arrivesDatetime'] as String);
-    return '$dep → $arr';
-  }
 
   @override
   Widget build(BuildContext context) {
