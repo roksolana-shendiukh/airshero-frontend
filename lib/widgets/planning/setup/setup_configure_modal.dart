@@ -29,22 +29,18 @@ class _SetupConfigureModalState extends State<SetupConfigureModal>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
 
-  // Classes
   Map<int, int> _classSeats = {};
   Map<int, String> _classNames = {};
 
-  // Prices
-  Map<int, double> _prices = {};
+  final Map<int, double> _prices = {};
 
-  // Baggage
   List<Map<String, dynamic>> _baggageRules = [];
   bool _loadingBaggage = true;
-  Map<int, Set<int>> _enabledBaggageRules = {};
-  Map<int, Map<int, double>> _baggagePrices = {};
+  final Map<int, Set<int>> _enabledBaggageRules = {};
+  final Map<int, Map<int, double>> _baggagePrices = {};
 
   bool _saving = false;
-  bool _hasExistingClasses = false;
-  Map<int, double> _originalPrices = {};
+  final Map<int, double> _originalPrices = {};
 
   bool get _hasChanges {
     if (_originalPrices.isEmpty && _prices.isNotEmpty) return true;
@@ -76,12 +72,10 @@ class _SetupConfigureModalState extends State<SetupConfigureModal>
             .cast<Map<String, dynamic>>();
 
     if (prices.isNotEmpty) {
-      _hasExistingClasses = true;
       for (final p in prices) {
-        final classId = p['classId'] as int;
-        _classNames[classId] = p['className'] as String;
+        final classId = p['class_id'] as int;
+        _classNames[classId] = p['class_name'] as String;
         _prices[classId] = (p['price'] as num).toDouble();
-        _classSeats[classId] = 0;
         _originalPrices[classId] = (p['price'] as num).toDouble();
       }
     }
@@ -93,8 +87,8 @@ class _SetupConfigureModalState extends State<SetupConfigureModal>
       if (!mounted) return;
       setState(() {
         _baggageRules = rules
-            .where((r) => r['baggageTypeName'] != 'Carry-on baggage')
-            .toList();
+          .where((r) => r['baggage_type_name'] != 'Carry-on baggage')
+          .toList();
         _loadingBaggage = false;
         _initBaggageForClasses();
       });
@@ -108,7 +102,7 @@ class _SetupConfigureModalState extends State<SetupConfigureModal>
       _enabledBaggageRules.putIfAbsent(classId, () => {});
       _baggagePrices.putIfAbsent(classId, () => {});
       for (final rule in _baggageRules) {
-        final ruleId = rule['baggagePricingRuleId'] as int;
+        final ruleId = rule['baggage_pricing_rule_id'] as int;
         _baggagePrices[classId]!.putIfAbsent(ruleId, () => 0.0);
       }
     }
@@ -120,14 +114,11 @@ class _SetupConfigureModalState extends State<SetupConfigureModal>
       _classSeats = classSeats;
       _classNames = classNames;
 
-      // Додаємо нові класи в prices
       for (final classId in classNames.keys) {
         _prices.putIfAbsent(classId, () => 0.0);
       }
-      // Видаляємо класи яких більше немає
       _prices.removeWhere((k, _) => !classNames.containsKey(k));
 
-      // Оновлюємо багаж
       for (final classId in classNames.keys) {
         _enabledBaggageRules.putIfAbsent(classId, () => {});
         _baggagePrices.putIfAbsent(classId, () => {});
@@ -155,7 +146,6 @@ class _SetupConfigureModalState extends State<SetupConfigureModal>
     setState(() => _saving = true);
     try {
       if (_hasChanges) {
-        // Є зміни — зберігаємо і підтверджуємо
         final classPrices = _prices.entries
             .map((e) => {'class_id': e.key, 'price': e.value})
             .toList();
@@ -164,15 +154,15 @@ class _SetupConfigureModalState extends State<SetupConfigureModal>
         for (final entry in _enabledBaggageRules.entries) {
           for (final ruleId in entry.value) {
             baggageOptions.add({
-              'classId': entry.key,
-              'baggagePricingRuleId': ruleId,
-              'price': _baggagePrices[entry.key]?[ruleId] ?? 0.0,
+              'class_id':                entry.key,
+              'baggage_pricing_rule_id': ruleId,
+              'price':                   _baggagePrices[entry.key]?[ruleId] ?? 0.0,
             });
           }
         }
 
         for (final flight in widget.flights) {
-          final flightId = flight['flightId'] as int;
+          final flightId = flight['flight_id'] as int;
           final existingPrices =
               (flight['prices'] as List<dynamic>? ?? [])
                   .cast<Map<String, dynamic>>();
@@ -188,7 +178,7 @@ class _SetupConfigureModalState extends State<SetupConfigureModal>
               classPrices: classPrices,
             );
             final existingClassIds =
-                existingPrices.map((p) => p['classId'] as int).toList();
+                existingPrices.map((p) => p['class_id'] as int).toList();
             final newClassIds = _classNames.keys.toList();
             if (existingClassIds.toSet().difference(newClassIds.toSet()).isNotEmpty ||
                 newClassIds.toSet().difference(existingClassIds.toSet()).isNotEmpty) {
@@ -296,15 +286,15 @@ class _SetupConfigureModalState extends State<SetupConfigureModal>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '${first['flightNumber']}  ·  '
-                      '${first['departsCode']} → ${first['arrivesCode']}',
+                      '${first['flight_number']}  ·  '
+                      '${first['departs_code']} → ${first['arrives_code']}',
                       style: const TextStyle(
                           fontSize: 15, fontWeight: FontWeight.w600),
                     ),
                     Text(
                       '${widget.flights.length} flights  ·  '
-                      '${_fmtDate(first['departsDatetime'] as String)}'
-                      '${widget.flights.length > 1 ? ' – ${_fmtDate(widget.flights.last['departsDatetime'] as String)}' : ''}',
+                      '${_fmtDate(first['departs_datetime'] as String)}'
+                      '${widget.flights.length > 1 ? ' – ${_fmtDate(widget.flights.last['departs_datetime'] as String)}' : ''}',
                       style: TextStyle(
                           fontSize: 12, color: colors.onSurfaceVariant),
                     ),
@@ -588,9 +578,8 @@ class _SetupConfigureModalState extends State<SetupConfigureModal>
                     height: 1),
                 const SizedBox(height: 12),
                 ..._baggageRules.map((rule) {
-                  final ruleId = rule['baggagePricingRuleId'] as int;
-                  final typeName =
-                      rule['baggageTypeName'] as String? ?? '';
+                  final ruleId    = rule['baggage_pricing_rule_id'] as int;
+                  final typeName  = rule['baggage_type_name'] as String? ?? '';
                   final maxWeight = rule['baggage_max_weight'] as num?;
                   final isEnabled =
                       _enabledBaggageRules[classId]?.contains(ruleId) ??
