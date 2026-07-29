@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../models/schedule_group_model.dart';
-import '../custom/custom_input_field.dart';
 import 'schedule_time_input_field.dart';
 
 class ScheduleGroupCard extends StatelessWidget {
