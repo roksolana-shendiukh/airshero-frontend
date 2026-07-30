@@ -33,22 +33,35 @@ class DateInputFormatter extends TextInputFormatter {
     }
 
     if (newRaw == oldRaw) return oldValue;
-    if (newRaw.isNotEmpty && !RegExp(r'^[0-9]+$').hasMatch(newRaw)) return oldValue;
-    if (newRaw.length > 8) return oldValue;
-
-    if (newRaw.length >= 1 && int.parse(newRaw[0]) > 3) return oldValue;
+    if (newRaw.isNotEmpty && !RegExp(r'^[0-9]+$').hasMatch(newRaw)) {
+      return oldValue;
+    }
+    if (newRaw.length > 8) {
+      return oldValue;
+    }
+    if (newRaw.length >= 1 && int.parse(newRaw[0]) > 3) {
+      return oldValue;
+    }
     if (newRaw.length >= 2) {
       final day = int.parse(newRaw.substring(0, 2));
-      if (day > 31 || day == 0) return oldValue;
+      if (day > 31 || day == 0) {
+        return oldValue;
+      }
     }
-    if (newRaw.length >= 3 && int.parse(newRaw[2]) > 1) return oldValue;
+    if (newRaw.length >= 3 && int.parse(newRaw[2]) > 1) {
+      return oldValue;
+    }
     if (newRaw.length >= 4) {
       final month = int.parse(newRaw.substring(2, 4));
-      if (month > 12 || month == 0) return oldValue;
+      if (month > 12 || month == 0) {
+        return oldValue;
+      }
     }
     if (newRaw.length >= 5 &&
         int.parse(newRaw[4]) != 1 &&
-        int.parse(newRaw[4]) != 2) return oldValue;
+        int.parse(newRaw[4]) != 2) {
+      return oldValue;
+    }
 
     final formatted = _format(newRaw);
     return TextEditingValue(
