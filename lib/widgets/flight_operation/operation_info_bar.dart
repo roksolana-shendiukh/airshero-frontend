@@ -23,13 +23,12 @@ class OperationInfoBar extends StatefulWidget {
 class _OperationInfoBarState extends State<OperationInfoBar> {
   bool _expanded = false;
   Timer? _ticker;
-  DateTime _now = DateTime.now();
 
   @override
   void initState() {
     super.initState();
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() => _now = DateTime.now());
+      if (mounted) setState(() {});
     });
   }
 
@@ -43,16 +42,19 @@ class _OperationInfoBarState extends State<OperationInfoBar> {
     final op = widget.op;
     switch (op.statusName) {
       case 'Boarding':
-        if (op.boardingStartTime != null && op.boardingEndTime == null)
+        if (op.boardingStartTime != null && op.boardingEndTime == null) {
           return _parseTime(op.boardingStartTime);
+        }
         if (op.baggageLoadingStartTime != null &&
-            op.baggageLoadingEndTime == null)
+            op.baggageLoadingEndTime == null) {
           return _parseTime(op.baggageLoadingStartTime);
+        }
         return null;
       case 'Baggage Loading':
         if (op.baggageLoadingStartTime != null &&
-            op.baggageLoadingEndTime == null)
+            op.baggageLoadingEndTime == null) {
           return _parseTime(op.baggageLoadingStartTime);
+        }
         return null;
       case 'Departed':
         return _parseDatetime(op.actualDepartureDatetime);
