@@ -43,7 +43,6 @@ class AuthService extends ChangeNotifier {
       _idToken = await firebaseUser.getIdToken();
       final idTokenResult = await firebaseUser.getIdTokenResult();
       final claims = idTokenResult.claims ?? {};
-      print("AIRLINE LOGO URL FROM CLAIMS: ${claims['airlineLogoUrl']}");
 
       _currentUser = UserModel(
         id: firebaseUser.uid,
@@ -106,11 +105,59 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<String?> getToken() async {
-  final user = _firebaseAuth.currentUser;
-  if (user == null) return null;
-  _idToken = await user.getIdToken();
-  return _idToken;
-}
+    final user = _firebaseAuth.currentUser;
+    if (user == null) return null;
+    _idToken = await user.getIdToken();
+    return _idToken;
+  }
+
+
+  Future<bool> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      final firebaseUser = _firebaseAuth.currentUser;
+      if (firebaseUser == null || firebaseUser.email == null) return false;
+
+      final credential = EmailAuthProvider.credential(
+        email: firebaseUser.email!,
+        password: currentPassword,
+      );
+      await firebaseUser.reauthenticateWithCredential(credential);
+
+      _idToken = await firebaseUser.getIdToken(true);
+
+      final response = await http.post(
+        Uri.parse('${AppConfig.baseUrl}/change-password'),
+        headers: {
+          'Authorization': 'Bearer $_idToken',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'password': newPassword}),
+      );
+
+      if (response.statusCode != 200) {
+        final data = jsonDecode(response.body);
+        _errorMessage = data['detail'] is List
+            ? (data['detail'] as List).first['msg']
+            : data['detail'].toString();
+        notifyListeners();
+        return false;
+      }
+
+      await refreshSession();
+      return true;
+    } on FirebaseAuthException catch (e) {
+      _errorMessage = _parseFirebaseError(e.code);
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _errorMessage = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
 
   Future<void> logout() async {
     await _firebaseAuth.signOut();
