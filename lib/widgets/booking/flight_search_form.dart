@@ -65,7 +65,6 @@ class FlightSearchFormState extends State<FlightSearchForm> {
   CityModel? _selectedFromCity;
   CityModel? _selectedToCity;
 
-  FlightAlternatives? _alternatives;
 
   bool _routeExists = true;
   late final CityApiService _cityApiService;
@@ -178,7 +177,6 @@ class FlightSearchFormState extends State<FlightSearchForm> {
           _loadAlternatives();
         } else {
           _routeExists = true;
-          _alternatives = null;
           widget.onRouteStatusChanged?.call(true, null);
 
           if (departDate != null) {
@@ -210,7 +208,7 @@ class FlightSearchFormState extends State<FlightSearchForm> {
       );
 
       if (mounted) {
-        setState(() => _alternatives = alts);
+        //setState(() => _alternatives = alts);
         widget.onRouteStatusChanged?.call(false, alts);
       }
     } catch (e) {
@@ -230,7 +228,6 @@ class FlightSearchFormState extends State<FlightSearchForm> {
       );
       toLocation = cityName;
       _routeExists = true;
-      _alternatives = null;
       departDate = null;
       returnDate = null;
     });
